@@ -1,0 +1,3 @@
+"""
+Lottery prediction system package.
+""" 
