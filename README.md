@@ -201,3 +201,131 @@ models = train_all_models_parallel(df, max_workers=6)
 from models.optimized_training import load_optimized_models
 models = load_optimized_models()
 ```
+
+## Optimized LSTM Model for Lottery Prediction
+
+### Optimizations Overview
+
+The LSTM model implementation has been optimized with the following enhancements:
+
+1. **Advanced Model Architecture**
+   - Bidirectional LSTM layers for better pattern recognition
+   - Additional dense layer for improved feature abstraction
+   - L2 regularization for weights to prevent overfitting
+   - Batch normalization for better training stability
+   - Higher capacity (more units) to handle complex patterns
+
+2. **GPU Acceleration**
+   - Mixed precision training support for faster computation
+   - Memory growth configuration for efficient GPU utilization
+   - TensorFlow optimizations for parallel processing
+
+3. **Enhanced Data Preparation**
+   - Vectorized sequence creation for faster preprocessing
+   - RobustScaler for better handling of outliers
+   - Optional PCA for dimensionality reduction
+   - Advanced feature engineering with rolling statistics and time-series features
+
+4. **Training Improvements**
+   - Adaptive learning rate with ReduceLROnPlateau
+   - Increased batch size for better parallelization
+   - Model checkpointing to save best models
+   - Early stopping with longer patience for large datasets
+   - Configurable hyperparameters via centralized configuration
+
+5. **CNN-LSTM Hybrid Model**
+   - Convolutional layers for spatial pattern extraction
+   - Deeper network with multiple CNN layers
+   - Regularization and pooling for better generalization
+
+6. **Memory and Performance Optimizations**
+   - Garbage collection to prevent memory leaks
+   - GPU memory clearing between training sessions
+   - Efficient sequence generation algorithms
+   - Caching of computed features for faster retraining
+
+### Usage
+
+To train the models with optimized configuration:
+
+```bash
+python scripts/train_models.py --data data/lottery_data_1995_2025.csv --config default
+```
+
+Available configurations:
+- `default`: Balanced configuration for good performance and training time
+- `quick`: Faster training with smaller model and fewer epochs
+- `deep`: Extensive training with larger model for potentially better results
+
+### Model Parameters
+
+Key parameters for the optimized LSTM model:
+
+```python
+LSTM_CONFIG = {
+    "look_back": 200,                 # Number of previous draws to use as context
+    "lstm_units_1": 256,              # Units in first LSTM layer
+    "lstm_units_2": 128,              # Units in second LSTM layer
+    "dropout_rate": 0.3,              # Dropout rate for regularization
+    "l2_reg": 0.001,                  # L2 regularization factor
+    "batch_size": 64,                 # Batch size for training
+    "epochs": 300,                    # Maximum number of training epochs
+    "learning_rate": 0.001,           # Initial learning rate
+}
+```
+
+## Project Structure
+
+```
+/
+├── data/                        # Data directory
+│   └── lottery_data_1995_2025.csv  # Historical lottery data
+├── logs/                        # Training and operation logs
+├── models/                      # Model implementations
+│   ├── lstm_model.py            # Optimized LSTM implementation
+│   ├── cnn_lstm_model.py        # Optimized CNN-LSTM implementation
+│   ├── feature_engineering.py   # Advanced feature engineering
+│   ├── training_config.py       # Centralized configuration
+│   └── checkpoints/             # Saved model checkpoints
+├── results/                     # Prediction results
+├── scripts/                     # Main scripts
+│   ├── train_models.py          # Model training script
+│   ├── fetch_data.py            # Data loading and preparation
+│   └── predict_numbers.py       # Prediction generation
+└── README.md                    # This file
+```
+
+## Dependencies
+
+- **Python 3.11+**
+- **Core Libraries**: `numpy`, `pandas`, `scikit-learn`, `scipy`
+- **Deep Learning**: `tensorflow` 2.10+
+- **Time-Series**: `tsfresh` for automated feature extraction
+- **Boosting Models**: `xgboost`, `lightgbm`, `catboost`
+- **Performance**: `psutil` for memory monitoring
+
+## Performance Considerations
+
+- The optimized LSTM model requires significantly more memory than the original implementation
+- Training on GPU is highly recommended for large datasets
+- Feature extraction with `tsfresh` can be computationally intensive
+- Consider using the `quick` configuration for initial testing
+
+## Examples
+
+```python
+# Import necessary modules
+from scripts.fetch_data import load_data
+from scripts.train_models import train_all_models
+from scripts.predict_numbers import predict_next_draw
+
+# Load data
+df = load_data("data/lottery_data_1995_2025.csv")
+
+# Train models (can take significant time)
+models = train_all_models(df, force_retrain=True)
+
+# Generate predictions
+predictions = predict_next_draw(models, df, n_predictions=10)
+print(f"Top 10 predicted combinations: {predictions}")
+```

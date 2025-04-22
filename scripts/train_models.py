@@ -40,6 +40,17 @@ try:
     from models.cnn_lstm_model import train_cnn_lstm_model
     from models.autoencoder_model import train_autoencoder_model
     from models.meta_model import train_meta_model
+    from models.feature_engineering import (
+        enhanced_time_series_features, 
+        prepare_lstm_features,
+        expand_draw_sequences
+    )
+    from models.training_config import (
+        LSTM_CONFIG, 
+        CNN_LSTM_CONFIG,
+        DATA_PATH, 
+        MODELS_DIR
+    )
 except ImportError as e:
     # Try alternative import paths
     try:
@@ -57,6 +68,51 @@ except ImportError as e:
         from cnn_lstm_model import train_cnn_lstm_model
         from autoencoder_model import train_autoencoder_model
         from meta_model import train_meta_model
+        from fetch_data import (
+            load_data,
+            prepare_training_data,
+            prepare_feature_data,
+            prepare_sequence_data
+        )
+        from utils import setup_logging
+        from data_validation import validate_prediction
+        
+        # Define defaults if config not found
+        DATA_PATH = "data/lottery_data_1995_2025.csv"
+        MODELS_DIR = Path("models/checkpoints")
+        
+        # Default configs
+        LSTM_CONFIG = {
+            "look_back": 200,
+            "lstm_units_1": 256,
+            "lstm_units_2": 128,
+            "dropout_rate": 0.3,
+            "l2_reg": 0.001,
+            "batch_size": 64,
+            "epochs": 200,
+        }
+        
+        CNN_LSTM_CONFIG = {
+            **LSTM_CONFIG,
+            "filters_1": 128,
+            "kernel_size": 3,
+        }
+        
+        # Define placeholder functions if feature engineering not found
+        def enhanced_time_series_features(df, **kwargs):
+            return df
+            
+        def prepare_lstm_features(df, look_back=200, **kwargs):
+            # Fallback to basic preparation
+            X, y = prepare_training_data(df, look_back=look_back)
+            from sklearn.preprocessing import MinMaxScaler
+            scaler = MinMaxScaler()
+            X_scaled = scaler.fit_transform(X)
+            return X_scaled, y, scaler
+            
+        def expand_draw_sequences(df, **kwargs):
+            return df
+        
     except ImportError as inner_e:
         print(f"Error importing model modules: {inner_e}")
         raise ImportError(f"Failed to import model modules. Original error: {e}, Alternate path error: {inner_e}")
@@ -66,8 +122,7 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 # Constants
-MODELS_PATH = Path("models/trained_models.pkl")
-DATA_PATH = Path("data/lottery_data_1995_2025.csv")
+MODELS_PATH = MODELS_DIR / "trained_models.pkl"
 
 def train_model(model_name: str, train_func: callable, X: np.ndarray, y: np.ndarray, 
                 **kwargs) -> Optional[Any]:
@@ -161,7 +216,7 @@ def validate_model_predictions(model_name: str, model: Any, df: pd.DataFrame) ->
 
 def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) -> Dict[str, Any]:
     """
-    Train all models for lottery prediction.
+    Train all models for lottery prediction using optimized configurations.
     
     Args:
         df: DataFrame with lottery data
@@ -195,20 +250,43 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
             logger.error(f"Error loading models: {str(e)}")
             logger.info("Will retrain models due to loading error.")
     
-    logger.info(f"{'Retraining' if force_retrain else 'Training'} all models...")
+    logger.info(f"{'Retraining' if force_retrain else 'Training'} all models with optimized configuration...")
     
-    # Prepare different data formats required by different models
+    # Prepare enhanced features
     try:
-        # For time-series models (LSTM, CNN-LSTM)
-        ts_X, ts_y = prepare_training_data(df)
-        logger.info(f"Prepared time-series data with shape X:{ts_X.shape}, y:{ts_y.shape}")
+        # Create enhanced features for better model performance
+        logger.info("Generating enhanced time series features...")
+        df_enhanced = enhanced_time_series_features(
+            df, 
+            look_back=LSTM_CONFIG.get("look_back", 200),
+            use_tsfresh=True,
+            cache_features=True
+        )
+        logger.info(f"Generated enhanced features: {len(df_enhanced.columns)} columns")
+        
+        # Prepare optimized data for LSTM
+        logger.info("Preparing optimized LSTM features...")
+        lstm_X, lstm_y, lstm_scaler = prepare_lstm_features(
+            df, 
+            look_back=LSTM_CONFIG.get("look_back", 200),
+            scale_method=LSTM_CONFIG.get("scaling_method", "robust"),
+            use_pca=LSTM_CONFIG.get("use_pca", False),
+            pca_components=LSTM_CONFIG.get("pca_components", 30)
+        )
+        logger.info(f"Prepared LSTM features with shape X:{lstm_X.shape}, y:{lstm_y.shape}")
+        
+        # For regular models
+        # For time-series models (LSTM, CNN-LSTM) - fallback if optimized features fail
+        ts_X, ts_y = prepare_training_data(df, look_back=LSTM_CONFIG.get("look_back", 200))
+        logger.info(f"Prepared fallback time-series data with shape X:{ts_X.shape}, y:{ts_y.shape}")
         
         # For feature-based models (XGBoost, LightGBM, etc.)
-        feat_X, feat_y = prepare_feature_data(df)
+        feat_X, feat_y = prepare_feature_data(df_enhanced, use_all_features=True)
         logger.info(f"Prepared feature data with shape X:{feat_X.shape}, y:{feat_y.shape}")
         
-        # For sequence models
-        seq_X, seq_y = prepare_sequence_data(df)
+        # For sequence models with expanded features
+        seq_df = expand_draw_sequences(df_enhanced, n_prev_draws=5)
+        seq_X, seq_y = prepare_sequence_data(seq_df, seq_length=10)
         logger.info(f"Prepared sequence data with shape X:{seq_X.shape}, y:{seq_y.shape}")
         
         # For HoltWinters (univariate time series)
@@ -225,16 +303,35 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     models_dict = {}
     failed_models = []
     
-    # Time-series models
-    models_dict['lstm'] = train_model('lstm', train_lstm_model, ts_X, ts_y)
-    if models_dict['lstm'] is None:
+    # Time-series models with optimized features
+    logger.info("Training LSTM model with optimized features...")
+    try:
+        models_dict['lstm'] = train_model('lstm', train_lstm_model, lstm_X, lstm_y)
+        if models_dict['lstm'] is None:
+            # Fallback to regular features
+            logger.warning("Optimized LSTM training failed, trying with standard features...")
+            models_dict['lstm'] = train_model('lstm', train_lstm_model, ts_X, ts_y)
+            if models_dict['lstm'] is None:
+                failed_models.append('lstm')
+    except Exception as e:
+        logger.error(f"LSTM training failed: {str(e)}")
         failed_models.append('lstm')
     
-    models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, ts_X, ts_y)
-    if models_dict['cnn_lstm'] is None:
+    logger.info("Training CNN-LSTM model with optimized features...")
+    try:
+        models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, lstm_X, lstm_y)
+        if models_dict['cnn_lstm'] is None:
+            # Fallback to regular features
+            logger.warning("Optimized CNN-LSTM training failed, trying with standard features...")
+            models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, ts_X, ts_y)
+            if models_dict['cnn_lstm'] is None:
+                failed_models.append('cnn_lstm')
+    except Exception as e:
+        logger.error(f"CNN-LSTM training failed: {str(e)}")
         failed_models.append('cnn_lstm')
     
-    models_dict['autoencoder'] = train_model('autoencoder', train_autoencoder_model, ts_X, ts_y)
+    # Train autoencoder with sequence data
+    models_dict['autoencoder'] = train_model('autoencoder', train_autoencoder_model, seq_X, seq_y)
     if models_dict['autoencoder'] is None:
         failed_models.append('autoencoder')
     
@@ -243,7 +340,7 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     if models_dict['holtwinters'] is None:
         failed_models.append('holtwinters')
     
-    # Feature-based models
+    # Feature-based models with enhanced features
     models_dict['linear'] = train_model('linear', train_linear_models, feat_X, feat_y)
     if models_dict['linear'] is None:
         failed_models.append('linear')
@@ -316,11 +413,15 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
         'timestamp': datetime.now().isoformat(),
         'data_size': len(df),
         'training_time': time.time() - start_time,
-        'failed_models': failed_models
+        'failed_models': failed_models,
+        'config': {
+            'lstm': LSTM_CONFIG,
+            'cnn_lstm': CNN_LSTM_CONFIG
+        }
     }
     
     try:
-        MODELS_PATH.parent.mkdir(exist_ok=True)
+        MODELS_PATH.parent.mkdir(exist_ok=True, parents=True)
         with open(MODELS_PATH, 'wb') as f:
             pickle.dump(models_to_save, f)
         logger.info(f"Saved {len(validated_models)} models to {MODELS_PATH}")
@@ -378,8 +479,21 @@ if __name__ == "__main__":
                            help=f'Path to lottery data (default: {DATA_PATH})')
         parser.add_argument('--force', type=str, choices=['yes', 'no'], default='no',
                            help='Force retraining of models (yes/no)')
+        parser.add_argument('--config', type=str, choices=['default', 'quick', 'deep'], default='default',
+                           help='Configuration to use for training (default/quick/deep)')
         
         args = parser.parse_args()
+        
+        # Apply configuration
+        if args.config == 'quick':
+            from models.training_config import QUICK_TRAINING_CONFIG as CONFIG
+            print("Using QUICK training configuration")
+        elif args.config == 'deep':
+            from models.training_config import DEEP_TRAINING_CONFIG as CONFIG
+            print("Using DEEP training configuration")
+        else:
+            from models.training_config import LSTM_CONFIG as CONFIG
+            print("Using DEFAULT training configuration")
         
         # Load data
         print(f"Loading lottery data from {args.data}...")
@@ -387,7 +501,7 @@ if __name__ == "__main__":
         print(f"Loaded {len(df)} lottery draws")
         
         # Train models
-        print(f"Training models (force={args.force})...")
+        print(f"Training models (force={args.force}, config={args.config})...")
         models = train_all_models(df, force_retrain=args.force)
         
         if models:

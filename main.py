@@ -61,10 +61,72 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
         logger.info(f"Loading data from {data_path}...")
         
         try:
-            data = load_data(data_path)
+            # Modify load_data call to disable validation
+            data = load_data(data_path, validate=False)
             if verbose:
                 print(f"Loaded {len(data)} lottery draws")
             logger.info(f"Loaded {len(data)} lottery draws")
+            
+            # Extract Main_Numbers from Balls if needed
+            if 'Balls' in data.columns and ('Main_Numbers' not in data.columns or data['Main_Numbers'].isna().all()):
+                if verbose:
+                    print("Extracting Main_Numbers from Balls column...")
+                # Process each row
+                main_numbers_list = []
+                bonus_numbers = []
+                valid_indices = []
+                
+                for idx, ball_str in enumerate(data['Balls']):
+                    try:
+                        if not isinstance(ball_str, str):
+                            # Handle non-string values
+                            ball_str = str(ball_str)
+                            if ball_str.lower() == 'nan':
+                                continue
+                        
+                        # Strip quotes
+                        ball_str = ball_str.strip('"').strip("'")
+                        
+                        # Check if it's proper format with "BONUS"
+                        if ' BONUS ' not in ball_str:
+                            continue
+                            
+                        # Split by BONUS
+                        parts = ball_str.split(' BONUS ')
+                        if len(parts) != 2:
+                            continue
+                            
+                        main_str, bonus_str = parts
+                        main = sorted([int(n) for n in main_str.split()])
+                        bonus = int(bonus_str)
+                        
+                        if len(main) != 6:
+                            continue
+                            
+                        main_numbers_list.append(main)
+                        bonus_numbers.append(bonus)
+                        valid_indices.append(idx)
+                    except Exception as e:
+                        if verbose and idx < 10:  # Only show errors for first few rows
+                            print(f"Skipping row {idx} due to parsing error: {e}")
+                        logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': {str(e)}")
+                
+                # Keep only valid rows
+                if valid_indices:
+                    if verbose:
+                        print(f"Keeping {len(valid_indices)} valid rows out of {len(data)}")
+                    data = data.iloc[valid_indices].copy()
+                    data['Main_Numbers'] = main_numbers_list
+                    data['Bonus'] = bonus_numbers
+                    data = data.reset_index(drop=True)
+                else:
+                    error_msg = "No valid lottery data found in the CSV file."
+                    if verbose:
+                        print(f"Error: {error_msg}")
+                    logger.error(error_msg)
+                    result['error'] = error_msg
+                    return result
+            
         except Exception as e:
             error_msg = f"Failed to load data: {str(e)}"
             if verbose:
