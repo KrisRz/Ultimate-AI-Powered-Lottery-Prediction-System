@@ -11,7 +11,7 @@ from datetime import datetime
 
 # Try to import utility functions
 try:
-    from utils import setup_logging
+    from utils import setup_logging, create_progress_bar, create_model_progress_tracker, update_model_progress
     from data_validation import DataValidator
 except ImportError:
     # Default implementation if imports fail
@@ -22,6 +22,43 @@ except ImportError:
     class DataValidator:
         def validate_prediction(self, prediction):
             return True
+    
+    # Dummy progress tracking functions
+    class DummyTQDM:
+        def __init__(self, iterable=None, total=None, **kwargs):
+            self.iterable = iterable
+            self.total = total or (len(iterable) if iterable is not None else None)
+            self.n = 0
+            self.kwargs = kwargs
+        
+        def update(self, n=1):
+            self.n += n
+            
+        def close(self):
+            pass
+            
+        def set_description(self, desc=None):
+            pass
+            
+        def __iter__(self):
+            if self.iterable is None:
+                return range(self.total).__iter__()
+            return self.iterable.__iter__()
+            
+        def __enter__(self):
+            return self
+            
+        def __exit__(self, *args, **kwargs):
+            self.close()
+    
+    def create_progress_bar(*args, **kwargs):
+        return DummyTQDM(*args, **kwargs)
+    
+    def create_model_progress_tracker(*args, **kwargs):
+        return {"main": DummyTQDM(), "models": {}, "current": None}
+    
+    def update_model_progress(*args, **kwargs):
+        pass
 
 # Import data preparation functions
 from .fetch_data import load_data, prepare_training_data, prepare_feature_data, prepare_sequence_data
@@ -125,7 +162,7 @@ logger = logging.getLogger(__name__)
 MODELS_PATH = MODELS_DIR / "trained_models.pkl"
 
 def train_model(model_name: str, train_func: callable, X: np.ndarray, y: np.ndarray, 
-                **kwargs) -> Optional[Any]:
+                progress_tracker: Optional[Dict[str, Any]] = None, **kwargs) -> Optional[Any]:
     """
     Train a model and handle exceptions.
     
@@ -134,6 +171,7 @@ def train_model(model_name: str, train_func: callable, X: np.ndarray, y: np.ndar
         train_func: Function to train the model
         X: Training features
         y: Training targets
+        progress_tracker: Dictionary with progress tracking objects
         **kwargs: Additional parameters for the training function
     
     Returns:
@@ -142,14 +180,25 @@ def train_model(model_name: str, train_func: callable, X: np.ndarray, y: np.ndar
     start_time = time.time()
     try:
         logger.info(f"Training {model_name} model...")
+        update_model_progress(progress_tracker, model_name, desc="Starting training")
+        
+        # Add progress tracking to kwargs if supported by the training function
+        if 'progress_bar' in kwargs:
+            # Function expects a progress bar directly
+            kwargs['progress_bar'] = create_progress_bar(total=100, desc=f"Training {model_name}", leave=False, position=1)
+        
         model = train_func(X, y, **kwargs)
         duration = time.time() - start_time
+        
         logger.info(f"Successfully trained {model_name} model in {duration:.2f} seconds")
+        update_model_progress(progress_tracker, model_name, desc=f"Completed in {duration:.2f}s", reset=True)
+        
         return model
     except Exception as e:
         duration = time.time() - start_time
         logger.error(f"Failed to train {model_name} model after {duration:.2f} seconds: {str(e)}")
         logger.debug(traceback.format_exc())
+        update_model_progress(progress_tracker, model_name, desc=f"Failed in {duration:.2f}s", reset=True)
         return None
 
 def validate_model_predictions(model_name: str, model: Any, df: pd.DataFrame) -> bool:
@@ -252,16 +301,32 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     
     logger.info(f"{'Retraining' if force_retrain else 'Training'} all models with optimized configuration...")
     
-    # Prepare enhanced features
+    # Set up model progress tracker
+    model_list = [
+        'lstm', 'cnn_lstm', 'autoencoder', 'holtwinters', 'linear', 
+        'xgboost', 'lightgbm', 'knn', 'gradient_boosting', 'catboost', 'meta'
+    ]
+    progress_tracker = create_model_progress_tracker(model_list, 
+                                                   desc=f"{'Retraining' if force_retrain else 'Training'} models")
+    
+    # Prepare enhanced features with progress bar
     try:
         # Create enhanced features for better model performance
         logger.info("Generating enhanced time series features...")
+        update_model_progress(progress_tracker, "preprocessing", desc="Generating enhanced features")
+        
+        # Create progress bar for data preparation
+        pbar = create_progress_bar(total=5, desc="Preparing data", position=1, leave=False)
+        
+        # Generate enhanced features
         df_enhanced = enhanced_time_series_features(
             df, 
             look_back=LSTM_CONFIG.get("look_back", 200),
             use_tsfresh=True,
             cache_features=True
         )
+        pbar.update(1)
+        
         logger.info(f"Generated enhanced features: {len(df_enhanced.columns)} columns")
         
         # Prepare optimized data for LSTM
@@ -273,26 +338,37 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
             use_pca=LSTM_CONFIG.get("use_pca", False),
             pca_components=LSTM_CONFIG.get("pca_components", 30)
         )
+        pbar.update(1)
+        
         logger.info(f"Prepared LSTM features with shape X:{lstm_X.shape}, y:{lstm_y.shape}")
         
         # For regular models
         # For time-series models (LSTM, CNN-LSTM) - fallback if optimized features fail
         ts_X, ts_y = prepare_training_data(df, look_back=LSTM_CONFIG.get("look_back", 200))
+        pbar.update(1)
+        
         logger.info(f"Prepared fallback time-series data with shape X:{ts_X.shape}, y:{ts_y.shape}")
         
         # For feature-based models (XGBoost, LightGBM, etc.)
         feat_X, feat_y = prepare_feature_data(df_enhanced, use_all_features=True)
+        pbar.update(1)
+        
         logger.info(f"Prepared feature data with shape X:{feat_X.shape}, y:{feat_y.shape}")
         
         # For sequence models with expanded features
         seq_df = expand_draw_sequences(df_enhanced, n_prev_draws=5)
         seq_X, seq_y = prepare_sequence_data(seq_df, seq_length=10)
+        pbar.update(1)
+        
         logger.info(f"Prepared sequence data with shape X:{seq_X.shape}, y:{seq_y.shape}")
         
         # For HoltWinters (univariate time series)
         # Extract lottery numbers as 1D time-series
         hw_y = np.array([num for draw in df['Main_Numbers'] for num in draw])
         logger.info(f"Prepared HoltWinters data with shape y:{hw_y.shape}")
+        
+        # Close the progress bar
+        pbar.close()
         
     except Exception as e:
         logger.error(f"Error preparing training data: {str(e)}")
@@ -306,11 +382,11 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     # Time-series models with optimized features
     logger.info("Training LSTM model with optimized features...")
     try:
-        models_dict['lstm'] = train_model('lstm', train_lstm_model, lstm_X, lstm_y)
+        models_dict['lstm'] = train_model('lstm', train_lstm_model, lstm_X, lstm_y, progress_tracker)
         if models_dict['lstm'] is None:
             # Fallback to regular features
             logger.warning("Optimized LSTM training failed, trying with standard features...")
-            models_dict['lstm'] = train_model('lstm', train_lstm_model, ts_X, ts_y)
+            models_dict['lstm'] = train_model('lstm', train_lstm_model, ts_X, ts_y, progress_tracker)
             if models_dict['lstm'] is None:
                 failed_models.append('lstm')
     except Exception as e:
@@ -319,11 +395,11 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     
     logger.info("Training CNN-LSTM model with optimized features...")
     try:
-        models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, lstm_X, lstm_y)
+        models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, lstm_X, lstm_y, progress_tracker)
         if models_dict['cnn_lstm'] is None:
             # Fallback to regular features
             logger.warning("Optimized CNN-LSTM training failed, trying with standard features...")
-            models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, ts_X, ts_y)
+            models_dict['cnn_lstm'] = train_model('cnn_lstm', train_cnn_lstm_model, ts_X, ts_y, progress_tracker)
             if models_dict['cnn_lstm'] is None:
                 failed_models.append('cnn_lstm')
     except Exception as e:
@@ -331,47 +407,52 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
         failed_models.append('cnn_lstm')
     
     # Train autoencoder with sequence data
-    models_dict['autoencoder'] = train_model('autoencoder', train_autoencoder_model, seq_X, seq_y)
+    models_dict['autoencoder'] = train_model('autoencoder', train_autoencoder_model, seq_X, seq_y, progress_tracker)
     if models_dict['autoencoder'] is None:
         failed_models.append('autoencoder')
     
     # Statistical model
-    models_dict['holtwinters'] = train_model('holtwinters', train_holtwinters_model, hw_y, None)
+    models_dict['holtwinters'] = train_model('holtwinters', train_holtwinters_model, hw_y, None, progress_tracker)
     if models_dict['holtwinters'] is None:
         failed_models.append('holtwinters')
     
     # Feature-based models with enhanced features
-    models_dict['linear'] = train_model('linear', train_linear_models, feat_X, feat_y)
+    models_dict['linear'] = train_model('linear', train_linear_models, feat_X, feat_y, progress_tracker)
     if models_dict['linear'] is None:
         failed_models.append('linear')
     
-    models_dict['xgboost'] = train_model('xgboost', train_xgboost_model, feat_X, feat_y)
+    models_dict['xgboost'] = train_model('xgboost', train_xgboost_model, feat_X, feat_y, progress_tracker)
     if models_dict['xgboost'] is None:
         failed_models.append('xgboost')
     
-    models_dict['lightgbm'] = train_model('lightgbm', train_lightgbm_model, feat_X, feat_y)
+    models_dict['lightgbm'] = train_model('lightgbm', train_lightgbm_model, feat_X, feat_y, progress_tracker)
     if models_dict['lightgbm'] is None:
         failed_models.append('lightgbm')
     
-    models_dict['knn'] = train_model('knn', train_knn_model, feat_X, feat_y)
+    models_dict['knn'] = train_model('knn', train_knn_model, feat_X, feat_y, progress_tracker)
     if models_dict['knn'] is None:
         failed_models.append('knn')
     
-    models_dict['gradient_boosting'] = train_model('gradient_boosting', train_gradient_boosting_model, feat_X, feat_y)
+    models_dict['gradient_boosting'] = train_model('gradient_boosting', train_gradient_boosting_model, feat_X, feat_y, progress_tracker)
     if models_dict['gradient_boosting'] is None:
         failed_models.append('gradient_boosting')
     
-    models_dict['catboost'] = train_model('catboost', train_catboost_model, feat_X, feat_y)
+    models_dict['catboost'] = train_model('catboost', train_catboost_model, feat_X, feat_y, progress_tracker)
     if models_dict['catboost'] is None:
         failed_models.append('catboost')
     
     # Train meta model if we have enough base models
     successful_models = {k: v for k, v in models_dict.items() if v is not None}
     if len(successful_models) >= 3:
+        update_model_progress(progress_tracker, "meta", desc="Preparing meta model")
         logger.info(f"Training meta model based on {len(successful_models)} successful base models")
         
         # Generate base predictions for meta model
         base_predictions = []
+        
+        # Create progress bar for base predictions
+        base_pbar = create_progress_bar(total=len(successful_models), desc="Generating base predictions", position=1, leave=False)
+        
         for model_name, model in successful_models.items():
             try:
                 valid = validate_model_predictions(model_name, model, df)
@@ -379,6 +460,10 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
                     base_predictions.append(model_name)
             except Exception as e:
                 logger.error(f"Error generating predictions for meta model input from {model_name}: {str(e)}")
+            base_pbar.update(1)
+        
+        # Close the progress bar
+        base_pbar.close()
         
         if len(base_predictions) >= 3:
             try:
@@ -386,7 +471,7 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
                 meta_X = np.array([successful_models[model_name] for model_name in base_predictions])
                 meta_y = feat_y[-1:]  # Use last actual draw as target
                 
-                models_dict['meta'] = train_model('meta', train_meta_model, meta_X, meta_y)
+                models_dict['meta'] = train_model('meta', train_meta_model, meta_X, meta_y, progress_tracker)
                 if models_dict['meta'] is None:
                     failed_models.append('meta')
             except Exception as e:
@@ -398,16 +483,28 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     
     # Validate trained models
     validated_models = {}
+    update_model_progress(progress_tracker, "validation", desc="Validating models")
+    
+    # Create progress bar for validation
+    validation_pbar = create_progress_bar(total=len(models_dict), desc="Validating models", position=1, leave=False)
+    
     for model_name, model in models_dict.items():
         if model is not None:
+            validation_pbar.set_description(f"Validating {model_name}")
             valid = validate_model_predictions(model_name, model, df)
             if valid:
                 validated_models[model_name] = model
             else:
                 logger.warning(f"Model {model_name} failed validation and will not be included")
                 failed_models.append(f"{model_name} (validation)")
+        validation_pbar.update(1)
+    
+    # Close the progress bar
+    validation_pbar.close()
     
     # Save models to file
+    update_model_progress(progress_tracker, "saving", desc="Saving models")
+    
     models_to_save = {
         'models': validated_models,
         'timestamp': datetime.now().isoformat(),
@@ -436,6 +533,10 @@ def train_all_models(df: pd.DataFrame, force_retrain: Union[bool, str] = False) 
     
     if failed_models:
         logger.warning(f"Failed models: {', '.join(failed_models)}")
+    
+    # Close progress tracker
+    if progress_tracker and "main" in progress_tracker and hasattr(progress_tracker["main"], "close"):
+        progress_tracker["main"].close()
     
     return validated_models
 

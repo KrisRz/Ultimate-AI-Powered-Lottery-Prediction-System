@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     # Try direct imports first
-    from scripts.utils import setup_logging
+    from scripts.utils import setup_logging, create_progress_bar
     from scripts.fetch_data import load_data
     from scripts.data_validation import DataValidator
     from scripts.train_models import train_all_models, load_trained_models
@@ -62,7 +62,11 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
         
         try:
             # Modify load_data call to disable validation
+            load_data_pbar = create_progress_bar(total=1, desc="Loading data")
             data = load_data(data_path, validate=False)
+            load_data_pbar.update(1)
+            load_data_pbar.close()
+                
             if verbose:
                 print(f"Loaded {len(data)} lottery draws")
             logger.info(f"Loaded {len(data)} lottery draws")
@@ -71,17 +75,20 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
             if 'Balls' in data.columns and ('Main_Numbers' not in data.columns or data['Main_Numbers'].isna().all()):
                 if verbose:
                     print("Extracting Main_Numbers from Balls column...")
-                # Process each row
+                
+                # Process each row with progress bar
                 main_numbers_list = []
                 bonus_numbers = []
                 valid_indices = []
                 
+                ball_data_pbar = create_progress_bar(total=len(data), desc="Processing ball data")
                 for idx, ball_str in enumerate(data['Balls']):
                     try:
                         if not isinstance(ball_str, str):
                             # Handle non-string values
                             ball_str = str(ball_str)
                             if ball_str.lower() == 'nan':
+                                ball_data_pbar.update(1)
                                 continue
                         
                         # Strip quotes
@@ -89,27 +96,35 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
                         
                         # Check if it's proper format with "BONUS"
                         if ' BONUS ' not in ball_str:
+                            ball_data_pbar.update(1)
                             continue
-                            
+                                
                         # Split by BONUS
                         parts = ball_str.split(' BONUS ')
                         if len(parts) != 2:
+                            ball_data_pbar.update(1)
                             continue
-                            
+                                
                         main_str, bonus_str = parts
                         main = sorted([int(n) for n in main_str.split()])
                         bonus = int(bonus_str)
                         
                         if len(main) != 6:
+                            ball_data_pbar.update(1)
                             continue
-                            
+                                
                         main_numbers_list.append(main)
                         bonus_numbers.append(bonus)
                         valid_indices.append(idx)
+                            
                     except Exception as e:
                         if verbose and idx < 10:  # Only show errors for first few rows
                             print(f"Skipping row {idx} due to parsing error: {e}")
                         logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': {str(e)}")
+                        
+                    ball_data_pbar.update(1)
+                
+                ball_data_pbar.close()
                 
                 # Keep only valid rows
                 if valid_indices:
@@ -199,6 +214,12 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
             
             try:
                 models = load_trained_models()
+                
+                load_models_pbar = create_progress_bar(total=1, desc="Loading models")
+                models = load_trained_models()
+                load_models_pbar.update(1)
+                load_models_pbar.close()
+                    
                 if not models:
                     error_msg = "No trained models found. Please train models first (use --retrain yes)"
                     if verbose:
@@ -226,9 +247,13 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
         
         try:
             # Generate predictions using predict_numbers.py
+            predictions_pbar = create_progress_bar(total=1, desc="Generating predictions")
             predictions = predict_next_draw(models, data, n_predictions=n_predictions)
+            predictions_pbar.update(1)
+            predictions_pbar.close()
             
             # Validate and save predictions
+            validation_pbar = create_progress_bar(total=1, desc="Validating predictions")
             validation_result = validate_and_save_predictions(
                 predictions=predictions,
                 data=data,
@@ -239,6 +264,8 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
                     'models_used': list(models.keys())
                 }
             )
+            validation_pbar.update(1)
+            validation_pbar.close()
             
             if not validation_result['success']:
                 error_msg = f"Error saving predictions: {validation_result.get('error', 'Unknown error')}"
