@@ -1,119 +1,271 @@
-"""
-Main execution script for lottery prediction system.
-"""
 import logging
-from pathlib import Path
-import pandas as pd
-from datetime import datetime
+import argparse
 import sys
+import time
+import traceback
+from pathlib import Path
+from typing import Dict, Any, Optional
 
-from scripts.predict_numbers import (
-    predict_next_draw,
-    backtest,
-    rolling_window_cv,
-    test_randomness,
-    load_models
-)
-from scripts.train_models import update_models
-from scripts.analyze_data import load_data, analyze_lottery_data
+# Add scripts directory to path for imports
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'scripts'))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('lottery_predictions.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+try:
+    # Try importing from scripts directory first
+    from scripts.utils import setup_logging
+    from scripts.fetch_data import load_data
+    from scripts.data_validation import DataValidator
+    from scripts.train_models import train_all_models, load_trained_models
+    from scripts.predict_next_draw import validate_and_save_predictions, format_predictions_for_display
+except ImportError:
+    try:
+        # Try direct imports without 'scripts.' prefix
+        from utils import setup_logging
+        from fetch_data import load_data
+        from data_validation import DataValidator
+        from train_models import train_all_models, load_trained_models
+        from predict_next_draw import validate_and_save_predictions, format_predictions_for_display
+    except ImportError:
+        try:
+            # Last resort - try importing utils directly from scripts
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+            from utils import setup_logging
+            from fetch_data import load_data
+            from data_validation import DataValidator
+            from train_models import train_all_models, load_trained_models
+            from predict_next_draw import validate_and_save_predictions, format_predictions_for_display
+        except ImportError as e:
+            print(f"Error importing modules: {e}")
+            print("Please make sure you're running from the project root directory")
+            sys.exit(1)
+
+# Configure logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
-DATA_FILE = Path("data/lottery_data_1995_2025.csv")
-RESULTS_DIR = Path("results")
+# Constants
+DATA_PATH = Path("data/lottery_data_1995_2025.csv")
+RESULTS_PATH = Path("results/predictions.json")
 
-def run_predictions(force_retrain: bool = False) -> None:
-    """Run the complete prediction pipeline."""
+def main(retrain: str = 'no', data_path: str = str(DATA_PATH), 
+         n_predictions: int = 10, verbose: bool = True) -> Dict[str, Any]:
+    """
+    Main function for the lottery prediction system.
+    
+    Args:
+        retrain: Whether to retrain models ('yes'/'no' or 'true'/'false')
+        data_path: Path to lottery data CSV
+        n_predictions: Number of predictions to generate
+        verbose: Whether to print results to console
+    
+    Returns:
+        Dictionary with results (predictions, metrics, etc.)
+    """
+    start_time = time.time()
+    result = {'success': False}
+    
     try:
-        logger.info("Starting prediction pipeline...")
+        # Normalize retrain input
+        retrain_flag = str(retrain).lower() in ('yes', 'true', 'y', '1')
+        if verbose:
+            print(f"Starting lottery prediction system (retrain: {retrain_flag})")
+        logger.info(f"Starting lottery prediction system (retrain: {retrain_flag})")
         
-        # Create results directory
-        RESULTS_DIR.mkdir(exist_ok=True)
+        # Load and validate data
+        if verbose:
+            print(f"Loading data from {data_path}...")
+        logger.info(f"Loading data from {data_path}...")
         
-        # Load data
-        logger.info("Loading data...")
-        df = load_data(DATA_FILE)
-        logger.info(f"Loaded {len(df)} draws from {df['Date'].min()} to {df['Date'].max()}")
+        try:
+            data = load_data(data_path)
+            if verbose:
+                print(f"Loaded {len(data)} lottery draws")
+            logger.info(f"Loaded {len(data)} lottery draws")
+        except Exception as e:
+            error_msg = f"Failed to load data: {str(e)}"
+            if verbose:
+                print(f"Error: {error_msg}")
+            logger.error(error_msg)
+            logger.debug(traceback.format_exc())
+            result['error'] = error_msg
+            return result
         
-        # Update models if necessary
-        logger.info("Updating models...")
-        update_models(force_retrain)
-        
-        # Load models
-        logger.info("Loading models...")
-        models = load_models()
-        
-        # Test randomness
-        logger.info("Testing for randomness...")
-        randomness_results = test_randomness(df)
-        logger.info("Randomness test results:")
-        for test, pvalue in randomness_results.items():
-            logger.info(f"{test}: {pvalue:.4f}")
-        
-        # Perform rolling window cross-validation
-        logger.info("Running cross-validation...")
-        cv_results = rolling_window_cv(df)
-        logger.info("Cross-validation results:")
-        for metric, values in cv_results.items():
-            logger.info(f"{metric}: mean={pd.np.mean(values):.4f}, std={pd.np.std(values):.4f}")
-        
-        # Run backtesting
-        logger.info("Running backtesting...")
-        backtest_results = backtest(df)
-        logger.info("Backtesting results:")
-        for metric, value in backtest_results.items():
-            logger.info(f"{metric}: {value:.4f}")
-        
-        # Generate predictions for next draw
-        logger.info("Generating predictions for next draw...")
-        predictions = predict_next_draw(models, df)
-        
-        # Save results
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = RESULTS_DIR / f"predictions_{timestamp}.txt"
-        
-        with open(results_file, 'w') as f:
-            f.write("Lottery Number Predictions\n")
-            f.write("=========================\n\n")
-            f.write(f"Generated on: {datetime.now()}\n")
-            f.write(f"Data range: {df['Date'].min()} to {df['Date'].max()}\n\n")
+        # Validate data
+        try:
+            validator = DataValidator()
+            validation_result = validator.validate_dataframe(data)
             
-            f.write("Predicted Combinations:\n")
-            f.write("----------------------\n")
-            for i, combination in enumerate(predictions[:10], 1):
-                f.write(f"Combination {i}: {combination}\n")
+            if not validation_result[0]:  # First element is boolean valid/invalid
+                error_msg = f"Data validation failed: {validation_result[1]['errors']}"
+                if verbose:
+                    print(f"Error: {error_msg}")
+                logger.error(error_msg)
+                result['error'] = error_msg
+                return result
             
-            f.write("\nModel Performance:\n")
-            f.write("----------------\n")
-            f.write("Backtesting Results:\n")
-            for metric, value in backtest_results.items():
-                f.write(f"{metric}: {value:.4f}\n")
-            
-            f.write("\nCross-validation Results:\n")
-            for metric, values in cv_results.items():
-                f.write(f"{metric}: mean={pd.np.mean(values):.4f}, std={pd.np.std(values):.4f}\n")
-            
-            f.write("\nRandomness Tests:\n")
-            for test, pvalue in randomness_results.items():
-                f.write(f"{test}: {pvalue:.4f}\n")
+            if 'warnings' in validation_result[1] and validation_result[1]['warnings']:
+                warning_msg = f"Data validation warnings: {validation_result[1]['warnings']}"
+                if verbose:
+                    print(f"Warning: {warning_msg}")
+                logger.warning(warning_msg)
+        except Exception as e:
+            logger.warning(f"Data validation could not be performed: {str(e)}")
+            logger.debug(traceback.format_exc())
+            if verbose:
+                print(f"Warning: Data validation could not be performed: {str(e)}")
         
-        logger.info(f"Results saved to {results_file}")
-        logger.info("Prediction pipeline completed successfully")
+        # Train or load models
+        models = {}
+        if retrain_flag:
+            if verbose:
+                print("Training models (this may take a while)...")
+            logger.info("Training models with retrain flag set to True")
+            
+            try:
+                models = train_all_models(data, force_retrain=True)
+                if not models:
+                    error_msg = "No models were successfully trained"
+                    if verbose:
+                        print(f"Error: {error_msg}")
+                    logger.error(error_msg)
+                    result['error'] = error_msg
+                    return result
+                
+                if verbose:
+                    print(f"Successfully trained {len(models)} models")
+                logger.info(f"Successfully trained {len(models)} models")
+            except Exception as e:
+                error_msg = f"Error training models: {str(e)}"
+                if verbose:
+                    print(f"Error: {error_msg}")
+                logger.error(error_msg)
+                logger.debug(traceback.format_exc())
+                result['error'] = error_msg
+                return result
+        else:
+            if verbose:
+                print("Using existing trained models...")
+            logger.info("Loading existing trained models")
+            
+            try:
+                models = load_trained_models()
+                if not models:
+                    error_msg = "No trained models found. Please train models first (use --retrain yes)"
+                    if verbose:
+                        print(f"Error: {error_msg}")
+                    logger.error(error_msg)
+                    result['error'] = error_msg
+                    return result
+                
+                if verbose:
+                    print(f"Loaded {len(models)} trained models")
+                logger.info(f"Loaded {len(models)} trained models")
+            except Exception as e:
+                error_msg = f"Error loading models: {str(e)}"
+                if verbose:
+                    print(f"Error: {error_msg}")
+                logger.error(error_msg)
+                logger.debug(traceback.format_exc())
+                result['error'] = error_msg
+                return result
         
-    except KeyboardInterrupt:
-        logger.warning("Process interrupted by user")
-        sys.exit(1)
+        # Generate predictions
+        if verbose:
+            print(f"Generating {n_predictions} predictions...")
+        logger.info(f"Generating {n_predictions} predictions...")
+        
+        try:
+            # Try different import strategies for predict_numbers
+            try:
+                from scripts.predict_numbers import predict_next_draw
+            except ImportError:
+                try:
+                    from predict_numbers import predict_next_draw
+                except ImportError:
+                    # Last resort - relative path
+                    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+                    from predict_numbers import predict_next_draw
+            
+            # Generate predictions using predict_numbers.py
+            predictions = predict_next_draw(models, data, n_predictions=n_predictions)
+            
+            # Validate and save predictions
+            validation_result = validate_and_save_predictions(
+                predictions=predictions,
+                data=data,
+                output_path=str(RESULTS_PATH),
+                metadata={
+                    'generated_by': 'main.py',
+                    'retrain': retrain_flag,
+                    'models_used': list(models.keys())
+                }
+            )
+            
+            if not validation_result['success']:
+                error_msg = f"Error saving predictions: {validation_result.get('error', 'Unknown error')}"
+                if verbose:
+                    print(f"Warning: {error_msg}")
+                logger.warning(error_msg)
+            
+            # Display predictions
+            if verbose:
+                print(validation_result['display'])
+            
+            # Return results
+            result.update({
+                'success': True,
+                'predictions': validation_result['predictions'],
+                'metrics': validation_result['metrics'],
+                'invalid_count': validation_result['invalid_count']
+            })
+            
+        except Exception as e:
+            error_msg = f"Error generating predictions: {str(e)}"
+            if verbose:
+                print(f"Error: {error_msg}")
+            logger.error(error_msg)
+            logger.debug(traceback.format_exc())
+            result['error'] = error_msg
+            return result
+        
+        # Log completion time
+        duration = time.time() - start_time
+        if verbose:
+            print(f"\nCompleted in {duration:.2f} seconds")
+        logger.info(f"Prediction process completed in {duration:.2f} seconds")
+        
+        return result
+    
     except Exception as e:
-        logger.error(f"Error in prediction pipeline: {e}")
-        raise
+        error_msg = f"Unexpected error in main function: {str(e)}"
+        if verbose:
+            print(f"Error: {error_msg}")
+        logger.error(error_msg)
+        logger.debug(traceback.format_exc())
+        result['error'] = error_msg
+        return result
 
 if __name__ == "__main__":
-    run_predictions() 
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Lottery Prediction System")
+    parser.add_argument("--retrain", type=str, default="no", choices=["yes", "no", "true", "false"],
+                      help="Whether to retrain models (yes/no)")
+    parser.add_argument("--data", type=str, default=str(DATA_PATH),
+                      help=f"Path to lottery data CSV (default: {DATA_PATH})")
+    parser.add_argument("--predictions", type=int, default=10,
+                      help="Number of predictions to generate (default: 10)")
+    parser.add_argument("--quiet", action="store_true",
+                      help="Suppress console output (default: False)")
+    
+    args = parser.parse_args()
+    
+    # Run main function
+    result = main(
+        retrain=args.retrain,
+        data_path=args.data,
+        n_predictions=args.predictions,
+        verbose=not args.quiet
+    )
+    
+    if not result['success']:
+        sys.exit(1) 

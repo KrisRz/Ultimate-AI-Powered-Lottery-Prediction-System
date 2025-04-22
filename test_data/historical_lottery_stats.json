@@ -1,0 +1,254 @@
+{
+  "frequency_analysis": {
+    "numbers": {
+      "1": 15,
+      "2": 17,
+      "3": 14,
+      "4": 12,
+      "5": 13,
+      "6": 12,
+      "7": 14,
+      "8": 12,
+      "9": 11,
+      "10": 8,
+      "11": 14,
+      "12": 12,
+      "13": 12,
+      "14": 12,
+      "15": 10,
+      "16": 9,
+      "17": 10,
+      "18": 8,
+      "19": 12,
+      "20": 6,
+      "21": 9,
+      "22": 13,
+      "23": 12,
+      "24": 10,
+      "25": 11,
+      "26": 12,
+      "27": 12,
+      "28": 9,
+      "29": 10,
+      "30": 5,
+      "31": 8,
+      "32": 9,
+      "33": 11,
+      "34": 12,
+      "35": 10,
+      "36": 11,
+      "37": 13,
+      "38": 11,
+      "39": 10,
+      "40": 6,
+      "41": 10,
+      "42": 9,
+      "43": 10,
+      "44": 11,
+      "45": 8,
+      "46": 10,
+      "47": 10,
+      "48": 7,
+      "49": 8,
+      "50": 4,
+      "51": 8,
+      "52": 7,
+      "53": 9,
+      "54": 7,
+      "55": 9,
+      "56": 8,
+      "57": 9,
+      "58": 9,
+      "59": 8
+    },
+    "bonus_numbers": {
+      "6": 1,
+      "7": 2,
+      "8": 1,
+      "9": 2,
+      "12": 1,
+      "14": 2,
+      "15": 1,
+      "16": 1,
+      "17": 1,
+      "18": 2,
+      "19": 2,
+      "21": 2,
+      "22": 1,
+      "23": 1,
+      "24": 2,
+      "25": 1,
+      "26": 2,
+      "27": 2,
+      "28": 1,
+      "29": 2,
+      "31": 2,
+      "32": 2,
+      "33": 2,
+      "35": 1,
+      "36": 1,
+      "38": 2,
+      "42": 1
+    }
+  },
+  "pair_analysis": {
+    "common_pairs": [
+      [11, 24],
+      [19, 27],
+      [22, 37],
+      [34, 43],
+      [36, 47],
+      [41, 56],
+      [13, 25],
+      [14, 26],
+      [16, 28],
+      [23, 35],
+      [33, 42],
+      [39, 45],
+      [44, 58]
+    ],
+    "rare_pairs": [
+      [1, 10],
+      [2, 20],
+      [3, 30],
+      [4, 40],
+      [5, 50],
+      [6, 60],
+      [7, 17],
+      [8, 18],
+      [9, 19],
+      [15, 51],
+      [29, 52],
+      [31, 53],
+      [32, 54],
+      [46, 59],
+      [48, 55],
+      [49, 57]
+    ]
+  },
+  "time_based_patterns": {
+    "day_of_week": {
+      "Mon": {
+        "avg_jackpot": 3500000,
+        "winners_percentage": 0.11
+      },
+      "Tue": {
+        "avg_jackpot": 2850000,
+        "winners_percentage": 0.09
+      },
+      "Wed": {
+        "avg_jackpot": 2000000,
+        "winners_percentage": 0.14
+      },
+      "Thu": {
+        "avg_jackpot": 3250000,
+        "winners_percentage": 0.08
+      },
+      "Fri": {
+        "avg_jackpot": 4750000,
+        "winners_percentage": 0.12
+      },
+      "Sat": {
+        "avg_jackpot": 6950000,
+        "winners_percentage": 0.21
+      },
+      "Sun": {
+        "avg_jackpot": 5250000,
+        "winners_percentage": 0.13
+      }
+    },
+    "month": {
+      "Jan": {
+        "avg_jackpot": 4500000,
+        "winners_percentage": 0.14
+      },
+      "Feb": {
+        "avg_jackpot": 4150000,
+        "winners_percentage": 0.12
+      },
+      "Mar": {
+        "avg_jackpot": 5250000,
+        "winners_percentage": 0.11
+      },
+      "Apr": {
+        "avg_jackpot": 6450000,
+        "winners_percentage": 0.15
+      },
+      "May": {
+        "avg_jackpot": 4850000,
+        "winners_percentage": 0.13
+      },
+      "Jun": {
+        "avg_jackpot": 5950000,
+        "winners_percentage": 0.09
+      },
+      "Jul": {
+        "avg_jackpot": 4650000,
+        "winners_percentage": 0.13
+      },
+      "Aug": {
+        "avg_jackpot": 3750000,
+        "winners_percentage": 0.08
+      },
+      "Sep": {
+        "avg_jackpot": 4950000,
+        "winners_percentage": 0.11
+      },
+      "Oct": {
+        "avg_jackpot": 5650000,
+        "winners_percentage": 0.12
+      },
+      "Nov": {
+        "avg_jackpot": 6750000,
+        "winners_percentage": 0.16
+      },
+      "Dec": {
+        "avg_jackpot": 8250000,
+        "winners_percentage": 0.19
+      }
+    }
+  },
+  "sequential_patterns": {
+    "consecutive_numbers": {
+      "occurrences": 178,
+      "percentage": 0.24
+    },
+    "odd_even_distribution": {
+      "all_odd": 0.05,
+      "all_even": 0.04,
+      "mostly_odd": 0.41,
+      "mostly_even": 0.38,
+      "balanced": 0.12
+    },
+    "low_high_distribution": {
+      "all_low": 0.07,
+      "all_high": 0.08,
+      "mostly_low": 0.32,
+      "mostly_high": 0.35,
+      "balanced": 0.18
+    }
+  },
+  "special_patterns": {
+    "fibonacci_matches": {
+      "occurrences": 89,
+      "percentage": 0.12
+    },
+    "prime_number_distribution": {
+      "no_primes": 0.06,
+      "one_prime": 0.18,
+      "two_primes": 0.29,
+      "three_primes": 0.24,
+      "four_primes": 0.14,
+      "five_primes": 0.07,
+      "six_primes": 0.02
+    },
+    "sum_range_distribution": {
+      "under_150": 0.11,
+      "150_to_175": 0.19,
+      "176_to_200": 0.25,
+      "201_to_225": 0.24,
+      "226_to_250": 0.15,
+      "over_250": 0.06
+    }
+  }
+} 

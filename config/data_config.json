@@ -1,0 +1,322 @@
+{
+  "data_sources": {
+    "primary_sources": {
+      "historical_draws": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.lottery.com/api/v1/historical",
+        "api_key_env_var": "LOTTERY_API_KEY",
+        "backup_source": "data/backups/historical_draws.csv",
+        "fetch_frequency": "daily",
+        "max_history_years": 30,
+        "retry_attempts": 3,
+        "timeout_seconds": 60
+      },
+      "jackpot_amounts": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.lottery.com/api/v1/jackpots",
+        "api_key_env_var": "LOTTERY_API_KEY",
+        "backup_source": "data/backups/jackpot_amounts.csv",
+        "fetch_frequency": "daily",
+        "max_history_years": 30
+      },
+      "ticket_sales": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.lottery.com/api/v1/sales",
+        "api_key_env_var": "LOTTERY_API_KEY",
+        "backup_source": "data/backups/ticket_sales.csv",
+        "fetch_frequency": "weekly",
+        "max_history_years": 30
+      },
+      "winning_tickets": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.lottery.com/api/v1/winners",
+        "api_key_env_var": "LOTTERY_API_KEY",
+        "backup_source": "data/backups/winning_tickets.csv",
+        "fetch_frequency": "daily",
+        "max_history_years": 20
+      }
+    },
+    
+    "secondary_sources": {
+      "calendar_events": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.calendar-api.com/v1/events",
+        "api_key_env_var": "CALENDAR_API_KEY",
+        "fetch_frequency": "monthly",
+        "max_history_years": 5
+      },
+      "economic_indicators": {
+        "enabled": true,
+        "source_type": "api",
+        "api_endpoint": "https://data.economy.com/api/v1/indicators",
+        "api_key_env_var": "ECONOMY_API_KEY",
+        "fetch_frequency": "monthly",
+        "indicators": ["gdp", "unemployment", "consumer_confidence", "inflation"],
+        "max_history_years": 10
+      },
+      "weather_data": {
+        "enabled": false,
+        "source_type": "api",
+        "api_endpoint": "https://api.weather.com/v1/historical",
+        "api_key_env_var": "WEATHER_API_KEY",
+        "fetch_frequency": "weekly",
+        "locations": ["New York", "Los Angeles", "Chicago", "Houston", "Miami"],
+        "max_history_years": 5
+      },
+      "social_media_trends": {
+        "enabled": false,
+        "source_type": "api",
+        "api_endpoint": "https://api.socialmedia.com/v1/trends",
+        "api_key_env_var": "SOCIAL_MEDIA_API_KEY",
+        "fetch_frequency": "daily",
+        "platforms": ["twitter", "facebook", "instagram"],
+        "search_terms": ["lottery", "jackpot", "millions"],
+        "max_history_months": 6
+      }
+    },
+    
+    "custom_data": {
+      "user_predictions": {
+        "enabled": true,
+        "source_type": "database",
+        "database_table": "user_predictions",
+        "update_frequency": "real-time"
+      },
+      "expert_analyses": {
+        "enabled": true,
+        "source_type": "file",
+        "file_path": "data/expert_analyses.json",
+        "update_frequency": "weekly"
+      },
+      "simulator_results": {
+        "enabled": true,
+        "source_type": "database",
+        "database_table": "simulation_results",
+        "update_frequency": "daily"
+      }
+    }
+  },
+  
+  "data_storage": {
+    "primary_storage": {
+      "type": "filesystem",
+      "base_path": "data/",
+      "backup_enabled": true,
+      "backup_frequency": "daily",
+      "backup_retention_days": 30
+    },
+    
+    "database": {
+      "enabled": true,
+      "type": "sqlite",
+      "connection_string": "data/lottery.db",
+      "tables": {
+        "historical_draws": "CREATE TABLE IF NOT EXISTS historical_draws (id INTEGER PRIMARY KEY, draw_date TEXT, numbers TEXT, bonus_numbers TEXT)",
+        "predictions": "CREATE TABLE IF NOT EXISTS predictions (id INTEGER PRIMARY KEY, prediction_date TEXT, numbers TEXT, confidence REAL, model_id TEXT)",
+        "user_data": "CREATE TABLE IF NOT EXISTS user_data (id INTEGER PRIMARY KEY, user_id TEXT, preferences TEXT)"
+      }
+    },
+    
+    "cloud_storage": {
+      "enabled": false,
+      "provider": "aws_s3",
+      "bucket_name": "lottery-prediction-data",
+      "credentials_env_var": "AWS_CREDENTIALS",
+      "sync_frequency": "daily"
+    }
+  },
+  
+  "data_preprocessing": {
+    "cleaning": {
+      "remove_duplicates": true,
+      "fill_missing_values": "interpolate",
+      "outlier_detection": {
+        "method": "zscore",
+        "threshold": 3.0
+      }
+    },
+    
+    "feature_engineering": {
+      "enabled": true,
+      "date_column": "Draw Date",
+      "numbers_column": "Main_Numbers",
+      "temporal_features": {
+        "enabled": true,
+        "features": [
+          "Year",
+          "Month",
+          "Day",
+          "DayOfWeek",
+          "Quarter",
+          "WeekOfYear",
+          "DaysSinceStart",
+          "DaysSincePreviousDraw",
+          "Month_sin",
+          "Month_cos",
+          "DayOfWeek_sin",
+          "DayOfWeek_cos"
+        ]
+      },
+      "number_features": {
+        "enabled": true,
+        "features": [
+          "Sum",
+          "Mean",
+          "Std",
+          "Median",
+          "Range",
+          "Unique",
+          "Primes",
+          "Fibonacci",
+          "Odds",
+          "Evens",
+          "Low_Numbers",
+          "High_Numbers",
+          "Consecutive_Pairs",
+          "Gaps",
+          "Max_Gap",
+          "Sum_Digits",
+          "Numbers_Ending_Same"
+        ],
+        "decades": {
+          "enabled": true,
+          "ranges": [
+            [1, 10],
+            [11, 20],
+            [21, 30],
+            [31, 40],
+            [41, 50],
+            [51, 60]
+          ]
+        }
+      },
+      "frequency_features": {
+        "enabled": true,
+        "rolling_windows": [10, 20, 50, 100],
+        "features": [
+          "Number_Frequency",
+          "Number_Frequency_Std",
+          "Sum_MA",
+          "Sum_STD",
+          "Mean_MA",
+          "Mean_STD",
+          "Hotness"
+        ]
+      },
+      "lag_features": {
+        "enabled": true,
+        "target_columns": ["Sum", "Mean", "Primes", "Odds", "Evens", "Number_Frequency"],
+        "lag_periods": [1, 2, 3, 5, 10]
+      },
+      "combination_features": {
+        "enabled": true,
+        "max_top_pairs": 30
+      }
+    },
+    
+    "feature_selection": {
+      "method": "recursive_feature_elimination",
+      "n_features": 50,
+      "alternative_methods": ["chi2", "mutual_information", "f_value"]
+    },
+    
+    "dimensionality_reduction": {
+      "enabled": false,
+      "method": "pca",
+      "n_components": 20,
+      "alternative_methods": ["t-sne", "umap"]
+    }
+  },
+  
+  "data_augmentation": {
+    "enabled": true,
+    "methods": {
+      "synthetic_draws": {
+        "enabled": true,
+        "algorithm": "monte_carlo",
+        "count": 5000
+      },
+      "bootstrap": {
+        "enabled": true,
+        "sample_size": 0.8,
+        "n_iterations": 100
+      },
+      "noise_injection": {
+        "enabled": false,
+        "noise_level": 0.05,
+        "features": ["jackpot_amount", "ticket_sales"]
+      }
+    }
+  },
+  
+  "data_validation": {
+    "schema_validation": {
+      "enabled": true,
+      "required_fields": ["draw_date", "numbers", "bonus_numbers"]
+    },
+    
+    "data_quality_checks": {
+      "completeness_threshold": 0.95,
+      "consistency_checks": ["date_sequence", "number_range", "draw_frequency"],
+      "automated_alerts": true
+    },
+    
+    "distribution_monitoring": {
+      "enabled": true,
+      "metrics": ["mean", "std", "skewness", "kurtosis"],
+      "alert_threshold": 0.2
+    }
+  },
+  
+  "data_splitting": {
+    "time_series_split": {
+      "enabled": true,
+      "test_size": 0.2,
+      "validation_size": 0.15,
+      "shuffle": false
+    },
+    
+    "cross_validation": {
+      "enabled": true,
+      "method": "time_series_split",
+      "n_splits": 5,
+      "gap": 0
+    }
+  },
+  
+  "data_pipeline": {
+    "orchestration": {
+      "engine": "airflow",
+      "schedule": "0 1 * * *",
+      "max_retries": 3,
+      "timeout_minutes": 60
+    },
+    
+    "caching": {
+      "enabled": true,
+      "mechanism": "filesystem",
+      "expiration_hours": 24,
+      "invalidation_events": ["new_draw", "model_update"]
+    },
+    
+    "logging": {
+      "level": "INFO",
+      "retention_days": 30,
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    },
+    
+    "monitoring": {
+      "enabled": true,
+      "metrics": ["processing_time", "data_quality_score", "pipeline_status"],
+      "alert_thresholds": {
+        "processing_time_seconds": 300,
+        "data_quality_score": 0.8
+      }
+    }
+  }
+} 

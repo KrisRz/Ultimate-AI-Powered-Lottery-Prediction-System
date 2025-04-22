@@ -1,0 +1,165 @@
+{
+  "primary_sources": {
+    "historical_draws": {
+      "source_type": "api",
+      "url": "https://lottery-data-provider.com/api/v1/historical",
+      "auth_required": true,
+      "auth_method": "api_key",
+      "update_frequency": "daily",
+      "fallback_source": "local_cache",
+      "date_format": "YYYY-MM-DD",
+      "max_retries": 3,
+      "timeout_seconds": 30
+    },
+    "jackpot_information": {
+      "source_type": "web_scraping",
+      "url": "https://lottery-jackpot-tracker.com/current",
+      "selector": "#jackpot-amount",
+      "update_frequency": "hourly",
+      "use_proxy": true,
+      "proxy_rotation": true,
+      "fallback_source": "estimated"
+    },
+    "official_statistics": {
+      "source_type": "file",
+      "format": "csv",
+      "path": "data/official_stats.csv",
+      "encoding": "utf-8",
+      "delimiter": ",",
+      "has_header": true,
+      "update_frequency": "weekly",
+      "backup_enabled": true
+    }
+  },
+  
+  "secondary_sources": {
+    "number_frequency_analysis": {
+      "source_type": "internal",
+      "calculation_method": "rolling_window",
+      "window_size": 52,
+      "update_frequency": "on_new_data",
+      "cache_enabled": true,
+      "cache_duration_hours": 24
+    },
+    "social_media_trends": {
+      "source_type": "api",
+      "url": "https://social-analytics-provider.com/lottery/trends",
+      "auth_required": true,
+      "auth_method": "oauth2",
+      "update_frequency": "daily",
+      "sentiment_analysis": true,
+      "topics": ["lucky_numbers", "jackpot", "winners"]
+    },
+    "astronomical_data": {
+      "source_type": "api",
+      "url": "https://astronomical-data-service.com/api/v2/daily",
+      "auth_required": false,
+      "update_frequency": "daily",
+      "data_points": ["moon_phase", "planetary_positions", "solar_activity"]
+    }
+  },
+  
+  "local_storage": {
+    "database": {
+      "type": "sqlite",
+      "path": "data/lottery_data.db",
+      "backup_frequency": "weekly",
+      "max_backups": 5,
+      "tables": [
+        "historical_draws",
+        "predictions",
+        "performance_metrics",
+        "number_statistics"
+      ]
+    },
+    "cache": {
+      "path": "data/cache/",
+      "max_size_mb": 500,
+      "expiration_policy": "lru",
+      "compression": true
+    },
+    "exports": {
+      "path": "data/exports/",
+      "formats": ["csv", "json", "excel"],
+      "auto_export": true,
+      "export_frequency": "weekly"
+    }
+  },
+  
+  "data_preprocessing": {
+    "cleaning": {
+      "remove_duplicates": true,
+      "handle_missing_values": "interpolation",
+      "outlier_detection": "iqr",
+      "outlier_treatment": "cap"
+    },
+    "transformation": {
+      "normalization": "min_max",
+      "encoding_categorical": "one_hot",
+      "date_features": ["day_of_week", "month", "is_holiday"],
+      "numerical_transforms": ["log", "sqrt", "squared"]
+    },
+    "validation": {
+      "schema_validation": true,
+      "value_range_check": true,
+      "consistency_check": true,
+      "error_handling": "flag_and_correct"
+    }
+  },
+  
+  "integration_settings": {
+    "api_clients": {
+      "retry_strategy": {
+        "max_retries": 5,
+        "backoff_factor": 2,
+        "max_backoff_seconds": 60
+      },
+      "rate_limiting": {
+        "requests_per_minute": 60,
+        "concurrent_requests": 10,
+        "respect_server_limits": true
+      },
+      "timeout_settings": {
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 30,
+        "total_timeout_seconds": 60
+      }
+    },
+    "web_scraping": {
+      "user_agent_rotation": true,
+      "delay_between_requests_seconds": 5,
+      "respect_robots_txt": true,
+      "captcha_handling": "service",
+      "captcha_service": "2captcha"
+    },
+    "file_handling": {
+      "watch_directory": true,
+      "auto_import": true,
+      "archive_after_import": true,
+      "archive_path": "data/archive/",
+      "supported_formats": ["csv", "json", "excel", "xml"]
+    }
+  },
+  
+  "monitoring": {
+    "data_quality": {
+      "completeness_threshold": 0.95,
+      "consistency_checks": true,
+      "alert_on_deviation": true,
+      "deviation_threshold": 0.2,
+      "metrics": ["completeness", "accuracy", "timeliness"]
+    },
+    "source_availability": {
+      "check_frequency_minutes": 60,
+      "alert_on_unavailable": true,
+      "max_consecutive_failures": 3,
+      "auto_switch_to_fallback": true
+    },
+    "performance_tracking": {
+      "log_response_times": true,
+      "log_error_rates": true,
+      "threshold_alert_response_time_ms": 5000,
+      "threshold_alert_error_rate": 0.05
+    }
+  }
+} 

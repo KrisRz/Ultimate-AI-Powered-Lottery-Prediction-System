@@ -1,0 +1,61 @@
+# Prediction algorithm weights for lottery system
+# Higher values indicate greater influence on final prediction
+
+algorithms:
+  frequency_analysis:
+    simple_frequency: 0.65
+    rolling_window: 0.85
+    trend_analysis: 0.75
+    decay_factor: 0.93
+    bonus_ball_weight: 0.45
+
+  pattern_mining:
+    consecutive_pairs: 0.55
+    common_triplets: 0.48
+    odd_even_patterns: 0.62
+    sum_range_patterns: 0.58
+    prime_patterns: 0.42
+    fibonacci_patterns: 0.38
+
+  time_series:
+    arima_predictions: 0.72
+    sarima_seasonal: 0.76
+    prophet_forecast: 0.68
+    lstm_sequence: 0.79
+    exponential_smoothing: 0.64
+
+  machine_learning:
+    random_forest: 0.82
+    xgboost: 0.88
+    lightgbm: 0.84
+    catboost: 0.81
+    neural_network: 0.75
+
+  ensemble_methods:
+    voting_ensemble: 0.92
+    stacking_ensemble: 0.89
+    bagging_ensemble: 0.77
+    boosting_ensemble: 0.81
+    weighted_average: 0.95
+
+adjustments:
+  recency_bias: 0.15
+  seasonal_factor: 0.22
+  jackpot_size_factor: 0.18
+  special_event_factor: 0.25
+  draw_day_factor: 0.12
+
+# Threshold values for system decisions
+thresholds:
+  high_confidence: 0.85
+  medium_confidence: 0.72
+  low_confidence: 0.58
+  minimum_acceptable: 0.45
+
+# System operation parameters
+operational:
+  prediction_batch_size: 100
+  max_combinations: 500000
+  top_candidates_count: 150
+  random_seed: 42
+  optimization_iterations: 1000 

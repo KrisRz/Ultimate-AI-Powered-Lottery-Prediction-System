@@ -1,0 +1,355 @@
+{
+  "data_sources": {
+    "primary_sources": [
+      {
+        "name": "national_lottery_api",
+        "type": "api",
+        "enabled": true,
+        "url": "https://data.api.thenationallottery.co.uk/api/v1/draws",
+        "auth_required": false,
+        "request_method": "GET",
+        "params": {
+          "game": "lotto",
+          "date_from": "2000-01-01"
+        },
+        "rate_limit": {
+          "requests_per_minute": 60,
+          "retry_after": 300
+        },
+        "fallback": "national_lottery_scraper"
+      },
+      {
+        "name": "national_lottery_scraper",
+        "type": "web_scraper",
+        "enabled": true,
+        "url": "https://www.national-lottery.co.uk/results/lotto/draw-history",
+        "selector": {
+          "draw_date": ".draw-history__date",
+          "draw_numbers": ".draw-history__number-set .lotto-ball-16",
+          "bonus_number": ".draw-history__number-set .lotto-bonus-ball-16"
+        },
+        "pagination": {
+          "next_page_selector": ".pagination__next",
+          "max_pages": 100
+        },
+        "fallback": "local_csv_archive"
+      },
+      {
+        "name": "local_csv_archive",
+        "type": "file",
+        "enabled": true,
+        "path": "data/historical/lottery_results.csv",
+        "format": "csv",
+        "encoding": "utf-8",
+        "delimiter": ",",
+        "columns": [
+          "draw_date", "draw_number", "number_1", "number_2", "number_3", 
+          "number_4", "number_5", "number_6", "bonus_number", "jackpot_amount",
+          "winners_count", "machine_name", "ball_set"
+        ]
+      }
+    ],
+    "secondary_sources": [
+      {
+        "name": "ticket_sales_data",
+        "type": "api",
+        "enabled": true,
+        "url": "https://api.lottery-analytics.com/sales",
+        "auth_required": true,
+        "auth_method": "api_key",
+        "request_method": "GET",
+        "params": {
+          "game": "lotto",
+          "date_from": "2000-01-01"
+        }
+      },
+      {
+        "name": "jackpot_history",
+        "type": "file",
+        "enabled": true,
+        "path": "data/historical/jackpot_history.csv",
+        "format": "csv",
+        "encoding": "utf-8",
+        "delimiter": ","
+      },
+      {
+        "name": "economic_indicators",
+        "type": "api",
+        "enabled": false,
+        "url": "https://api.worldbank.org/v2/indicators",
+        "auth_required": false,
+        "request_method": "GET",
+        "params": {
+          "format": "json",
+          "country": "GB",
+          "indicators": "NY.GDP.MKTP.CD,FP.CPI.TOTL.ZG"
+        }
+      }
+    ],
+    "lookup_tables": [
+      {
+        "name": "calendar_events",
+        "type": "file",
+        "path": "data/reference/calendar_events.csv",
+        "key_column": "date",
+        "value_columns": ["event_name", "event_type", "significance"]
+      },
+      {
+        "name": "lottery_rule_changes",
+        "type": "file",
+        "path": "data/reference/rule_changes.json",
+        "format": "json"
+      }
+    ]
+  },
+  
+  "data_collection": {
+    "schedule": {
+      "frequency": "daily",
+      "time": "00:30:00",
+      "timezone": "Europe/London",
+      "retry_attempts": 3,
+      "retry_delay_minutes": 30
+    },
+    "history": {
+      "initial_load": true,
+      "start_date": "1994-11-19",
+      "end_date": "now",
+      "incremental_updates": true
+    },
+    "validation": {
+      "required_fields": ["draw_date", "number_1", "number_2", "number_3", "number_4", "number_5", "number_6"],
+      "number_range": {"min": 1, "max": 59},
+      "date_format": "YYYY-MM-DD",
+      "detect_duplicates": true
+    }
+  },
+  
+  "data_preprocessing": {
+    "cleaning": {
+      "handle_missing_values": {
+        "strategy": "drop_if_primary_missing",
+        "numeric_imputation": "median",
+        "categorical_imputation": "mode"
+      },
+      "outlier_detection": {
+        "method": "iqr",
+        "threshold": 1.5,
+        "columns": ["jackpot_amount", "winners_count"]
+      },
+      "deduplication": {
+        "enabled": true,
+        "key_columns": ["draw_date", "number_1", "number_2", "number_3", "number_4", "number_5", "number_6"]
+      }
+    },
+    
+    "transformation": {
+      "date_features": {
+        "extract_day_of_week": true,
+        "extract_month": true,
+        "extract_year": true,
+        "extract_is_holiday": true,
+        "date_encoding": "cyclical"
+      },
+      "number_features": {
+        "create_sum": true,
+        "create_mean": true,
+        "create_median": true,
+        "create_min_max": true,
+        "create_range": true,
+        "create_standard_deviation": true
+      },
+      "categorical_encoding": {
+        "method": "one_hot",
+        "columns": ["machine_name", "ball_set"]
+      },
+      "numerical_scaling": {
+        "method": "min_max",
+        "columns": ["jackpot_amount", "winners_count"]
+      }
+    },
+    
+    "feature_engineering": {
+      "frequency_features": {
+        "window_sizes": [10, 20, 50, 100],
+        "metrics": ["occurrence_count", "relative_frequency", "days_since_last"]
+      },
+      "pattern_features": {
+        "consecutive_numbers_count": true,
+        "even_odd_ratio": true,
+        "high_low_ratio": {"threshold": 30},
+        "digit_distribution": true,
+        "decade_distribution": true
+      },
+      "pair_features": {
+        "enabled": true,
+        "top_pairs_count": 50,
+        "min_occurrences": 5
+      },
+      "temporal_features": {
+        "rolling_statistics": {
+          "windows": [5, 10, 20],
+          "functions": ["mean", "std", "min", "max"]
+        },
+        "lag_features": {
+          "lag_periods": [1, 2, 3, 5, 10],
+          "columns": ["sum", "even_odd_ratio", "high_low_ratio"]
+        },
+        "trend_features": {
+          "window_size": 20,
+          "methods": ["linear_regression", "exponential_moving_average"]
+        }
+      },
+      "contextual_features": {
+        "jackpot_size_category": {
+          "enabled": true,
+          "thresholds": [5000000, 10000000, 20000000]
+        },
+        "ticket_sales_indicators": {
+          "enabled": true,
+          "normalization": "z_score"
+        },
+        "special_event_indicators": {
+          "enabled": true,
+          "event_types": ["holiday", "rule_change", "special_draw"]
+        }
+      }
+    },
+    
+    "dimension_reduction": {
+      "methods": [
+        {
+          "name": "pca",
+          "enabled": true,
+          "n_components": 0.95,
+          "apply_to": ["frequency_features", "temporal_features"]
+        },
+        {
+          "name": "feature_selection",
+          "enabled": true,
+          "method": "mutual_information",
+          "k_best": 50
+        }
+      ]
+    }
+  },
+  
+  "data_representation": {
+    "number_representation": {
+      "individual": true,
+      "combinations": true,
+      "relative_positions": true
+    },
+    "time_series_formats": {
+      "sequence_length": 20,
+      "step_size": 1,
+      "flatten_draw_numbers": false,
+      "include_bonus": true,
+      "include_metadata": ["jackpot_amount", "winners_count"]
+    },
+    "draw_encoding": {
+      "one_hot": {
+        "enabled": true,
+        "sparse": true
+      },
+      "ordinal": {
+        "enabled": false
+      },
+      "binary": {
+        "enabled": true,
+        "bits_per_number": 6
+      },
+      "embedding": {
+        "enabled": true,
+        "embedding_dim": 16
+      }
+    }
+  },
+  
+  "data_splitting": {
+    "train_test_split": {
+      "method": "temporal",
+      "train_ratio": 0.7,
+      "validation_ratio": 0.15,
+      "test_ratio": 0.15,
+      "shuffle": false
+    },
+    "cross_validation": {
+      "method": "time_series_split",
+      "n_splits": 5,
+      "test_size": 10
+    },
+    "backtesting": {
+      "enabled": true,
+      "initial_window": 500,
+      "step_size": 10,
+      "test_windows": 5
+    }
+  },
+  
+  "data_storage": {
+    "raw_data": {
+      "format": "csv",
+      "path": "data/raw/",
+      "versioning": true
+    },
+    "processed_data": {
+      "format": "parquet",
+      "path": "data/processed/",
+      "compression": "snappy",
+      "partitioning": ["year", "month"]
+    },
+    "feature_store": {
+      "enabled": true,
+      "format": "hdf5",
+      "path": "data/features/"
+    },
+    "cache": {
+      "enabled": true,
+      "format": "pickle",
+      "path": "data/cache/",
+      "ttl_days": 1
+    }
+  },
+  
+  "data_visualization": {
+    "exploratory": {
+      "distribution_plots": true,
+      "frequency_heatmaps": true,
+      "correlation_matrices": true,
+      "time_series_plots": true
+    },
+    "interactive": {
+      "enabled": true,
+      "library": "plotly",
+      "export_html": true
+    },
+    "reporting": {
+      "automated_reports": true,
+      "frequency": "weekly",
+      "format": "html",
+      "sections": [
+        "data_quality",
+        "feature_importance",
+        "prediction_performance"
+      ]
+    }
+  },
+  
+  "performance_logging": {
+    "data_processing": {
+      "log_level": "info",
+      "metrics": [
+        "processing_time",
+        "memory_usage",
+        "rows_processed",
+        "error_rate"
+      ]
+    },
+    "feature_engineering": {
+      "log_level": "debug",
+      "feature_statistics": true,
+      "correlation_tracking": true
+    }
+  }
+} 

@@ -1,0 +1,294 @@
+{
+  "strategy_settings": {
+    "active_strategy": "advanced_ensemble",
+    "fallback_strategy": "statistical_frequency",
+    "strategy_rotation": {
+      "enabled": true,
+      "rotation_interval": "weekly",
+      "performance_based_selection": true,
+      "minimum_strategy_performance": 0.3
+    },
+    "validation_requirements": {
+      "minimum_confidence_threshold": 0.65,
+      "minimum_historical_accuracy": 0.4,
+      "consistency_check": true
+    }
+  },
+
+  "strategies": {
+    "statistical_frequency": {
+      "description": "Basic frequency analysis of historical numbers",
+      "enabled": true,
+      "confidence_weighting": 0.6,
+      "parameters": {
+        "lookback_period": "all",
+        "recent_weighting": true,
+        "weight_decay_rate": 0.98,
+        "hot_number_threshold": 0.6,
+        "cold_number_threshold": 0.3,
+        "consider_position": false
+      },
+      "output_format": {
+        "include_hot_numbers": true,
+        "include_cold_numbers": true,
+        "include_due_numbers": true,
+        "number_count": 15,
+        "confidence_scores": true
+      }
+    },
+
+    "pattern_based": {
+      "description": "Identifies repeating patterns in draw history",
+      "enabled": true,
+      "confidence_weighting": 0.7,
+      "parameters": {
+        "pattern_types": ["sequential", "numerical_gaps", "even_odd_ratio", "sum_ranges"],
+        "minimum_pattern_occurrences": 5,
+        "maximum_pattern_length": 10,
+        "significance_threshold": 0.05,
+        "pattern_verification_method": "chi_squared"
+      },
+      "detection_methods": {
+        "cycle_detection": true,
+        "sequence_matching": true,
+        "combinatorial_analysis": true,
+        "periodicity_testing": true
+      }
+    },
+
+    "time_series_forecasting": {
+      "description": "Applies time series forecasting to predict future draws",
+      "enabled": true,
+      "confidence_weighting": 0.75,
+      "parameters": {
+        "forecasting_model": "auto_arima",
+        "differencing_order": "auto",
+        "seasonality_test": true,
+        "decompose_series": true,
+        "forecast_periods": 4
+      },
+      "seasonal_components": {
+        "weekly": true,
+        "monthly": true,
+        "yearly": true,
+        "custom_cycles": [13, 28, 91]
+      }
+    },
+
+    "machine_learning_cluster": {
+      "description": "Uses ML clustering to identify number groups",
+      "enabled": true,
+      "confidence_weighting": 0.8,
+      "parameters": {
+        "clustering_algorithm": "dbscan",
+        "feature_selection": "pca",
+        "dimensionality_reduction": true,
+        "cluster_evaluation_metric": "silhouette",
+        "minimum_cluster_size": 5,
+        "distance_metric": "euclidean"
+      },
+      "cluster_analysis": {
+        "identify_stable_clusters": true,
+        "track_cluster_evolution": true,
+        "inter_cluster_relationships": true,
+        "intra_cluster_patterns": true
+      }
+    },
+
+    "deep_learning_sequence": {
+      "description": "Uses deep learning to predict next numbers in sequence",
+      "enabled": true,
+      "confidence_weighting": 0.85,
+      "parameters": {
+        "model_architecture": "bidirectional_lstm",
+        "sequence_length": 20,
+        "hidden_layers": [128, 64, 32],
+        "dropout_rate": 0.2,
+        "activation_function": "relu",
+        "training_epochs": 200
+      },
+      "sequence_handling": {
+        "padding_method": "pre",
+        "number_normalization": true,
+        "sequence_augmentation": true,
+        "embedding_dimension": 16
+      }
+    },
+
+    "probability_model": {
+      "description": "Applies probability theory to lottery number selection",
+      "enabled": true,
+      "confidence_weighting": 0.7,
+      "parameters": {
+        "distribution_assumption": "non_uniform",
+        "probability_estimation": "bayesian",
+        "conditional_probability": true,
+        "joint_probability_analysis": true,
+        "number_independence_test": true
+      },
+      "bayesian_parameters": {
+        "prior_distribution": "empirical",
+        "posterior_updating": true,
+        "mcmc_sampling": true,
+        "credible_interval": 0.95
+      }
+    },
+
+    "combination_optimization": {
+      "description": "Optimizes number combinations based on historical performance",
+      "enabled": true,
+      "confidence_weighting": 0.75,
+      "parameters": {
+        "optimization_method": "genetic_algorithm",
+        "fitness_function": "historical_similarity",
+        "population_size": 500,
+        "generations": 100,
+        "mutation_rate": 0.1,
+        "crossover_rate": 0.8
+      },
+      "constraints": {
+        "sum_range": [120, 200],
+        "consecutive_numbers_limit": 3,
+        "even_odd_balance": true,
+        "number_spread_requirement": true
+      }
+    },
+
+    "contra_popular": {
+      "description": "Identifies and selects against commonly chosen numbers",
+      "enabled": false,
+      "confidence_weighting": 0.5,
+      "parameters": {
+        "popular_number_identification": "historical_jackpot_sharing",
+        "avoidance_strength": 0.7,
+        "popular_patterns": ["birthdays", "calendar_dates", "visual_patterns"],
+        "minimum_jackpot_threshold": 10000000
+      },
+      "jackpot_optimization": {
+        "prioritize_share_size": true,
+        "jackpot_size_consideration": true,
+        "risk_adjustment_factor": 0.7
+      }
+    },
+
+    "advanced_ensemble": {
+      "description": "Combines multiple prediction methods with dynamic weighting",
+      "enabled": true,
+      "confidence_weighting": 0.9,
+      "component_strategies": [
+        "statistical_frequency",
+        "pattern_based",
+        "time_series_forecasting", 
+        "machine_learning_cluster",
+        "deep_learning_sequence",
+        "probability_model"
+      ],
+      "ensemble_method": "stacked",
+      "weighting_adjustment": {
+        "performance_based": true,
+        "adaptive_weights": true,
+        "rebalancing_frequency": "weekly",
+        "diversity_promotion": true
+      },
+      "meta_learning": {
+        "enabled": true,
+        "meta_features": ["draw_volatility", "pattern_strength", "prediction_consensus"],
+        "meta_model": "gradient_boosting",
+        "online_learning": true
+      }
+    }
+  },
+
+  "recommendation_settings": {
+    "number_selection": {
+      "main_numbers_count": 6,
+      "bonus_numbers_count": 1,
+      "exclude_recent_winners": false,
+      "recommend_multiple_combinations": true,
+      "combinations_count": 5
+    },
+    "filtering_rules": {
+      "consecutive_numbers": {
+        "max_consecutive": 3,
+        "min_consecutive": 0
+      },
+      "number_sum": {
+        "min_sum": 120,
+        "max_sum": 200
+      },
+      "even_odd_ratio": {
+        "min_even": 2,
+        "max_even": 4
+      },
+      "high_low_ratio": {
+        "min_high": 2,
+        "max_high": 4,
+        "threshold": 25
+      },
+      "number_groups": {
+        "group_size": 10,
+        "min_groups_represented": 3
+      }
+    },
+    "presentation": {
+      "sort_by_confidence": true,
+      "highlight_hot_numbers": true,
+      "provide_rationale": true,
+      "historical_match_analysis": true,
+      "potential_payout_estimate": true
+    }
+  },
+
+  "performance_tracking": {
+    "metrics": {
+      "accuracy": {
+        "exact_matches": true,
+        "partial_matches": true,
+        "weighted_by_position": false
+      },
+      "return_on_investment": {
+        "track_simulated_results": true,
+        "calculate_expected_value": true,
+        "risk_adjusted_return": true
+      },
+      "strategy_comparison": {
+        "baseline_random": true,
+        "baseline_popular": true,
+        "strategy_correlation": true
+      }
+    },
+    "evaluation_periods": {
+      "short_term": 4,
+      "medium_term": 12,
+      "long_term": 52,
+      "complete_history": true
+    },
+    "visualization": {
+      "performance_charts": true,
+      "strategy_comparison_visuals": true,
+      "number_frequency_heatmap": true,
+      "prediction_accuracy_tracking": true
+    }
+  },
+
+  "execution": {
+    "scheduling": {
+      "prediction_frequency": "draw_based",
+      "advance_prediction_days": 2,
+      "update_after_results": true,
+      "force_recalculation_conditions": ["significant_jackpot", "changing_rules", "performance_drop"]
+    },
+    "resource_allocation": {
+      "computation_priority": "high",
+      "maximum_processing_time": 3600,
+      "dynamic_resource_scaling": true,
+      "parallelize_strategies": true
+    },
+    "caching": {
+      "cache_intermediate_results": true,
+      "cache_lifetime": 86400,
+      "strategy_result_persistence": true,
+      "invalidate_on_new_draw": true
+    }
+  }
+} 

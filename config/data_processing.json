@@ -1,0 +1,305 @@
+{
+  "data_sources": {
+    "primary_sources": [
+      {
+        "name": "historical_draws",
+        "type": "database",
+        "connection": {
+          "type": "sqlite",
+          "path": "data/lottery_history.db",
+          "table": "draws"
+        },
+        "required": true,
+        "fallback_source": "csv_archive"
+      },
+      {
+        "name": "csv_archive",
+        "type": "file",
+        "path": "data/historical_draws.csv",
+        "format": "csv",
+        "encoding": "utf-8",
+        "required": false
+      },
+      {
+        "name": "web_api",
+        "type": "api",
+        "url": "https://api.lottery.example.com/v1/results",
+        "method": "GET",
+        "headers": {
+          "Authorization": "ENV:API_KEY",
+          "Content-Type": "application/json"
+        },
+        "cache_duration": 3600,
+        "required": false
+      }
+    ],
+    "supplementary_sources": [
+      {
+        "name": "jackpot_history",
+        "type": "file",
+        "path": "data/jackpot_history.csv",
+        "format": "csv",
+        "required": false
+      },
+      {
+        "name": "ticket_sales",
+        "type": "database",
+        "connection": {
+          "type": "sqlite",
+          "path": "data/lottery_history.db",
+          "table": "sales"
+        },
+        "required": false
+      }
+    ],
+    "real_time_updates": {
+      "enabled": true,
+      "update_frequency": 86400,
+      "sources": ["web_api"],
+      "automatic_integration": true
+    }
+  },
+
+  "data_schema": {
+    "draws": {
+      "draw_id": {"type": "integer", "primary_key": true},
+      "draw_date": {"type": "date", "format": "YYYY-MM-DD", "required": true},
+      "numbers": {"type": "array", "items": "integer", "required": true},
+      "bonus_numbers": {"type": "array", "items": "integer", "required": false},
+      "jackpot_amount": {"type": "float", "required": false},
+      "winners_count": {"type": "integer", "required": false}
+    },
+    "validation": {
+      "enforce_schema": true,
+      "handle_missing_values": "impute",
+      "validate_data_types": true,
+      "range_checks": {
+        "numbers": {"min": 1, "max": 49},
+        "bonus_numbers": {"min": 1, "max": 10}
+      }
+    }
+  },
+
+  "preprocessing": {
+    "data_cleaning": {
+      "remove_duplicates": true,
+      "handle_missing_values": {
+        "strategy": "impute",
+        "numerical_imputation": "mean",
+        "categorical_imputation": "mode"
+      },
+      "outlier_detection": {
+        "method": "iqr",
+        "threshold": 1.5,
+        "handle_outliers": "winsorize"
+      }
+    },
+    "transformations": {
+      "number_normalization": {
+        "enabled": true,
+        "method": "min_max",
+        "range": [0, 1]
+      },
+      "date_features": {
+        "extract_day_of_week": true,
+        "extract_month": true,
+        "extract_year": true,
+        "extract_is_holiday": true,
+        "cyclical_encoding": true
+      },
+      "numerical_transformations": {
+        "log_transform": ["jackpot_amount"],
+        "polynomial_features": {
+          "enabled": true,
+          "degree": 2,
+          "interaction_only": true
+        }
+      }
+    },
+    "feature_engineering": {
+      "rolling_statistics": {
+        "windows": [5, 10, 20, 50],
+        "functions": ["mean", "std", "min", "max"],
+        "targets": ["numbers", "bonus_numbers"]
+      },
+      "frequency_features": {
+        "count_occurrences": true,
+        "calculate_frequency": true,
+        "recent_bias": true,
+        "decay_factor": 0.95
+      },
+      "derived_features": {
+        "sum_of_numbers": true,
+        "average_of_numbers": true,
+        "number_range": true,
+        "even_odd_ratio": true,
+        "high_low_ratio": true,
+        "consecutive_numbers_count": true
+      },
+      "time_based_features": {
+        "days_since_last_occurrence": true,
+        "draw_intervals": true,
+        "seasonal_decomposition": true
+      }
+    }
+  },
+
+  "feature_selection": {
+    "methods": {
+      "correlation_filter": {
+        "enabled": true,
+        "threshold": 0.9,
+        "correlation_method": "pearson"
+      },
+      "variance_threshold": {
+        "enabled": true,
+        "threshold": 0.01
+      },
+      "importance_based": {
+        "enabled": true,
+        "estimator": "random_forest",
+        "threshold": "auto"
+      },
+      "recursive_feature_elimination": {
+        "enabled": false,
+        "estimator": "xgboost",
+        "step": 1,
+        "cv": 5
+      }
+    },
+    "dimensionality_reduction": {
+      "pca": {
+        "enabled": false,
+        "n_components": 0.95,
+        "whiten": true
+      },
+      "tsne": {
+        "enabled": false,
+        "n_components": 2,
+        "perplexity": 30
+      }
+    }
+  },
+
+  "data_augmentation": {
+    "synthetic_data": {
+      "enabled": false,
+      "method": "smote",
+      "ratio": 0.5
+    },
+    "noise_injection": {
+      "enabled": false,
+      "std_dev": 0.05,
+      "features": ["numbers"]
+    },
+    "bootstrapping": {
+      "enabled": true,
+      "samples": 1000,
+      "sample_size": 0.8
+    }
+  },
+
+  "data_splitting": {
+    "train_test_split": {
+      "test_size": 0.2,
+      "random_state": 42,
+      "stratify": false
+    },
+    "cross_validation": {
+      "enabled": true,
+      "n_splits": 5,
+      "shuffle": true,
+      "type": "time_series_split"
+    },
+    "validation_set": {
+      "enabled": true,
+      "size": 0.1,
+      "random_state": 42
+    }
+  },
+
+  "data_pipeline": {
+    "caching": {
+      "enable_caching": true,
+      "cache_directory": "cache/data_processing",
+      "memory_limit": 1024,
+      "invalidate_after_days": 7
+    },
+    "parallel_processing": {
+      "enabled": true,
+      "n_jobs": -1,
+      "backend": "multiprocessing",
+      "verbose": 1
+    },
+    "pipeline_steps": [
+      "data_loading",
+      "schema_validation",
+      "data_cleaning",
+      "transformations",
+      "feature_engineering",
+      "feature_selection",
+      "data_augmentation",
+      "data_splitting"
+    ],
+    "checkpoint_saving": {
+      "enabled": true,
+      "directory": "checkpoints/data_processing",
+      "format": "joblib",
+      "compress": true
+    }
+  },
+
+  "monitoring": {
+    "data_drift": {
+      "enabled": true,
+      "detection_method": "ks_test",
+      "threshold": 0.05,
+      "reference_dataset": "initial_training",
+      "check_frequency": "daily"
+    },
+    "data_quality": {
+      "enabled": true,
+      "metrics": [
+        "missing_values_ratio",
+        "duplicate_rows_ratio",
+        "outlier_ratio"
+      ],
+      "thresholds": {
+        "missing_values_ratio": 0.1,
+        "duplicate_rows_ratio": 0.01,
+        "outlier_ratio": 0.05
+      },
+      "alerting": {
+        "enabled": true,
+        "channels": ["log", "email"],
+        "email": "admin@example.com"
+      }
+    },
+    "data_profiling": {
+      "enabled": true,
+      "report_directory": "reports/data_profiles",
+      "generate_frequency": "weekly",
+      "include_visualizations": true
+    }
+  },
+
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": {
+      "enabled": true,
+      "path": "logs/data_processing.log",
+      "rotate": true,
+      "max_size": 10485760,
+      "backup_count": 5
+    },
+    "console": {
+      "enabled": true,
+      "level": "INFO"
+    },
+    "detailed_metrics": {
+      "enabled": true,
+      "tracking_features": ["missing_values", "outliers", "feature_importance"]
+    }
+  }
+} 

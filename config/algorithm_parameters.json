@@ -1,0 +1,168 @@
+{
+  "frequency_analysis": {
+    "window_sizes": [10, 20, 50, 100],
+    "decay_rates": [0.98, 0.95, 0.90, 0.85],
+    "minimum_occurrences": 3,
+    "hot_number_threshold": 0.65,
+    "cold_number_threshold": 0.35,
+    "weighting_scheme": "exponential"
+  },
+  
+  "time_series_models": {
+    "arima": {
+      "p": [1, 2, 3],
+      "d": [0, 1],
+      "q": [0, 1, 2],
+      "seasonal": false,
+      "training_window": 200
+    },
+    "sarima": {
+      "p": [1, 2],
+      "d": [1],
+      "q": [1, 2],
+      "P": [1],
+      "D": [1],
+      "Q": [1],
+      "s": 52,
+      "enforce_stationarity": true,
+      "enforce_invertibility": true
+    },
+    "prophet": {
+      "seasonality_mode": "multiplicative",
+      "yearly_seasonality": true,
+      "weekly_seasonality": true,
+      "daily_seasonality": false,
+      "changepoint_prior_scale": 0.05,
+      "seasonality_prior_scale": 10.0
+    },
+    "exponential_smoothing": {
+      "trend": "add",
+      "seasonal": "add",
+      "seasonal_periods": 52,
+      "damped_trend": true,
+      "smoothing_level": 0.6,
+      "smoothing_trend": 0.2,
+      "smoothing_seasonal": 0.2
+    }
+  },
+  
+  "machine_learning": {
+    "random_forest": {
+      "n_estimators": 500,
+      "max_depth": 20,
+      "min_samples_split": 5,
+      "min_samples_leaf": 2,
+      "bootstrap": true,
+      "class_weight": "balanced",
+      "random_state": 42
+    },
+    "xgboost": {
+      "n_estimators": 300,
+      "learning_rate": 0.1,
+      "max_depth": 8,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "objective": "reg:squarederror",
+      "booster": "gbtree",
+      "tree_method": "hist"
+    },
+    "lightgbm": {
+      "n_estimators": 250,
+      "learning_rate": 0.05,
+      "max_depth": 12,
+      "num_leaves": 128,
+      "subsample": 0.8,
+      "colsample_bytree": 0.9,
+      "objective": "regression",
+      "boosting_type": "gbdt"
+    },
+    "neural_network": {
+      "layers": [128, 64, 32],
+      "activation": "relu",
+      "dropout_rate": 0.3,
+      "learning_rate": 0.001,
+      "batch_size": 64,
+      "epochs": 100,
+      "early_stopping_patience": 15,
+      "optimizer": "adam"
+    }
+  },
+  
+  "pattern_mining": {
+    "apriori": {
+      "min_support": 0.03,
+      "min_confidence": 0.5,
+      "min_lift": 1.2,
+      "max_length": 5
+    },
+    "sequential_patterns": {
+      "consecutive_threshold": 2,
+      "gap_tolerance": 1,
+      "min_sequence_support": 0.02
+    },
+    "cluster_analysis": {
+      "n_clusters": [5, 10, 15],
+      "algorithm": "kmeans",
+      "distance_metric": "euclidean",
+      "max_iterations": 300
+    }
+  },
+  
+  "ensemble_methods": {
+    "voting": {
+      "estimators": ["frequency", "timeseries", "ml", "pattern"],
+      "weights": [0.3, 0.25, 0.3, 0.15],
+      "voting_type": "soft"
+    },
+    "stacking": {
+      "base_estimators": ["frequency", "timeseries", "ml", "pattern"],
+      "meta_estimator": "xgboost",
+      "cv_folds": 5
+    },
+    "boosting": {
+      "base_estimator": "decision_tree",
+      "n_estimators": 100,
+      "learning_rate": 0.1,
+      "algorithm": "adaboost"
+    }
+  },
+  
+  "feature_engineering": {
+    "statistical_features": ["mean", "median", "std", "skew", "kurtosis"],
+    "historical_features": ["last_occurrence", "frequency", "recency"],
+    "temporal_features": ["day_of_week", "month", "is_holiday", "seasons"],
+    "derived_features": ["odd_count", "even_count", "sum", "range", "prime_count"]
+  },
+  
+  "optimization": {
+    "hyperparameter_tuning": {
+      "framework": "optuna",
+      "n_trials": 100,
+      "timeout": 3600,
+      "pruner": "hyperband",
+      "sampler": "tpe"
+    },
+    "feature_selection": {
+      "method": "recursive",
+      "scoring": "neg_mean_squared_error",
+      "cv": 5,
+      "n_features_to_select": "auto"
+    },
+    "cross_validation": {
+      "method": "time_series_split",
+      "n_splits": 5,
+      "test_size": 0.2
+    }
+  },
+  
+  "system": {
+    "random_seed": 42,
+    "n_jobs": -1,
+    "verbose": 2,
+    "progress_bar": true,
+    "logging_level": "INFO",
+    "cache_results": true,
+    "cache_dir": "cache",
+    "gpu_acceleration": true
+  }
+} 

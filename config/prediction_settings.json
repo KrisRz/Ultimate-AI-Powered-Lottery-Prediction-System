@@ -1,0 +1,114 @@
+{
+  "number_selection": {
+    "main_numbers": {
+      "count": 5,
+      "range": [1, 50],
+      "consecutive_limit": 3,
+      "odd_even_ratio": [0.4, 0.6],
+      "sum_range": [100, 180]
+    },
+    "special_numbers": {
+      "count": 2,
+      "range": [1, 12],
+      "avoid_main_numbers": true
+    },
+    "constraints": {
+      "avoid_previous_winning_combinations": true,
+      "minimum_new_numbers": 2,
+      "maximum_consecutive_numbers": 3,
+      "maximum_same_decade_numbers": 3
+    }
+  },
+  
+  "combination_generation": {
+    "max_combinations": 50,
+    "unique_combinations_only": true,
+    "ensure_diversity": true,
+    "diversity_metrics": ["sum", "spread", "odd_even_ratio"],
+    "optimization_method": "genetic",
+    "batch_size": 10000
+  },
+  
+  "filtering": {
+    "historical_filters": {
+      "exclude_past_winning_combinations": true,
+      "exclude_repeated_combinations": true,
+      "minimum_distance_from_past_winners": 2
+    },
+    "numerical_filters": {
+      "sum_range": [100, 180],
+      "max_consecutive_numbers": 3,
+      "max_numbers_from_same_group": 3,
+      "group_size": 10
+    },
+    "statistical_filters": {
+      "cold_number_max_count": 2,
+      "hot_number_min_count": 1,
+      "pattern_match_threshold": 0.7
+    }
+  },
+  
+  "confidence_scoring": {
+    "score_ranges": {
+      "very_high": [0.85, 1.0],
+      "high": [0.7, 0.85],
+      "medium": [0.5, 0.7],
+      "low": [0.3, 0.5],
+      "very_low": [0.0, 0.3]
+    },
+    "minimum_confidence_threshold": 0.5,
+    "ensemble_aggregation": "weighted_average",
+    "normalization_method": "min_max",
+    "confidence_decay_rate": 0.95
+  },
+  
+  "output_formatting": {
+    "sort_by": "confidence",
+    "group_by": "pattern_similarity",
+    "highlight_threshold": 0.75,
+    "include_statistics": true,
+    "include_historical_analysis": true,
+    "include_confidence_metrics": true,
+    "detailed_explanation": true
+  },
+  
+  "validation": {
+    "cross_validation": {
+      "enabled": true,
+      "folds": 5,
+      "method": "time_series_split",
+      "test_ratio": 0.2
+    },
+    "performance_metrics": [
+      "numbers_matched",
+      "partial_win_rate",
+      "expected_value",
+      "roi",
+      "confidence_calibration"
+    ],
+    "backtesting": {
+      "window_size": 52,
+      "step_size": 1,
+      "min_training_size": 104
+    }
+  },
+  
+  "advanced_settings": {
+    "jackpot_size_influence": {
+      "enabled": true,
+      "threshold": 50000000,
+      "influence_factor": 0.2
+    },
+    "special_date_adjustment": {
+      "enabled": true,
+      "dates": ["01-01", "07-04", "12-25"],
+      "adjustment_factor": 0.1
+    },
+    "adaptive_learning": {
+      "enabled": true,
+      "adjustment_frequency": "weekly",
+      "learning_rate": 0.05,
+      "max_adjustment": 0.3
+    }
+  }
+} 

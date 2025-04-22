@@ -1,0 +1,31 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="lottery_provide1",
+    version="0.1",
+    packages=find_packages(),
+    install_requires=[
+        "numpy",
+        "pandas",
+        "scikit-learn",
+        "scipy",
+        "psutil",
+        "tqdm",
+        "xgboost",
+        "lightgbm",
+        "catboost",
+        "statsmodels",
+        "pmdarima",
+        "mlxtend",
+        "tensorflow",
+        "torch",
+        "prophet",
+        "neuralprophet",
+        "optuna",
+        "black",
+        "flake8",
+        "mypy",
+        "pytest",
+        "pytest-cov"
+    ],
+) 

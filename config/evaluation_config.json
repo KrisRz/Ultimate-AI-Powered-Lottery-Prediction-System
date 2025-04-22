@@ -1,0 +1,490 @@
+{
+  "evaluation_framework": {
+    "metrics": {
+      "accuracy_metrics": {
+        "exact_match": {
+          "enabled": true,
+          "description": "Number of exactly matching numbers in prediction vs actual draw",
+          "weight": 1.0
+        },
+        "partial_match": {
+          "enabled": true,
+          "description": "Partial matches with different thresholds (e.g., 3+ matching numbers)",
+          "thresholds": [1, 2, 3, 4, 5],
+          "weights": [0.1, 0.2, 0.4, 0.7, 0.9]
+        },
+        "sum_accuracy": {
+          "enabled": true,
+          "description": "How close the sum of predicted numbers is to the actual sum",
+          "error_tolerance": 10,
+          "weight": 0.3
+        },
+        "distance_metrics": {
+          "enabled": true,
+          "description": "Various distance metrics between predicted and actual number sets",
+          "metrics": [
+            {"name": "euclidean", "weight": 0.3},
+            {"name": "manhattan", "weight": 0.2},
+            {"name": "jaccard", "weight": 0.5}
+          ]
+        }
+      },
+      "statistical_metrics": {
+        "distribution_similarity": {
+          "enabled": true,
+          "description": "Compares distribution of predicted numbers to actual draws",
+          "tests": [
+            {"name": "ks_test", "weight": 0.4},
+            {"name": "chi_square", "weight": 0.6}
+          ]
+        },
+        "pattern_metrics": {
+          "enabled": true,
+          "description": "Evaluates common patterns in predictions vs actual draws",
+          "patterns": [
+            {"name": "even_odd_ratio", "weight": 0.2},
+            {"name": "high_low_ratio", "weight": 0.2},
+            {"name": "consecutive_numbers", "weight": 0.3},
+            {"name": "number_spread", "weight": 0.3}
+          ]
+        },
+        "entropy_metrics": {
+          "enabled": true,
+          "description": "Measures randomness and information content of predictions",
+          "methods": [
+            {"name": "shannon_entropy", "weight": 0.5},
+            {"name": "cross_entropy", "weight": 0.5}
+          ]
+        }
+      },
+      "financial_metrics": {
+        "expected_value": {
+          "enabled": true,
+          "description": "Expected monetary return based on predictions",
+          "weight": 0.8,
+          "include_jackpot": true
+        },
+        "risk_adjusted_return": {
+          "enabled": true,
+          "description": "Return adjusted for variance/risk",
+          "weight": 0.7,
+          "risk_aversion": 0.5
+        },
+        "roi_simulation": {
+          "enabled": true,
+          "description": "Simulated ROI over historical draws",
+          "weight": 1.0,
+          "simulation_runs": 1000,
+          "ticket_cost": 2.0,
+          "include_fees": true
+        },
+        "cost_benefit": {
+          "enabled": true,
+          "description": "Cost-benefit analysis of prediction strategy",
+          "weight": 0.6,
+          "ticket_strategies": [
+            {"name": "single_ticket", "weight": 0.3},
+            {"name": "top_5_combinations", "weight": 0.3},
+            {"name": "probability_weighted", "weight": 0.4}
+          ]
+        }
+      },
+      "time_series_metrics": {
+        "predictive_power": {
+          "enabled": true,
+          "description": "Measures if model can predict trends or shifts in drawing patterns",
+          "weight": 0.5,
+          "window_sizes": [5, 10, 20]
+        },
+        "seasonality_capture": {
+          "enabled": true,
+          "description": "Evaluates model's ability to capture seasonal patterns",
+          "weight": 0.4,
+          "periods": ["weekly", "monthly", "yearly"]
+        },
+        "autocorrelation": {
+          "enabled": true,
+          "description": "Analyzes autocorrelation in prediction errors",
+          "weight": 0.3,
+          "max_lag": 10
+        }
+      }
+    },
+    
+    "backtesting": {
+      "walk_forward": {
+        "enabled": true,
+        "description": "Walk-forward backtesting with expanding window",
+        "initial_train_size": 0.5,
+        "step_size": 10,
+        "retraining_frequency": 10,
+        "min_training_samples": 100
+      },
+      "sliding_window": {
+        "enabled": true,
+        "description": "Sliding window backtesting with fixed window size",
+        "window_size": 200,
+        "step_size": 10,
+        "retraining_frequency": 10
+      },
+      "monte_carlo": {
+        "enabled": true,
+        "description": "Monte Carlo simulation with bootstrapped samples",
+        "num_simulations": 100,
+        "sample_size": 0.8
+      },
+      "out_of_sample": {
+        "enabled": true,
+        "description": "Out-of-sample testing on most recent data",
+        "test_ratio": 0.2,
+        "min_test_samples": 50
+      }
+    },
+    
+    "validation": {
+      "cross_validation": {
+        "enabled": true,
+        "description": "K-fold cross-validation for model selection",
+        "n_splits": 5,
+        "random_state": 42,
+        "shuffle": true
+      },
+      "time_series_cv": {
+        "enabled": true,
+        "description": "Time series cross-validation with expanding window",
+        "n_splits": 5,
+        "max_train_size": null,
+        "test_size": 10
+      },
+      "group_kfold": {
+        "enabled": false,
+        "description": "Group K-fold for handling dependencies in data",
+        "n_splits": 5,
+        "grouping_column": "month"
+      }
+    },
+    
+    "evaluation_periods": {
+      "recent": {
+        "enabled": true,
+        "description": "Evaluation on most recent draws",
+        "n_draws": 20,
+        "weight": 0.5
+      },
+      "one_year": {
+        "enabled": true,
+        "description": "Evaluation on past year of draws",
+        "days": 365,
+        "weight": 0.3
+      },
+      "all_time": {
+        "enabled": true,
+        "description": "Evaluation on all historical data",
+        "weight": 0.2
+      },
+      "special_periods": {
+        "enabled": false,
+        "description": "Evaluation during specific periods (holidays, etc.)",
+        "periods": [
+          {"name": "christmas", "definition": "Dec 15-31", "weight": 0.1},
+          {"name": "summer", "definition": "Jun 1-Aug 31", "weight": 0.1}
+        ]
+      }
+    }
+  },
+  
+  "comparison_framework": {
+    "benchmarks": {
+      "random": {
+        "enabled": true,
+        "description": "Completely random number selection",
+        "num_simulations": 1000
+      },
+      "frequency": {
+        "enabled": true,
+        "description": "Selection based on historical frequency",
+        "lookback_period": "all"
+      },
+      "hot_numbers": {
+        "enabled": true,
+        "description": "Selection of most frequently drawn recent numbers",
+        "lookback_period": 20
+      },
+      "cold_numbers": {
+        "enabled": true,
+        "description": "Selection of least recently drawn numbers",
+        "lookback_period": 20
+      },
+      "previous_systems": {
+        "enabled": true,
+        "description": "Previous versions of the prediction system",
+        "versions": ["1.0.0", "2.0.0", "2.1.0"]
+      }
+    },
+    
+    "comparative_analysis": {
+      "statistical_tests": {
+        "enabled": true,
+        "tests": [
+          {"name": "t_test", "alpha": 0.05},
+          {"name": "wilcoxon", "alpha": 0.05},
+          {"name": "mcnemar", "alpha": 0.05}
+        ]
+      },
+      "effect_size": {
+        "enabled": true,
+        "metrics": [
+          {"name": "cohen_d", "threshold": 0.2},
+          {"name": "hedges_g", "threshold": 0.2}
+        ]
+      },
+      "win_rate": {
+        "enabled": true,
+        "description": "Direct comparison of success rates between models",
+        "metrics": ["exact_match", "partial_match", "roi"]
+      }
+    },
+    
+    "ablation_studies": {
+      "feature_groups": {
+        "enabled": true,
+        "description": "Evaluating importance of feature groups",
+        "groups": [
+          "frequency_features",
+          "temporal_features",
+          "pattern_features",
+          "contextual_features"
+        ]
+      },
+      "model_components": {
+        "enabled": true,
+        "description": "Evaluating importance of model components",
+        "components": [
+          "statistical_models",
+          "classical_ml",
+          "deep_learning",
+          "pattern_recognition"
+        ]
+      },
+      "data_time_periods": {
+        "enabled": true,
+        "description": "Evaluating importance of different historical periods",
+        "periods": [
+          {"name": "recent_only", "years": 1},
+          {"name": "medium_term", "years": 5},
+          {"name": "all_time", "years": null}
+        ]
+      }
+    }
+  },
+  
+  "reporting": {
+    "automated_reports": {
+      "enabled": true,
+      "frequency": "weekly",
+      "formats": ["html", "json", "pdf"],
+      "recipients": ["system_admin", "data_science_team"]
+    },
+    
+    "visualizations": {
+      "performance_over_time": {
+        "enabled": true,
+        "description": "Charts showing model performance trends",
+        "metrics": ["exact_match", "partial_match", "roi"],
+        "aggregation": "weekly"
+      },
+      "model_comparison": {
+        "enabled": true,
+        "description": "Visual comparison between models and benchmarks",
+        "chart_types": ["bar", "radar", "heatmap"]
+      },
+      "prediction_analysis": {
+        "enabled": true,
+        "description": "Visual analysis of prediction patterns",
+        "visualizations": [
+          {"name": "number_frequency", "type": "bar"},
+          {"name": "pattern_heatmap", "type": "heatmap"},
+          {"name": "consecutive_pairs", "type": "network"}
+        ]
+      },
+      "error_analysis": {
+        "enabled": true,
+        "description": "Visualization of prediction errors and patterns",
+        "visualizations": [
+          {"name": "error_distribution", "type": "histogram"},
+          {"name": "error_by_number", "type": "bar"},
+          {"name": "error_heatmap", "type": "heatmap"}
+        ]
+      }
+    },
+    
+    "interactive_dashboards": {
+      "enabled": true,
+      "description": "Interactive dashboards for exploring results",
+      "framework": "streamlit",
+      "components": [
+        {"name": "model_performance", "enabled": true},
+        {"name": "prediction_explorer", "enabled": true},
+        {"name": "feature_importance", "enabled": true},
+        {"name": "historical_analysis", "enabled": true},
+        {"name": "roi_calculator", "enabled": true}
+      ],
+      "access_control": {
+        "enabled": true,
+        "roles": ["admin", "analyst", "viewer"]
+      }
+    }
+  },
+  
+  "monitoring": {
+    "real_time_evaluation": {
+      "enabled": true,
+      "description": "Evaluation of predictions as new draws occur",
+      "metrics": ["exact_match", "partial_match", "roi"],
+      "alert_thresholds": {
+        "consecutive_misses": 5,
+        "performance_drop": 0.2
+      }
+    },
+    
+    "drift_detection": {
+      "data_drift": {
+        "enabled": true,
+        "description": "Monitoring for changes in draw distributions",
+        "methods": [
+          {"name": "ks_test", "threshold": 0.05},
+          {"name": "psi", "threshold": 0.2}
+        ],
+        "check_frequency": "weekly"
+      },
+      "concept_drift": {
+        "enabled": true,
+        "description": "Monitoring for changes in underlying patterns",
+        "methods": [
+          {"name": "ddm", "threshold": 0.05},
+          {"name": "adwin", "threshold": 0.05}
+        ],
+        "check_frequency": "weekly"
+      },
+      "performance_drift": {
+        "enabled": true,
+        "description": "Monitoring for changes in model performance",
+        "metrics": ["exact_match", "partial_match", "roi"],
+        "window_size": 20,
+        "threshold": 0.15,
+        "check_frequency": "weekly"
+      }
+    },
+    
+    "alerting": {
+      "channels": {
+        "email": {
+          "enabled": true,
+          "recipients": ["system_admin", "data_science_team"]
+        },
+        "sms": {
+          "enabled": false,
+          "recipients": ["system_admin"]
+        },
+        "dashboard": {
+          "enabled": true
+        },
+        "api_webhook": {
+          "enabled": false,
+          "endpoint": "https://api.example.com/alerts"
+        }
+      },
+      "severity_levels": {
+        "critical": {
+          "description": "Severe issues requiring immediate attention",
+          "channels": ["email", "sms", "dashboard"]
+        },
+        "warning": {
+          "description": "Potential issues to monitor",
+          "channels": ["email", "dashboard"]
+        },
+        "info": {
+          "description": "Informational alerts",
+          "channels": ["dashboard"]
+        }
+      },
+      "alert_types": {
+        "performance_drop": {
+          "enabled": true,
+          "description": "Alert when performance drops below threshold",
+          "threshold": 0.2,
+          "severity": "warning"
+        },
+        "consecutive_misses": {
+          "enabled": true,
+          "description": "Alert on multiple consecutive prediction misses",
+          "threshold": 5,
+          "severity": "warning"
+        },
+        "drift_detected": {
+          "enabled": true,
+          "description": "Alert when data or concept drift detected",
+          "severity": "warning"
+        },
+        "system_failure": {
+          "enabled": true,
+          "description": "Alert on prediction system failures",
+          "severity": "critical"
+        }
+      }
+    }
+  },
+  
+  "continuous_improvement": {
+    "feedback_loops": {
+      "automatic_retraining": {
+        "enabled": true,
+        "description": "Automatically retrain models based on evaluation metrics",
+        "triggers": [
+          {"metric": "exact_match", "threshold": 0.15, "operator": "below", "consecutive_periods": 3},
+          {"metric": "drift_detected", "value": true}
+        ],
+        "retraining_scope": ["affected_models", "full_pipeline"]
+      },
+      "performance_based_weighting": {
+        "enabled": true,
+        "description": "Dynamically adjust model weights based on performance",
+        "update_frequency": "weekly",
+        "metrics": ["exact_match", "partial_match", "roi"],
+        "lookback_periods": 10,
+        "min_weight": 0.1,
+        "max_weight": 0.5
+      },
+      "adaptive_feature_selection": {
+        "enabled": true,
+        "description": "Dynamically adjust feature selection based on importance",
+        "update_frequency": "monthly",
+        "importance_threshold": 0.05,
+        "max_features": 50
+      }
+    },
+    
+    "a_b_testing": {
+      "enabled": true,
+      "description": "Framework for testing model improvements",
+      "test_allocation": {
+        "control": 0.5,
+        "variant": 0.5
+      },
+      "min_sample_size": 20,
+      "significance_level": 0.05,
+      "metrics": ["exact_match", "partial_match", "roi"]
+    },
+    
+    "meta_learning": {
+      "enabled": false,
+      "description": "Learning which models perform best in different contexts",
+      "contexts": [
+        {"name": "jackpot_size", "bins": [10000000, 50000000, 100000000]},
+        {"name": "day_of_week", "bins": ["weekday", "weekend"]},
+        {"name": "trend_direction", "bins": ["increasing", "decreasing", "stable"]}
+      ],
+      "update_frequency": "monthly"
+    }
+  }
+} 

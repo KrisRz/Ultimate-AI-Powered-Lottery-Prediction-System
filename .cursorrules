@@ -1,0 +1,32 @@
+# Project Rules for Cursor AI
+
+## 🧠 Project Description
+This is a highly advanced data analysis and lottery number prediction system written in Python. It leverages classical machine learning, deep learning, time-series forecasting, and ensemble methods to predict the most likely winning numbers in national lottery draws.
+
+## ⚙️ Technologies Used
+
+**Languages & Environment**
+- Python 3.11+
+
+**Core Libraries**
+- `numpy`, `pandas`, `scikit-learn`, `scipy`
+- `psutil`, `tqdm` for system monitoring and progress feedback
+
+**Machine Learning Models**
+- `xgboost`, `lightgbm`, `catboost`
+- `statsmodels`, `pmdarima` for statistical models (ARIMA, SARIMAX)
+- `mlxtend` for frequent pattern mining (Apriori)
+
+**Deep Learning**
+- `tensorflow` (LSTM, CNN-LSTM, autoencoder)
+- `torch` (PyTorch models planned/experimental)
+
+**Time-Series Forecasting**
+- `prophet` (Facebook Prophet)
+- `neuralprophet` (deep learning-based Prophet variant)
+
+**Optimization & Automation**
+- `optuna` for hyperparameter optimization
+
+**Code Quality**
+- `black`, `flake8`, `mypy`, `pytest`, `pytest-cov`
