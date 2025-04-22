@@ -26,7 +26,7 @@ data/output/
 *.csv
 
 # Ignorowanie plików modeli ML
-models/
+
 *.h5
 *.pkl
 
