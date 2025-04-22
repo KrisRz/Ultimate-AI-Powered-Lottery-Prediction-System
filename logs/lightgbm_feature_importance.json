@@ -1,0 +1,74 @@
+[
+  {
+    "feature_8": 0.0,
+    "feature_10": 1.0,
+    "feature_13": 5.0,
+    "feature_20": 5.0,
+    "feature_2": 5.0,
+    "feature_9": 9.0,
+    "feature_19": 10.0,
+    "feature_12": 16.0,
+    "feature_17": 24.0,
+    "feature_16": 25.0
+  },
+  {
+    "feature_18": 2.0,
+    "feature_11": 3.0,
+    "feature_6": 4.0,
+    "feature_2": 4.0,
+    "feature_16": 4.0,
+    "feature_20": 8.0,
+    "feature_17": 10.0,
+    "feature_19": 12.0,
+    "feature_10": 12.0,
+    "feature_22": 38.0
+  },
+  {
+    "feature_16": 1.0,
+    "feature_24": 1.0,
+    "feature_10": 1.0,
+    "feature_20": 4.0,
+    "feature_9": 5.0,
+    "feature_19": 9.0,
+    "feature_12": 10.0,
+    "feature_18": 15.0,
+    "feature_2": 17.0,
+    "feature_13": 36.0
+  },
+  {
+    "feature_20": 1.0,
+    "feature_19": 1.0,
+    "feature_16": 2.0,
+    "feature_9": 2.0,
+    "feature_13": 3.0,
+    "feature_21": 7.0,
+    "feature_22": 7.0,
+    "feature_12": 10.0,
+    "feature_18": 14.0,
+    "feature_17": 53.0
+  },
+  {
+    "feature_11": 2.0,
+    "feature_23": 7.0,
+    "feature_3": 7.0,
+    "feature_2": 8.0,
+    "feature_10": 10.0,
+    "feature_16": 10.0,
+    "feature_22": 10.0,
+    "feature_9": 11.0,
+    "feature_17": 11.0,
+    "feature_19": 22.0
+  },
+  {
+    "feature_18": 3.0,
+    "feature_9": 4.0,
+    "feature_23": 5.0,
+    "feature_19": 6.0,
+    "feature_22": 6.0,
+    "feature_13": 8.0,
+    "feature_2": 8.0,
+    "feature_17": 9.0,
+    "feature_12": 18.0,
+    "feature_16": 25.0
+  }
+]

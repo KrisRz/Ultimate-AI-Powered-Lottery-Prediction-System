@@ -3,8 +3,11 @@
 Thumbs.db
 
 # Ignorowanie plików środowiska wirtualnego
+.venv/
 venv/
 env/
+lottery_env/
+
 *.pyc
 __pycache__/
 *.pyo

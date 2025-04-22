@@ -1,0 +1,745 @@
+[
+  {
+    "timestamp": "2025-04-22T13:37:01.694144",
+    "data_shape": {
+      "rows": 0,
+      "columns": []
+    },
+    "checks": {},
+    "errors": [
+      "Empty dataframe - no data to validate"
+    ],
+    "warnings": [],
+    "fixes_applied": []
+  },
+  {
+    "timestamp": "2025-04-22T13:37:01.702758",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [],
+    "warnings": [],
+    "fixes_applied": []
+  },
+  {
+    "timestamp": "2025-04-22T13:37:01.710627",
+    "data_shape": {
+      "rows": 3,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [
+          "Failed to convert 1 values to datetime"
+        ],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [
+          "Found 1 invalid values: ['Invalid']"
+        ],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [
+          "Found 1 values with invalid format. Examples: ['invalid']",
+          "Row 1: Invalid Balls format 'invalid' (couldn't fix)",
+          "Row 2: Bonus number 1 should not be in main numbers [1, 1, 1, 1, 1, 1]"
+        ],
+        "warnings": [
+          "Row 2: Main numbers contain duplicates: [1, 1, 1, 1, 1, 1]"
+        ],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [
+          "Found 1 values with invalid format. Examples: ['invalid']"
+        ],
+        "warnings": [],
+        "fixes": [
+          "Fixed 1 invalid jackpot values"
+        ]
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [
+          "Row 1: Main_Numbers must have exactly 6 values, got 1 (incorrect length)",
+          "Row 2: Bonus number 1 must not be in Main_Numbers"
+        ],
+        "warnings": [
+          "Row 2: Main_Numbers contains duplicates"
+        ],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Set 1 values above maximum to 59"
+        ]
+      },
+      "consistency": {
+        "errors": [
+          "Required column Draw Date has 1 missing values"
+        ],
+        "warnings": [
+          "Draw Date is not chronological at indices: []"
+        ]
+      }
+    },
+    "errors": [
+      "Winners: Found 1 values below minimum 0",
+      "Draw Date: Failed to convert 1 values to datetime",
+      "Day: Found 1 invalid values: ['Invalid']",
+      "Balls: Found 1 values with invalid format. Examples: ['invalid']",
+      "Balls: Row 1: Invalid Balls format 'invalid' (couldn't fix)",
+      "Balls: Row 2: Bonus number 1 should not be in main numbers [1, 1, 1, 1, 1, 1]",
+      "Jackpot: Found 1 values with invalid format. Examples: ['invalid']",
+      "Main_Numbers: Row 1: Main_Numbers must have exactly 6 values, got 1 (incorrect length)",
+      "Main_Numbers: Row 2: Bonus number 1 must not be in Main_Numbers",
+      "Consistency: Required column Draw Date has 1 missing values"
+    ],
+    "warnings": [
+      "Balls: Row 2: Main numbers contain duplicates: [1, 1, 1, 1, 1, 1]",
+      "Main_Numbers: Row 2: Main_Numbers contains duplicates",
+      "Consistency: Draw Date is not chronological at indices: []"
+    ],
+    "fixes_applied": [
+      "Winners: Set 1 invalid values to 0",
+      "Draw Details: Filled 1 missing values",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Jackpot: Fixed 1 invalid jackpot values",
+      "Bonus: Set 1 values above maximum to 59"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:01.721237",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [],
+    "warnings": [],
+    "fixes_applied": []
+  },
+  {
+    "timestamp": "2025-04-22T13:37:01.733858",
+    "data_shape": {
+      "rows": 1,
+      "columns": [
+        "Balls"
+      ]
+    },
+    "checks": {
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Jackpot', 'Draw Details', 'Winners', 'Draw Date', 'Day'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:08.975348",
+    "data_shape": {
+      "rows": 50,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus_Number",
+        "DayOfWeek",
+        "Month",
+        "Year",
+        "Sum",
+        "Mean",
+        "Unique",
+        "ZScore_Sum",
+        "Primes",
+        "Odds",
+        "Gaps",
+        "Freq_10",
+        "Freq_20",
+        "Freq_50",
+        "Pair_Freq",
+        "Triplet_Freq"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": [
+          "Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+        ]
+      }
+    },
+    "errors": [],
+    "warnings": [
+      "Extra columns found that are not in validation rules: {'Mean', 'Month', 'Freq_20', 'Sum', 'Triplet_Freq', 'Odds', 'Bonus_Number', 'Primes', 'Pair_Freq', 'Unique', 'DayOfWeek', 'ZScore_Sum', 'Gaps', 'Year', 'Freq_50', 'Freq_10'}",
+      "Consistency: Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:09.102424",
+    "data_shape": {
+      "rows": 50,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus_Number",
+        "DayOfWeek",
+        "Month",
+        "Year",
+        "Sum",
+        "Mean",
+        "Unique",
+        "ZScore_Sum",
+        "Primes",
+        "Odds",
+        "Gaps",
+        "Freq_10",
+        "Freq_20",
+        "Freq_50",
+        "Pair_Freq",
+        "Triplet_Freq"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": [
+          "Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+        ]
+      }
+    },
+    "errors": [],
+    "warnings": [
+      "Extra columns found that are not in validation rules: {'Mean', 'Month', 'Freq_20', 'Sum', 'Triplet_Freq', 'Odds', 'Bonus_Number', 'Primes', 'Pair_Freq', 'Unique', 'DayOfWeek', 'ZScore_Sum', 'Gaps', 'Year', 'Freq_50', 'Freq_10'}",
+      "Consistency: Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:09.296525",
+    "data_shape": {
+      "rows": 50,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus_Number",
+        "DayOfWeek",
+        "Month",
+        "Year",
+        "Sum",
+        "Mean",
+        "Unique",
+        "ZScore_Sum",
+        "Primes",
+        "Odds",
+        "Gaps",
+        "Freq_10",
+        "Freq_20",
+        "Freq_50",
+        "Pair_Freq",
+        "Triplet_Freq"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": [
+          "Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+        ]
+      }
+    },
+    "errors": [],
+    "warnings": [
+      "Extra columns found that are not in validation rules: {'Mean', 'Month', 'Freq_20', 'Sum', 'Triplet_Freq', 'Odds', 'Bonus_Number', 'Primes', 'Pair_Freq', 'Unique', 'DayOfWeek', 'ZScore_Sum', 'Gaps', 'Year', 'Freq_50', 'Freq_10'}",
+      "Consistency: Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:09.425821",
+    "data_shape": {
+      "rows": 50,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus_Number",
+        "DayOfWeek",
+        "Month",
+        "Year",
+        "Sum",
+        "Mean",
+        "Unique",
+        "ZScore_Sum",
+        "Primes",
+        "Odds",
+        "Gaps",
+        "Freq_10",
+        "Freq_20",
+        "Freq_50",
+        "Pair_Freq",
+        "Triplet_Freq"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": [
+          "Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+        ]
+      }
+    },
+    "errors": [],
+    "warnings": [
+      "Extra columns found that are not in validation rules: {'Mean', 'Month', 'Freq_20', 'Sum', 'Triplet_Freq', 'Odds', 'Bonus_Number', 'Primes', 'Pair_Freq', 'Unique', 'DayOfWeek', 'ZScore_Sum', 'Gaps', 'Year', 'Freq_50', 'Freq_10'}",
+      "Consistency: Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)"
+    ]
+  },
+  {
+    "timestamp": "2025-04-22T13:37:09.556163",
+    "data_shape": {
+      "rows": 50,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus_Number",
+        "DayOfWeek",
+        "Month",
+        "Year",
+        "Sum",
+        "Mean",
+        "Unique",
+        "ZScore_Sum",
+        "Primes",
+        "Odds",
+        "Gaps",
+        "Freq_10",
+        "Freq_20",
+        "Freq_50",
+        "Pair_Freq",
+        "Triplet_Freq"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": [
+          "Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+        ]
+      }
+    },
+    "errors": [],
+    "warnings": [
+      "Extra columns found that are not in validation rules: {'Mean', 'Month', 'Freq_20', 'Sum', 'Triplet_Freq', 'Odds', 'Bonus_Number', 'Primes', 'Pair_Freq', 'Unique', 'DayOfWeek', 'ZScore_Sum', 'Gaps', 'Year', 'Freq_50', 'Freq_10'}",
+      "Consistency: Day of week doesn't match Draw Date for 50 rows: indices [0, 1, 2, 3, 4]..."
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)"
+    ]
+  }
+]

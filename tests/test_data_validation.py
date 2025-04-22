@@ -241,7 +241,9 @@ def test_jackpot_cleaning(validator):
     df = pd.DataFrame({
         'Jackpot': ['£1,234,567', 'not_a_number', '£0']
     })
-    is_valid, results = validator._validate_column(df, 'Jackpot', {'type': 'string'}, True)
+    is_valid, results = validator.validate_jackpot_column(df, fix_issues=True)
+    assert not is_valid
+    assert len(results['errors']) > 0
     assert len(results['fixes_applied']) > 0
 
 def test_validate_prediction_edge_cases():

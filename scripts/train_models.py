@@ -24,7 +24,7 @@ except ImportError:
             return True
 
 # Import data preparation functions
-from fetch_data import load_data, prepare_training_data, prepare_feature_data, prepare_sequence_data
+from .fetch_data import load_data, prepare_training_data, prepare_feature_data, prepare_sequence_data
 
 # Import model training functions
 try:
