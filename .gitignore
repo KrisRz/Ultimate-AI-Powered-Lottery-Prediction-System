@@ -49,3 +49,48 @@ __pycache__/
 *.pyc
 .DS_Store
 .venv/
+
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+.venv/
+venv/
+env/
+lottery_env/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Output data
+data/output/
+*.csv
+
+# ML models
+models/
+*.h5
+*.pkl
+
+# Build artifacts
+*.egg-info/
+*.whl
+
+# User-specific files
+jakStart.html
+Ultimate AI-Powered Lottery Prediction System!_POL.txt
+
+# Git-related
+.git/
