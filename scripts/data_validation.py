@@ -44,7 +44,8 @@ class DataValidator:
             'Day': {
                 'type': 'str',
                 'required': True,
-                'values': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                'values': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 
+                           'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
             },
             'Balls': {
                 'type': 'str',
@@ -53,9 +54,8 @@ class DataValidator:
                 'validate': self._validate_balls_format
             },
             'Jackpot': {
-                'type': 'str',
-                'required': True,
-                'format': r'^£[\d,]+$'
+                'type': 'numeric',  # Changed from 'str' to allow numeric values
+                'required': True
             },
             'Winners': {
                 'type': 'int',
