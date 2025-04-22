@@ -1,56 +1,3 @@
-# Ignorowanie plików konfiguracyjnych systemowych
-.DS_Store
-Thumbs.db
-
-# Ignorowanie plików środowiska wirtualnego
-.venv/
-venv/
-env/
-lottery_env/
-
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-
-# Ignorowanie logów i plików tymczasowych
-*.log
-*.tmp
-*.swp
-
-# Ignorowanie plików Jupyter Notebook checkpoint
-.ipynb_checkpoints/
-
-# Ignorowanie danych wynikowych
-data/output/
-*.csv
-
-# Ignorowanie plików modeli ML
-
-*.h5
-*.pkl
-
-# Ignorowanie plików z bibliotekami
-*.egg-info/
-*.whl
-
-# Ignorowanie prywatnych plików użytkownika
-jakStart.html
-Ultimate AI-Powered Lottery Prediction System!_POL.txt
-
-# Ignorowanie plików związanych z Git
-.git/
-
-# Ignorowanie wirtualnego środowiska
-lottery_env/
-
-# Ignorowanie plików tymczasowych
-__pycache__/
-*.pyc
-.DS_Store
-.venv/
-
-
 # System files
 .DS_Store
 Thumbs.db
@@ -80,7 +27,6 @@ data/output/
 *.csv
 
 # ML models
-models/
 *.h5
 *.pkl
 
@@ -90,7 +36,7 @@ models/
 
 # User-specific files
 jakStart.html
-Ultimate AI-Powered Lottery Prediction System!_POL.txt
+"Ultimate AI-Powered Lottery Prediction System!_POL.txt"
 
 # Git-related
 .git/
