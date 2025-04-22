@@ -1,4 +1,4 @@
-from .predict_numbers import (
+from scripts.predict_numbers import (
     predict_next_draw,
     ensemble_prediction,
     predict_with_model,
@@ -12,20 +12,20 @@ from .predict_numbers import (
     import_prediction_function
 )
 
-from .train_models import (
+from scripts.train_models import (
     train_model,
     validate_model_predictions,
     train_all_models,
     load_trained_models
 )
 
-from .fetch_data import (
+from scripts.fetch_data import (
     load_data,
     prepare_training_data,
     split_data
 )
 
-from .analyze_data import (
+from scripts.analyze_data import (
     analyze_lottery_data
 )
 

@@ -8,36 +8,20 @@ from typing import Dict, Any, Optional
 
 # Add scripts directory to path for imports
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'scripts'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    # Try importing from scripts directory first
+    # Try direct imports first
     from scripts.utils import setup_logging
     from scripts.fetch_data import load_data
     from scripts.data_validation import DataValidator
     from scripts.train_models import train_all_models, load_trained_models
     from scripts.predict_next_draw import validate_and_save_predictions, format_predictions_for_display
-except ImportError:
-    try:
-        # Try direct imports without 'scripts.' prefix
-        from utils import setup_logging
-        from fetch_data import load_data
-        from data_validation import DataValidator
-        from train_models import train_all_models, load_trained_models
-        from predict_next_draw import validate_and_save_predictions, format_predictions_for_display
-    except ImportError:
-        try:
-            # Last resort - try importing utils directly from scripts
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
-            from utils import setup_logging
-            from fetch_data import load_data
-            from data_validation import DataValidator
-            from train_models import train_all_models, load_trained_models
-            from predict_next_draw import validate_and_save_predictions, format_predictions_for_display
-        except ImportError as e:
-            print(f"Error importing modules: {e}")
-            print("Please make sure you're running from the project root directory")
-            sys.exit(1)
+    from scripts.predict_numbers import predict_next_draw
+except ImportError as e:
+    print(f"Error importing modules: {e}")
+    print("Please make sure you're running from the project root directory")
+    sys.exit(1)
 
 # Configure logging
 setup_logging()
@@ -175,17 +159,6 @@ def main(retrain: str = 'no', data_path: str = str(DATA_PATH),
         logger.info(f"Generating {n_predictions} predictions...")
         
         try:
-            # Try different import strategies for predict_numbers
-            try:
-                from scripts.predict_numbers import predict_next_draw
-            except ImportError:
-                try:
-                    from predict_numbers import predict_next_draw
-                except ImportError:
-                    # Last resort - relative path
-                    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
-                    from predict_numbers import predict_next_draw
-            
             # Generate predictions using predict_numbers.py
             predictions = predict_next_draw(models, data, n_predictions=n_predictions)
             

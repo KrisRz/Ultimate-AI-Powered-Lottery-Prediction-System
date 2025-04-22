@@ -7,18 +7,14 @@ import json
 from pathlib import Path
 import time
 import traceback
-from .performance_tracking import get_model_weights
-from .predict_numbers import (
-    predict_lstm, predict_arima, predict_holt_winters, predict_linear_models,
-    predict_xgboost, predict_lightgbm, predict_knn, predict_gradient_boosting,
-    predict_autoencoder, predict_cnn_lstm, predict_catboost, predict_meta_model
-)
+from scripts.performance_tracking import get_model_weights
+from scripts.model_bridge import predict_with_model
 
 # Try to import from project modules
 try:
-    from utils import setup_logging
-    from data_validation import validate_prediction
-    from performance_tracking import calculate_metrics
+    from scripts.utils import setup_logging
+    from scripts.data_validation import validate_prediction
+    from scripts.performance_tracking import calculate_metrics
 except ImportError:
     # Default implementations if imports fail
     def setup_logging():
@@ -63,31 +59,13 @@ def generate_next_draw_predictions(
         ensemble_prediction = np.zeros(n_numbers)
         
         for model_name, model in models.items():
-            if model_name == 'lstm':
-                pred = predict_lstm(model, last_data)
-            elif model_name == 'arima':
-                pred = predict_arima(model, last_data)
-            elif model_name == 'holt_winters':
-                pred = predict_holt_winters(model, last_data)
-            elif model_name == 'linear':
-                pred = predict_linear_models(model, last_data)
-            elif model_name == 'xgboost':
-                pred = predict_xgboost(model, last_data)
-            elif model_name == 'lightgbm':
-                pred = predict_lightgbm(model, last_data)
-            elif model_name == 'knn':
-                pred = predict_knn(model, last_data)
-            elif model_name == 'gradient_boosting':
-                pred = predict_gradient_boosting(model, last_data)
-            elif model_name == 'autoencoder':
-                pred = predict_autoencoder(model, last_data)
-            elif model_name == 'cnn_lstm':
-                pred = predict_cnn_lstm(model, last_data)
-            elif model_name == 'catboost':
-                pred = predict_catboost(model, last_data)
+            # Use the predict_with_model function to get prediction for this model
+            pred = predict_with_model(model_name, model, last_data)
+            pred = np.array(pred)  # Convert to numpy array
             
             # Apply model weight
-            ensemble_prediction += pred * weights.get(model_name, 0)
+            model_weight = weights.get(model_name, 0)
+            ensemble_prediction += pred * model_weight
         
         # Round and clip predictions
         numbers = np.round(ensemble_prediction).astype(int)
@@ -416,7 +394,7 @@ if __name__ == "__main__":
     # Example usage when run directly
     try:
         import argparse
-        from fetch_data import load_data
+        from scripts.fetch_data import load_data
         
         # Parse command line arguments
         parser = argparse.ArgumentParser(description='Process lottery predictions')

@@ -14,7 +14,7 @@ import importlib
 
 # Import compatibility functions from model_bridge
 try:
-    from .model_bridge import (
+    from scripts.model_bridge import (
         ensure_valid_prediction,
         import_prediction_function,
         predict_with_model,
@@ -35,9 +35,10 @@ except ImportError as e:
 
 # Try to import from utils and other modules
 try:
-    from utils import setup_logging
-    from data_validation import validate_prediction
-    from analyze_data import get_prediction_weights
+    from scripts.utils import setup_logging
+    from scripts.data_validation import validate_prediction
+    from scripts.analyze_data import get_prediction_weights
+    from scripts.performance_tracking import get_model_weights
 except ImportError:
     # Default implementation if imports fail
     def setup_logging():
@@ -67,6 +68,23 @@ except ImportError:
                 'cold_numbers': {}
             }
         }
+    
+    def get_model_weights(models):
+        """Default implementation if performance_tracking module is not available"""
+        default_weights = {
+            'lstm': 0.15,
+            'holtwinters': 0.10,
+            'linear': 0.05,
+            'xgboost': 0.15,
+            'lightgbm': 0.15,
+            'knn': 0.05,
+            'gradient_boosting': 0.10,
+            'catboost': 0.10,
+            'cnn_lstm': 0.10,
+            'autoencoder': 0.05,
+            'meta': 0.00  # Meta model is used separately
+        }
+        return {model: default_weights.get(model, 1.0/len(models)) for model in models}
 
 # If the import failed, use the fallback
 if 'get_prediction_weights' not in globals():
@@ -312,64 +330,6 @@ if not IMPORTED_FROM_BRIDGE:
             logger.error(f"Error in ensemble prediction: {str(e)}")
             logger.debug(traceback.format_exc())
             return [ensure_valid_prediction([]) for _ in range(prediction_count)]
-
-    def get_model_weights(models: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Get weights for each model based on their historical performance.
-        Placeholder for more sophisticated model weighting.
-        
-        Args:
-            models: Dictionary of model objects
-            
-        Returns:
-            Dictionary of model weights
-        """
-        try:
-            # Default weights if performance data isn't available
-            default_weights = {
-                'lstm': 0.15,
-                'holtwinters': 0.10,
-                'linear': 0.05,
-                'xgboost': 0.15,
-                'lightgbm': 0.15,
-                'knn': 0.05,
-                'gradient_boosting': 0.10,
-                'catboost': 0.10,
-                'cnn_lstm': 0.10,
-                'autoencoder': 0.05,
-                'meta': 0.00  # Meta model is used separately
-            }
-            
-            # Try to load performance data
-            try:
-                performance_file = Path('results/model_performance.json')
-                if performance_file.exists():
-                    with open(performance_file, 'r') as f:
-                        performance = json.load(f)
-                    
-                    # Extract accuracy metrics
-                    weights = {}
-                    for model_name in models.keys():
-                        if model_name in performance:
-                            # Use accuracy as weight, with minimum of 0.01
-                            weights[model_name] = max(performance[model_name].get('accuracy', 0), 0.01)
-                        else:
-                            weights[model_name] = default_weights.get(model_name, 0.05)
-                    
-                    # Normalize weights to sum to 1
-                    total = sum(weights.values())
-                    if total > 0:
-                        return {k: v/total for k, v in weights.items()}
-                
-                return default_weights
-                
-            except Exception as e:
-                logger.warning(f"Error loading model performance data: {str(e)}")
-                return default_weights
-        
-        except Exception as e:
-            logger.error(f"Error getting model weights: {str(e)}")
-            return {model: 1.0 / len(models) for model in models}
 
     def predict_next_draw(models: Dict[str, Any], data: pd.DataFrame, n_predictions: int = 10) -> List[List[int]]:
         """
