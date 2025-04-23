@@ -74,7 +74,7 @@ def create_sequential_training_data(data: np.ndarray, look_back: int = 5) -> Tup
     return np.array(X_seq), np.array(y_seq)
 
 @log_training_errors
-def train_autoencoder_model(X_train, y_train=None, look_back=5, epochs=100, batch_size=32):
+def train_autoencoder_model(X_train, y_train=None, look_back=5, epochs=50, batch_size=32):
     """
     Train an autoencoder model to predict the next 6 numbers
     
@@ -97,23 +97,39 @@ def train_autoencoder_model(X_train, y_train=None, look_back=5, epochs=100, batc
         if len(X_train.shape) < 2:
             raise ValueError(f"X_train must be at least 2D, got shape {X_train.shape}")
         
-        # If y_train is None, create sequential training data
-        if y_train is None:
-            if X_train.shape[1] == 6:  # Each row is a draw with 6 numbers
-                logging.info(f"Creating sequential training data with look_back={look_back}")
-                X_seq, y_seq = create_sequential_training_data(X_train, look_back)
+        # Handle 3D input (reshape to 2D)
+        if len(X_train.shape) == 3:
+            logging.info(f"Reshaping 3D input with shape {X_train.shape} to 2D for autoencoder")
+            # Reshape from (samples, timesteps, features) to (samples, timesteps*features)
+            samples = X_train.shape[0]
+            X_train_flat = X_train.reshape(samples, -1)
+            X_seq = X_train_flat
+            
+            # If y_train is None, we can't proceed
+            if y_train is None:
+                raise ValueError("When providing 3D input, y_train must be specified")
             else:
-                raise ValueError(f"When y_train is None, X_train must have 6 columns (got {X_train.shape[1]})")
+                if not isinstance(y_train, np.ndarray):
+                    y_train = np.array(y_train)
+                y_seq = y_train
         else:
-            # User provided explicit X_train and y_train
-            if not isinstance(y_train, np.ndarray):
-                y_train = np.array(y_train)
-            
-            # Check shapes
-            if y_train.shape[1] != 6:
-                raise ValueError(f"y_train must have 6 columns, got {y_train.shape[1]}")
-            
-            X_seq, y_seq = X_train, y_train
+            # If y_train is None, create sequential training data
+            if y_train is None:
+                if X_train.shape[1] == 6:  # Each row is a draw with 6 numbers
+                    logging.info(f"Creating sequential training data with look_back={look_back}")
+                    X_seq, y_seq = create_sequential_training_data(X_train, look_back)
+                else:
+                    raise ValueError(f"When y_train is None, X_train must have 6 columns (got {X_train.shape[1]})")
+            else:
+                # User provided explicit X_train and y_train
+                if not isinstance(y_train, np.ndarray):
+                    y_train = np.array(y_train)
+                
+                # Check shapes
+                if y_train.shape[1] != 6:
+                    raise ValueError(f"y_train must have 6 columns, got {y_train.shape[1]}")
+                
+                X_seq, y_seq = X_train, y_train
             
         # Scale the data
         X_scaler = MinMaxScaler()

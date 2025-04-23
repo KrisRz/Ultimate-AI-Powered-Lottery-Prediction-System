@@ -30,8 +30,8 @@ def objective(trial, X, y, cv=5):
         'gamma': trial.suggest_float('gamma', 0.0, 1.0),
         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 10.0, log=True),
-        'reg_lambda': trial.suggest_float('reg_lambda', 1.0, 10.0, log=True),
+        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
         'random_state': 42
     }
     

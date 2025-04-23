@@ -22,6 +22,9 @@ import logging
 from typing import Dict, Tuple, List, Any, Union, Optional
 from .utils import log_training_errors, log_memory_usage, LOOK_BACK, EPOCHS
 from .base import TimeSeriesModel, BaseModel
+from .utils.model_storage import save_model_atomic, cleanup_old_checkpoints, manage_model_cache
+import time
+from pathlib import Path
 
 def prepare_data(df: pd.DataFrame, model_type: str) -> Dict[str, Any]:
     """
@@ -445,81 +448,58 @@ def train_meta_model(df: pd.DataFrame, preds_dict: Dict[str, List[List[int]]]) -
 @log_training_errors
 def update_models(df: pd.DataFrame, retrain_window: int = None) -> Dict:
     """
-    Update all models with new data.
-    
-    Args:
-        df: DataFrame with lottery data
-        retrain_window: If specified, only retrain if new data exceeds this number of rows
-        
-    Returns:
-        Dictionary of trained models
+    Update all models with new data
     """
-    log_memory_usage()
-    
-    # Check if we should retrain based on new data
-    if retrain_window is not None:
-        try:
-            # Try to load existing models and their metadata
-            if os.path.exists('models/trained_models.pkl'):
-                with open('models/trained_models.pkl', 'rb') as f:
-                    saved_data = pickle.load(f)
-                    
-                if 'metadata' in saved_data:
-                    metadata = saved_data['metadata']
-                    last_train_size = metadata.get('train_size', 0)
-                    last_train_date = metadata.get('train_date')
-                    
-                    # Only retrain if we have enough new data or no last training date
-                    if last_train_size and len(df) <= last_train_size + retrain_window:
-                        logging.info(f"Not enough new data for retraining. Using existing models from {last_train_date}")
-                        return saved_data['models']
-        except Exception as e:
-            logging.warning(f"Error checking retraining condition: {str(e)}. Proceeding with training.")
-    
     models = {}
+    start_time = time.time()
     
-    # Train individual models
-    models['lstm'] = train_lstm_models(df)
-    models['arima'] = train_arima_models(df)
-    models['holtwinters'] = train_holtwinters_models(df)
-    models['linear'] = train_linear_models(df)
-    models['xgboost'] = train_xgboost_models(df)
-    models['lightgbm'] = train_lightgbm_models(df)
-    models['knn'] = train_knn_models(df)
-    models['gradientboosting'] = train_gradientboosting_models(df)
-    models['catboost'] = train_catboost_models(df)
-    models['cnn_lstm'] = train_cnn_lstm_models(df)
-    models['autoencoder'] = train_autoencoder(df)
-    
-    # Generate predictions for meta model
-    preds_dict = {}
-    for model_name, model in models.items():
-        if model_name in ['lstm', 'cnn_lstm', 'autoencoder']:
-            preds = [model[0].predict(df) for _ in range(10)]
-        else:
-            preds = [model.predict(df) for _ in range(10)]
-        preds_dict[model_name] = preds
-    
-    # Train meta model
-    models['meta'] = train_meta_model(df, preds_dict)
-    
-    # Save models with metadata
     try:
+        # Train individual models
+        models['lstm'] = train_lstm_models(df)
+        models['arima'] = train_arima_models(df)
+        models['holtwinters'] = train_holtwinters_models(df)
+        models['linear'] = train_linear_models(df)
+        models['xgboost'] = train_xgboost_models(df)
+        models['lightgbm'] = train_lightgbm_models(df)
+        models['knn'] = train_knn_models(df)
+        models['gradientboosting'] = train_gradientboosting_models(df)
+        models['catboost'] = train_catboost_models(df)
+        models['cnn_lstm'] = train_cnn_lstm_models(df)
+        models['autoencoder'] = train_autoencoder(df)
+        
+        # Generate predictions for meta model
+        preds_dict = {}
+        for model_name, model in models.items():
+            if model_name in ['lstm', 'cnn_lstm', 'autoencoder']:
+                preds = [model[0].predict(df) for _ in range(10)]
+            else:
+                preds = [model.predict(df) for _ in range(10)]
+            preds_dict[model_name] = preds
+        
+        # Train meta model
+        models['meta'] = train_meta_model(df, preds_dict)
+        
+        # Save models with metadata
         metadata = {
-            'train_size': len(df),
-            'train_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'model_count': len(models)
+            'models': models,
+            'timestamp': time.time(),
+            'data_size': len(df),
+            'training_time': time.time() - start_time
         }
         
-        with open('models/trained_models.pkl', 'wb') as f:
-            pickle.dump({
-                'models': models,
-                'metadata': metadata
-            }, f)
+        # Use atomic save
+        if not save_model_atomic(metadata, Path('models/trained_models.pkl')):
+            logger.error("Failed to save models")
+            return None
             
-        logging.info(f"Saved {len(models)} trained models with metadata")
+        # Cleanup old checkpoints and cache
+        cleanup_old_checkpoints(Path('models/checkpoints'))
+        manage_model_cache(Path('models/cache'))
+        
+        logger.info(f"Saved {len(models)} trained models with metadata")
+        
     except Exception as e:
-        logging.error(f"Error saving models: {str(e)}")
-    
-    log_memory_usage()
+        logger.error(f"Error in model update: {str(e)}")
+        return None
+        
     return models 

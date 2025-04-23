@@ -12,6 +12,7 @@ import sys
 import traceback
 from typing import Dict, Tuple, List, Union
 import random
+from collections import Counter
 
 # Configuration
 np.random.seed(42)
@@ -78,17 +79,67 @@ def log_memory_usage():
     logging.info(f"Memory usage: {mem_info.rss / 1024 / 1024:.2f} MB, CPU usage: {cpu_percent:.2f}%")
 
 def ensure_valid_prediction(pred: Union[List, np.ndarray]) -> List[int]:
-    """Ensure predictions are 6 unique integers between 1 and 59."""
-    if pred is None or not isinstance(pred, (list, np.ndarray)) or len(pred) != 6:
-        pred = np.random.choice(range(1, 60), size=6, replace=False)
-    pred = [int(round(x)) for x in pred]
-    pred = [max(1, min(59, x)) for x in pred]
-    pred = list(set(pred))
-    while len(pred) < 6:
-        candidate = np.random.randint(1, 60)
-        if candidate not in pred:
-            pred.append(candidate)
-    return sorted(pred)
+    """
+    Ensure predictions are 6 unique integers between 1 and 59.
+    
+    Args:
+        pred: Raw model prediction
+        
+    Returns:
+        List of 6 unique integers between 1 and 59
+    """
+    try:
+        # Convert to numpy array if it's a list
+        if isinstance(pred, list):
+            pred = np.array(pred)
+        
+        # Handle NaN, infinity, or other invalid values
+        if pred is None or not isinstance(pred, (list, np.ndarray)):
+            logging.warning(f"Invalid prediction type: {type(pred)}. Generating random numbers.")
+            return sorted(np.random.choice(range(1, 60), size=6, replace=False).tolist())
+        
+        # Check for NaN or infinite values
+        if np.isnan(pred).any() or np.isinf(pred).any():
+            logging.warning(f"Prediction contains NaN or Inf values: {pred}. Fixing...")
+            pred = np.nan_to_num(pred, nan=30.0, posinf=59.0, neginf=1.0)
+        
+        # Handle potential fractional values by rounding
+        pred = np.round(pred).astype(int)
+        
+        # Ensure values are within valid range (1-59)
+        pred = np.clip(pred, 1, 59)
+        
+        # Check if we have the right number of predictions
+        if len(pred) != 6:
+            logging.warning(f"Prediction has {len(pred)} numbers instead of 6. Adjusting...")
+            if len(pred) > 6:
+                # Take the first 6 values
+                pred = pred[:6]
+            else:
+                # Add random numbers until we have 6
+                current = set(pred)
+                while len(current) < 6:
+                    candidate = np.random.randint(1, 60)
+                    if candidate not in current:
+                        current.add(candidate)
+                pred = np.array(list(current))
+        
+        # Ensure uniqueness
+        unique_values = set(pred)
+        if len(unique_values) < 6:
+            logging.warning(f"Prediction has duplicate values: {pred}. Fixing...")
+            while len(unique_values) < 6:
+                candidate = np.random.randint(1, 60)
+                if candidate not in unique_values:
+                    unique_values.add(candidate)
+            pred = np.array(list(unique_values))
+        
+        # Return sorted list of integers
+        return sorted([int(x) for x in pred])
+    
+    except Exception as e:
+        logging.error(f"Error processing prediction: {e}. Generating random numbers.")
+        return sorted(np.random.choice(range(1, 60), size=6, replace=False).tolist())
 
 def parse_balls(x: str, df: pd.DataFrame = None) -> Tuple[List[int], int]:
     """Parse Balls string into main numbers and bonus number."""

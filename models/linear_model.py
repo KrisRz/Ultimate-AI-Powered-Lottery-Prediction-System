@@ -3,9 +3,24 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import GridSearchCV, KFold
 import optuna
-from typing import Tuple, List, Dict, Any, Union, Optional
+from typing import Tuple, List, Dict, Any, Union, Optional, Callable, overload, TypeVar, Protocol, runtime_checkable
 import logging
 from .utils import log_training_errors, ensure_valid_prediction
+from numpy.typing import NDArray
+from optuna import Trial
+from optuna.study import Study
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models.utils import ensure_valid_prediction  # Import directly from utils.py
+from sklearn.base import BaseEstimator, RegressorMixin
+from scipy.sparse import spmatrix
+
+T = TypeVar('T', bound=BaseEstimator | RegressorMixin)
+
+@runtime_checkable
+class Predictor(Protocol):
+    def predict(self, X: Union[NDArray, spmatrix]) -> NDArray: ...
 
 def get_linear_model(model_type: str = 'linear', params: Optional[Dict] = None) -> Any:
     """
@@ -45,7 +60,80 @@ def get_linear_model(model_type: str = 'linear', params: Optional[Dict] = None) 
         logging.warning(f"Unknown model type: {model_type}. Falling back to LinearRegression.")
         return LinearRegression()
 
-def objective(trial, X, y, model_type='ridge', cv=5):
+@overload
+def validate_prediction(pred: Union[List, np.ndarray], as_array: bool = True) -> NDArray: ...
+
+@overload
+def validate_prediction(pred: Union[List, np.ndarray], as_array: bool = False) -> List[int]: ...
+
+def validate_prediction(pred: Union[List, np.ndarray], as_array: bool = True) -> Union[NDArray, List[int]]:
+    """
+    Ensure predictions are 6 unique integers between 1 and 59.
+    
+    Args:
+        pred: Raw model prediction
+        as_array: Whether to return numpy array (True) or list (False)
+        
+    Returns:
+        Array or list of 6 unique integers between 1 and 59
+    """
+    try:
+        # Convert to numpy array if it's a list
+        if isinstance(pred, list):
+            pred = np.array(pred)
+        
+        # Handle NaN, infinity, or other invalid values
+        if pred is None or not isinstance(pred, (list, np.ndarray)):
+            logging.warning(f"Invalid prediction type: {type(pred)}. Generating random numbers.")
+            result = sorted(np.random.choice(range(1, 60), size=6, replace=False))
+            return np.array(result) if as_array else list(result)
+        
+        # Check for NaN or infinite values
+        if np.isnan(pred).any() or np.isinf(pred).any():
+            logging.warning(f"Prediction contains NaN or Inf values: {pred}. Fixing...")
+            pred = np.nan_to_num(pred, nan=30.0, posinf=59.0, neginf=1.0)
+        
+        # Handle potential fractional values by rounding
+        pred = np.round(pred).astype(int)
+        
+        # Ensure values are within valid range (1-59)
+        pred = np.clip(pred, 1, 59)
+        
+        # Check if we have the right number of predictions
+        if len(pred) != 6:
+            logging.warning(f"Prediction has {len(pred)} numbers instead of 6. Adjusting...")
+            if len(pred) > 6:
+                # Take the first 6 values
+                pred = pred[:6]
+            else:
+                # Add random numbers until we have 6
+                current = set(pred)
+                while len(current) < 6:
+                    candidate = np.random.randint(1, 60)
+                    if candidate not in current:
+                        current.add(candidate)
+                pred = np.array(list(current))
+        
+        # Ensure uniqueness
+        unique_values = set(pred)
+        if len(unique_values) < 6:
+            logging.warning(f"Prediction has duplicate values: {pred}. Fixing...")
+            while len(unique_values) < 6:
+                candidate = np.random.randint(1, 60)
+                if candidate not in unique_values:
+                    unique_values.add(candidate)
+            pred = np.array(list(unique_values))
+        
+        # Sort and return in requested format
+        result = sorted([int(x) for x in pred])
+        return np.array(result) if as_array else result
+    
+    except Exception as e:
+        logging.error(f"Error processing prediction: {e}. Generating random numbers.")
+        result = sorted(np.random.choice(range(1, 60), size=6, replace=False))
+        return np.array(result) if as_array else list(result)
+
+def objective(trial: Trial, X: NDArray, y: NDArray, model_type: str, cv: int = 5) -> float:
     """
     Optuna objective function for linear model parameter tuning
     
@@ -59,199 +147,317 @@ def objective(trial, X, y, model_type='ridge', cv=5):
     Returns:
         Mean cross-validation score
     """
-    # Define hyperparameters based on model type
+    # Get model with trial parameters
+    params = {}
     if model_type == 'ridge':
-        params = {
-            'alpha': trial.suggest_float('alpha', 0.01, 10.0, log=True),
-            'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
-            'solver': trial.suggest_categorical('solver', ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'sag', 'saga'])
-        }
+        params['alpha'] = trial.suggest_float('alpha', 0.01, 10.0, log=True)
     elif model_type == 'lasso':
-        params = {
-            'alpha': trial.suggest_float('alpha', 0.001, 1.0, log=True),
-            'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
-            'max_iter': trial.suggest_int('max_iter', 1000, 3000)
-        }
+        params['alpha'] = trial.suggest_float('alpha', 0.01, 10.0, log=True)
     elif model_type == 'elastic_net':
-        params = {
-            'alpha': trial.suggest_float('alpha', 0.001, 1.0, log=True),
-            'l1_ratio': trial.suggest_float('l1_ratio', 0.1, 0.9),
-            'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
-            'max_iter': trial.suggest_int('max_iter', 1000, 3000)
-        }
-    else:  # LinearRegression has few parameters to tune
-        params = {
-            'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
-            'positive': trial.suggest_categorical('positive', [True, False])
-        }
+        params['alpha'] = trial.suggest_float('alpha', 0.01, 10.0, log=True)
+        params['l1_ratio'] = trial.suggest_float('l1_ratio', 0.0, 1.0)
+        
+    model = get_linear_model(model_type, params)
     
-    # Cross-validation setup
+    # Cross validation
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     scores = []
     
-    # Get the model with current trial parameters
-    model = get_linear_model(model_type, params)
-    
-    # Perform cross-validation
     for train_idx, val_idx in kf.split(X):
-        X_train_fold, X_val_fold = X[train_idx], X[val_idx]
-        y_train_fold, y_val_fold = y[train_idx], y[val_idx]
+        X_fold_train, X_fold_val = X[train_idx], X[val_idx]
+        y_fold_train, y_fold_val = y[train_idx], y[val_idx]
         
-        model.fit(X_train_fold, y_train_fold)
-        score = model.score(X_val_fold, y_val_fold)
+        model.fit(X_fold_train, y_fold_train)
+        score = model.score(X_fold_val, y_fold_val)
         scores.append(score)
-    
-    return np.mean(scores)
+        
+    return float(np.mean(scores))  # Explicitly convert to float
+
+class LinearModel:
+    def __init__(self, models: List[Any], scaler: Union[StandardScaler, MinMaxScaler]):
+        if not models or len(models) != 6:
+            raise ValueError(f"Must provide exactly 6 models, got {len(models) if models else 0}")
+        self.models = models
+        self.scaler = scaler
+        self.prediction_history = []
+        self.validation_scores = []
+        
+    def predict(self, X: NDArray, return_proba: bool = False) -> Union[NDArray, Tuple[NDArray, NDArray]]:
+        """
+        Make predictions with enhanced validation and confidence scores
+        
+        Args:
+            X: Input features
+            return_proba: Whether to return prediction probabilities
+            
+        Returns:
+            predictions: Array of predictions
+            probabilities: Array of confidence scores (if return_proba=True)
+        """
+        try:
+            # Input validation
+            if not isinstance(X, np.ndarray):
+                raise ValueError(f"X must be numpy array, got {type(X)}")
+            
+            # Scale input data
+            try:
+                X_scaled = self.scaler.transform(X)
+            except Exception as e:
+                logging.error(f"Failed to scale input: {str(e)}")
+                raise RuntimeError(f"Feature scaling failed: {str(e)}")
+            
+            # Make predictions with confidence scores
+            predictions = np.zeros((X.shape[0], 6))
+            probabilities = np.zeros((X.shape[0], 6))
+            
+            for i, model in enumerate(self.models):
+                try:
+                    pred = model.predict(X_scaled)
+                    predictions[:, i] = pred
+                    
+                    # Calculate confidence score based on prediction range and model type
+                    if hasattr(model, 'predict_proba'):
+                        prob = model.predict_proba(X_scaled)
+                        probabilities[:, i] = np.max(prob, axis=1)
+                    else:
+                        # Use a simple confidence metric based on prediction range
+                        probabilities[:, i] = 1.0 - np.abs(pred - 30) / 29  # Higher confidence for numbers closer to middle range
+                        
+                except Exception as e:
+                    logging.error(f"Model {i+1} prediction failed: {str(e)}")
+                    # Use fallback prediction
+                    predictions[:, i] = np.random.randint(1, 60, size=X.shape[0])
+                    probabilities[:, i] = 0.1  # Low confidence for fallback predictions
+            
+            # Validate and adjust predictions
+            valid_predictions = []
+            for i in range(predictions.shape[0]):
+                pred_row = predictions[i]
+                prob_row = probabilities[i]
+                
+                # Check for duplicates and adjust based on confidence
+                unique_pred = set()
+                final_pred = []
+                final_prob = []
+                
+                # Sort by confidence
+                indices = np.argsort(prob_row)[::-1]
+                
+                for idx in indices:
+                    num = int(round(pred_row[idx]))
+                    if num not in unique_pred and 1 <= num <= 59:
+                        unique_pred.add(num)
+                        final_pred.append(num)
+                        final_prob.append(prob_row[idx])
+                
+                # Fill remaining slots with unused numbers
+                while len(final_pred) < 6:
+                    num = np.random.randint(1, 60)
+                    if num not in unique_pred:
+                        unique_pred.add(num)
+                        final_pred.append(num)
+                        final_prob.append(0.1)  # Low confidence for random fills
+                
+                valid_predictions.append(final_pred)
+                probabilities[i] = final_prob
+            
+            valid_predictions = np.array(valid_predictions)
+            
+            # Store prediction history
+            if valid_predictions.shape[0] == 1:
+                self.prediction_history.append(valid_predictions[0])
+            
+            if return_proba:
+                return valid_predictions, probabilities
+            return valid_predictions
+            
+        except Exception as e:
+            logging.error(f"Prediction failed: {str(e)}")
+            # Return safe fallback predictions
+            fallback = np.array([sorted(np.random.choice(range(1, 60), size=6, replace=False)) 
+                               for _ in range(X.shape[0])])
+            if return_proba:
+                return fallback, np.full((X.shape[0], 6), 0.1)
+            return fallback
+            
+    def validate_model_stability(self, X: NDArray, n_runs: int = 10) -> float:
+        """
+        Validate model stability through multiple prediction runs
+        
+        Args:
+            X: Validation data
+            n_runs: Number of validation runs
+            
+        Returns:
+            stability_score: Score between 0 and 1 indicating prediction stability
+        """
+        predictions = []
+        for _ in range(n_runs):
+            pred = self.predict(X)
+            predictions.append(pred)
+        
+        # Calculate stability score based on prediction variance
+        predictions = np.array(predictions)
+        stability = 1.0 - np.mean(np.std(predictions, axis=0)) / 29  # Normalize by max possible std
+        return max(0.0, min(1.0, stability))  # Clip to [0, 1]
 
 @log_training_errors
-def train_linear_models(X_train: np.ndarray, y_train: np.ndarray, 
+def train_linear_models(X_train: NDArray, y_train: NDArray, 
                        model_type: str = 'ridge', tune_hyperparams: bool = True,
-                       n_trials: int = 50, scaler_type: str = 'standard') -> Tuple[List[Any], Any]:
+                       n_trials: int = 50, scaler_type: str = 'standard',
+                       validation_size: float = 0.2) -> LinearModel:
     """
-    Train multiple linear regression models for lottery number prediction
+    Train linear models for lottery number prediction with enhanced error handling
     
     Args:
         X_train: Training features
-        y_train: Target numbers (array of shape [n_samples, 6])
+        y_train: Target variables (6 numbers per sample)
         model_type: Type of linear model ('linear', 'ridge', 'lasso', 'elastic_net')
-        tune_hyperparams: Whether to perform hyperparameter tuning
-        n_trials: Number of hyperparameter tuning trials
+        tune_hyperparams: Whether to tune hyperparameters with Optuna
+        n_trials: Number of Optuna trials for hyperparameter tuning
         scaler_type: Type of feature scaling ('standard' or 'minmax')
+        validation_size: Size of validation split for model checking
         
     Returns:
-        Tuple of (list of trained models, scaler)
+        LinearModel instance with trained models and scaler
     """
-    # Validate input
-    if not isinstance(X_train, np.ndarray):
+    try:
+        # Input validation with detailed error messages
+        if not isinstance(X_train, np.ndarray):
+            raise ValueError(f"X_train must be numpy array, got {type(X_train)}")
+        if not isinstance(y_train, np.ndarray):
+            raise ValueError(f"y_train must be numpy array, got {type(y_train)}")
+        if X_train.shape[0] != y_train.shape[0]:
+            raise ValueError(f"X_train and y_train must have same number of samples. Got {X_train.shape[0]} vs {y_train.shape[0]}")
+        if y_train.shape[1] != 6:
+            raise ValueError(f"y_train must have 6 columns, got {y_train.shape[1]}")
+            
+        # Check for NaN/Inf values
+        if np.isnan(X_train).any() or np.isinf(X_train).any():
+            raise ValueError("X_train contains NaN or Inf values")
+        if np.isnan(y_train).any() or np.isinf(y_train).any():
+            raise ValueError("y_train contains NaN or Inf values")
+            
+        # Scale features with error handling
         try:
-            X_train = np.array(X_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert X_train to numpy array: {str(e)}")
-    
-    if not isinstance(y_train, np.ndarray):
-        try:
-            y_train = np.array(y_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert y_train to numpy array: {str(e)}")
-    
-    # Check shapes
-    if len(y_train.shape) != 2 or y_train.shape[1] != 6:
-        raise ValueError(f"y_train must have shape [n_samples, 6], got {y_train.shape}")
-    
-    # Initialize scaler
-    if scaler_type.lower() == 'standard':
-        scaler = StandardScaler()
-    else:
-        scaler = MinMaxScaler()
-    
-    # Scale features
-    X_scaled = scaler.fit_transform(X_train)
-    
-    # Train separate model for each number position
-    models = []
-    best_params_list = []
-    
-    for i in range(6):
-        logging.info(f"Training linear model for number position {i+1}/6")
-        
-        try:
-            # Set up hyperparameter tuning if requested
-            if tune_hyperparams:
-                try:
-                    logging.info(f"Tuning hyperparameters for {model_type} model")
-                    study = optuna.create_study(direction='maximize')
-                    study.optimize(
-                        lambda trial: objective(trial, X_scaled, y_train[:, i], model_type), 
-                        n_trials=n_trials
-                    )
-                    best_params = study.best_params
-                    best_params_list.append(best_params)
-                    logging.info(f"Best parameters for model {i+1}: {best_params}")
-                except Exception as e:
-                    logging.error(f"Error during hyperparameter tuning: {str(e)}")
-                    logging.info("Using default parameters due to tuning failure")
-                    best_params = {}
+            if scaler_type == 'standard':
+                scaler = StandardScaler()
             else:
-                best_params = {}
-            
-            # Create and train model
-            model = get_linear_model(model_type, best_params)
-            model.fit(X_scaled, y_train[:, i])
-            
-            # Evaluate model on training data
-            train_score = model.score(X_scaled, y_train[:, i])
-            logging.info(f"Model {i+1} training R² score: {train_score:.4f}")
-            
-            models.append(model)
-            
+                scaler = MinMaxScaler()
+            X_scaled = scaler.fit_transform(X_train)
         except Exception as e:
-            logging.error(f"Error training model for position {i+1}: {str(e)}")
-            # Fallback to basic model
-            model = LinearRegression()
-            model.fit(X_scaled, y_train[:, i])
-            models.append(model)
-    
-    return models, scaler
+            logging.error(f"Failed to scale features: {str(e)}")
+            raise RuntimeError(f"Feature scaling failed: {str(e)}")
+        
+        # Split data for validation
+        n_val = int(X_train.shape[0] * validation_size)
+        if n_val > 0:
+            X_val = X_scaled[-n_val:]
+            y_val = y_train[-n_val:]
+            X_train_split = X_scaled[:-n_val]
+            y_train_split = y_train[:-n_val]
+        else:
+            X_val = X_scaled
+            y_val = y_train
+            X_train_split = X_scaled
+            y_train_split = y_train
+        
+        models = []
+        failed_models = []
+        
+        # Train a separate model for each lottery number with enhanced error handling
+        for i in range(6):
+            try:
+                if tune_hyperparams:
+                    study = optuna.create_study(direction='maximize')
+                    study.optimize(lambda trial: objective(trial, X_train_split, y_train_split[:, i], model_type),
+                                 n_trials=n_trials, 
+                                 catch=(Exception,))  # Catch exceptions during optimization
+                    
+                    if not study.trials:
+                        raise RuntimeError(f"No successful trials for number {i+1}")
+                        
+                    best_params = study.best_params
+                    model = get_linear_model(model_type, best_params)
+                else:
+                    model = get_linear_model(model_type)
+                
+                # Fit model with error handling
+                model.fit(X_train_split, y_train_split[:, i])
+                
+                # Validate model performance
+                val_pred = model.predict(X_val)
+                val_score = model.score(X_val, y_val[:, i])
+                
+                if val_score < 0:  # Basic sanity check
+                    logging.warning(f"Model {i+1} has poor validation score: {val_score}")
+                    # Try retraining with different random seed
+                    model = get_linear_model(model_type)
+                    model.fit(X_train_split, y_train_split[:, i])
+                    val_score = model.score(X_val, y_val[:, i])
+                    
+                    if val_score < 0:
+                        raise RuntimeError(f"Model {i+1} failed validation after retry")
+                
+                # Validate predictions are in valid range
+                if not np.all((val_pred >= 1) & (val_pred <= 59)):
+                    raise RuntimeError(f"Model {i+1} predictions out of valid range")
+                
+                models.append(model)
+                logging.info(f"Successfully trained and validated model {i+1}")
+                
+            except Exception as e:
+                logging.error(f"Failed to train model {i+1}: {str(e)}")
+                failed_models.append(i+1)
+                # Create fallback model
+                fallback = get_linear_model('linear')  # Use simple linear regression as fallback
+                fallback.fit(X_train_split, y_train_split[:, i])
+                models.append(fallback)
+                logging.info(f"Using fallback model for number {i+1}")
+        
+        if failed_models:
+            logging.warning(f"Used fallback models for numbers: {failed_models}")
+        
+        return LinearModel(models, scaler)
+        
+    except Exception as e:
+        logging.error(f"Fatal error in train_linear_models: {str(e)}")
+        raise
 
-def predict_linear_models(models: Union[Tuple[Any, Any], List[Any], Any], 
-                         X: np.ndarray) -> List[int]:
+def predict_linear_models(models: Union[Tuple[List[Predictor], StandardScaler], List[Predictor]], 
+                        X: Union[NDArray, spmatrix]) -> List[int]:
     """
-    Generate predictions using trained linear regression models
+    Generate predictions using trained linear models.
     
     Args:
-        models: Either a tuple of (models_list, scaler) or just the models_list
-                If a single model is provided, it will be used for all positions
-        X: Input features for prediction
+        models: Either (list of models, scaler) tuple or just list of models
+        X: Input features to predict on
         
     Returns:
-        Array of 6 valid lottery numbers
+        List of 6 valid lottery numbers
     """
     try:
         # Handle different input formats
         if isinstance(models, tuple):
-            if len(models) == 2:
-                models_list, scaler = models
-            else:
-                raise ValueError("Model tuple must have 2 elements (models_list, scaler)")
+            model_list, scaler = models
+            X = scaler.transform(X)
         else:
-            raise ValueError("Models must be a tuple of (models_list, scaler)")
-        
-        # Validate input
-        if not isinstance(X, np.ndarray):
-            X = np.array(X)
-        
-        # Ensure X is 2D
-        if len(X.shape) == 1:
-            X = X.reshape(1, -1)
-        
-        # Scale features
-        X_scaled = scaler.transform(X)
-        
-        # Generate predictions for each number position
-        predictions = np.zeros((X.shape[0], 6))
-        
-        # Check if models_list is a list or a single model
-        if isinstance(models_list, list):
-            for i, model in enumerate(models_list):
-                predictions[:, i] = model.predict(X_scaled)
-        else:
-            # If a single model is provided, use it for all positions
-            logging.warning("Single model provided; using it for all positions")
-            for i in range(6):
-                predictions[:, i] = models_list.predict(X_scaled)
-        
-        # Validate predictions
-        if predictions.shape[0] == 1:  # Single prediction
-            return ensure_valid_prediction(predictions[0])
+            model_list = models
             
-        # For multiple predictions, ensure each row is valid
+        if len(model_list) == 1:
+            # Single model case
+            logging.info("Using single model for prediction")
+            predictions = model_list[0].predict(X)
+            return list(validate_prediction(predictions[0], as_array=False))
+            
+        # Multiple models case
         valid_predictions = []
-        for i in range(predictions.shape[0]):
-            valid_predictions.append(ensure_valid_prediction(predictions[i]))
-        
-        return valid_predictions
+        for model in model_list:
+            pred = model.predict(X)
+            valid_predictions.append(pred[0])
+            
+        return list(validate_prediction(valid_predictions, as_array=False))
         
     except Exception as e:
-        logging.error(f"Error in linear model prediction: {str(e)}")
-        # Return random valid numbers if prediction fails
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6)) 
+        logging.error(f"Error making prediction: {e}. Returning random numbers.")
+        return list(validate_prediction(np.random.randint(1, 60, size=6), as_array=False)) 

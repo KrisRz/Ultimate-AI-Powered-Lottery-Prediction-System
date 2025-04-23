@@ -40,6 +40,10 @@ def parse_balls(balls_str: str) -> Tuple[List[int], int]:
         ValueError: If the string format is invalid or numbers are out of range
     """
     try:
+        # Convert to string if it's not already (handles int, float, etc.)
+        if not isinstance(balls_str, str):
+            balls_str = str(balls_str)
+            
         # Handle common format issues
         balls_str = balls_str.strip()
         
@@ -384,8 +388,12 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
         
         # 2. Parse Balls into Main_Numbers and Bonus
         if 'Balls' in df.columns and ('Main_Numbers' not in df.columns or df['Main_Numbers'].isna().all()):
-            # Strip quotes from the Balls column and ensure it's string type
-            df['Balls'] = df['Balls'].astype(str).apply(lambda x: x.strip('"').strip("'"))
+            # Convert all Balls values to strings first, handling NaN values
+            df['Balls'] = df['Balls'].astype(str)
+            # Remove rows where Balls is 'nan'
+            df = df[df['Balls'].str.lower() != 'nan'].reset_index(drop=True)
+            # Strip quotes from the Balls column
+            df['Balls'] = df['Balls'].apply(lambda x: x.strip('"').strip("'") if isinstance(x, str) else str(x))
             
             # Process each row individually to handle errors
             main_numbers_list = []
@@ -394,8 +402,8 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
             
             for idx, ball_str in enumerate(df['Balls']):
                 try:
-                    # Handle NaN values or invalid types
-                    if pd.isna(ball_str) or ball_str == 'nan' or not isinstance(ball_str, str):
+                    # Skip empty values
+                    if pd.isna(ball_str) or ball_str == 'nan' or ball_str.strip() == '':
                         logger.warning(f"Invalid Balls value at row {idx}: {ball_str}")
                         error_rows.append(idx)
                         main_numbers_list.append([1, 2, 3, 4, 5, 6])
@@ -406,7 +414,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
                     main_numbers_list.append(main)
                     bonus_numbers.append(bonus)
                 except Exception as e:
-                    logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': {str(e)}")
+                    logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': Failed to parse balls: {str(e)}")
                     error_rows.append(idx)
                     # Use placeholder values
                     main_numbers_list.append([1, 2, 3, 4, 5, 6])
@@ -418,7 +426,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
             
             # Remove rows with parsing errors if any
             if error_rows:
-                logger.warning(f"Removing {len(error_rows)} rows with parsing errors: {error_rows[:5]}")
+                logger.warning(f"Removing {len(error_rows)} rows with parsing errors: {error_rows[:5] if len(error_rows) > 5 else error_rows}")
                 df = df.drop(error_rows).reset_index(drop=True)
         
         # 3. Process Jackpot if present

@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 from .utils import LOOK_BACK, ensure_valid_prediction
 from .lstm_model import vectorized_create_sequences
+from .utils.model_storage import cleanup_old_checkpoints
+from typing import Optional, Tuple
 
 # Try to enable GPU acceleration and mixed precision
 try:
@@ -85,60 +87,32 @@ def create_cnn_lstm_model(input_shape, filters=128, kernel_size=3, lstm_units1=1
     
     return model
 
-def train_cnn_lstm_model(X_train, y_train, epochs=200, batch_size=64, look_back=None, validation_split=0.2):
+def train_cnn_lstm_model(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    epochs: int = 50,
+    batch_size: int = 64,
+    look_back: Optional[int] = None,
+    validation_split: float = 0.2
+) -> Tuple[tf.keras.Model, RobustScaler, int]:
     """
-    Train an optimized CNN-LSTM model on lottery data
-    
-    Args:
-        X_train: Training data
-        y_train: Target values
-        epochs: Number of training epochs
-        batch_size: Training batch size
-        look_back: Number of timesteps (default: use LOOK_BACK from utils)
-        validation_split: Portion of data to use for validation
-        
-    Returns:
-        Tuple of (trained model, scaler, look_back)
+    Train CNN-LSTM model for lottery prediction
     """
     start_time = time.time()
-    
-    # Use provided look_back or default
-    if look_back is None:
-        look_back = LOOK_BACK
-    
-    # Validate input shape
-    if not isinstance(X_train, np.ndarray):
-        try:
-            X_train = np.array(X_train)
-        except Exception as e:
-            raise ValueError(f"X_train must be a numpy array or list, got {type(X_train)}: {str(e)}")
-    
-    # Create and fit robust scaler for better handling of outliers
-    scaler = RobustScaler()
-    X_scaled = scaler.fit_transform(X_train)
-    
-    # Log input data shape
-    logging.info(f"Training CNN-LSTM with input shape: {X_train.shape}, look_back: {look_back}")
-    
-    # Create sequences using vectorized approach
-    X_reshaped = vectorized_create_sequences(X_scaled, look_back)
-    
-    # Align y_train with the reshaped X
-    if y_train.shape[0] != len(X_reshaped):
-        y_train = y_train[look_back:]
-        if len(y_train) > len(X_reshaped):
-            y_train = y_train[:len(X_reshaped)]
-    
-    # Log processed data shapes
-    logging.info(f"Processed data shapes - X: {X_reshaped.shape}, y: {y_train.shape}")
-    
-    # Create model directory for checkpoints
     checkpoint_dir = Path("models/checkpoints")
     checkpoint_dir.mkdir(exist_ok=True, parents=True)
     
-    # Create and train model with optimized hyperparameters
+    # Set default look_back if not specified
+    if look_back is None:
+        look_back = LOOK_BACK
+    
+    # Initialize scaler
+    scaler = RobustScaler()
+    X_scaled = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
+    
+    # Create model with optimal hyperparameters
     model = create_cnn_lstm_model(
-        input_shape=(look_back, X_train.shape[1]),
+        input_shape=(look_back, X_train.shape[2]),  # type: ignore
         filters=128,
         kernel_size=3,
         lstm_units1=128,
@@ -150,14 +124,12 @@ def train_cnn_lstm_model(X_train, y_train, epochs=200, batch_size=64, look_back=
     
     # Advanced callbacks for training optimization
     callbacks = [
-        # Early stopping with appropriate patience
         EarlyStopping(
             monitor='val_loss',
             patience=30,
             restore_best_weights=True,
             verbose=1
         ),
-        # Reduce learning rate when plateau is reached
         ReduceLROnPlateau(
             monitor='val_loss',
             factor=0.5,
@@ -165,21 +137,19 @@ def train_cnn_lstm_model(X_train, y_train, epochs=200, batch_size=64, look_back=
             min_lr=1e-6,
             verbose=1
         ),
-        # Save model checkpoints
         ModelCheckpoint(
-            filepath=str(checkpoint_dir / 'cnn_lstm_model_checkpoint.h5'),
+            filepath=str(checkpoint_dir / 'cnn_lstm_model_checkpoint_{epoch:02d}.h5'),
             save_best_only=True,
             monitor='val_loss',
             verbose=1
         ),
-        # TensorBoard logging
         TensorBoard(log_dir='logs/cnn_lstm_model_' + time.strftime('%Y%m%d-%H%M%S'))
     ]
     
     try:
         # Train with validation split and callbacks
         history = model.fit(
-            X_reshaped, y_train,
+            X_scaled, y_train,
             epochs=epochs,
             batch_size=batch_size,
             verbose=1,
@@ -196,6 +166,9 @@ def train_cnn_lstm_model(X_train, y_train, epochs=200, batch_size=64, look_back=
         logging.info(f"CNN-LSTM model trained successfully in {training_time:.2f} seconds")
         logging.info(f"Final loss: {final_loss:.4f}, Best validation loss: {val_loss:.4f}")
         
+        # Cleanup old checkpoints after successful training
+        cleanup_old_checkpoints(checkpoint_dir, pattern="cnn_lstm_model_checkpoint_*.h5")
+        
     except Exception as e:
         logging.error(f"Error training CNN-LSTM model: {str(e)}")
         raise
@@ -204,10 +177,9 @@ def train_cnn_lstm_model(X_train, y_train, epochs=200, batch_size=64, look_back=
     gc.collect()
     if len(tf.config.list_physical_devices('GPU')) > 0:
         try:
-            # Clear GPU memory
             tf.keras.backend.clear_session()
         except Exception as e:
-            logging.warning(f"Could not clear GPU memory: {str(e)}")
+            logging.warning(f"Could not clear GPU memory: {e}")
     
     return model, scaler, look_back
 
@@ -236,18 +208,28 @@ def predict_cnn_lstm_model(model, scaler, X, look_back=None):
         if not isinstance(X, np.ndarray):
             X = np.array(X)
         
-        # Scale input data
-        X_scaled = scaler.transform(X)
-        
-        # Use efficient numpy operations for sequence creation
-        if len(X_scaled) >= look_back:
-            # Take the most recent look_back entries for prediction
-            X_sequence = X_scaled[-look_back:].reshape(1, look_back, X_scaled.shape[1])
+        # Handle already 3D input
+        if len(X.shape) == 3:
+            # Reshape for scaling (combine batch and time dimensions)
+            orig_shape = X.shape
+            reshaped_X = X.reshape(-1, X.shape[2])
+            # Scale the data
+            scaled_X = scaler.transform(reshaped_X)
+            # Reshape back to original shape
+            X_sequence = scaled_X.reshape(orig_shape)
         else:
-            # Pad with zeros if we don't have enough data
-            padding = np.zeros((look_back - len(X_scaled), X_scaled.shape[1]))
-            X_padded = np.vstack([padding, X_scaled])
-            X_sequence = X_padded.reshape(1, look_back, X_scaled.shape[1])
+            # Scale input data
+            X_scaled = scaler.transform(X)
+            
+            # Use efficient numpy operations for sequence creation
+            if len(X_scaled) >= look_back:
+                # Take the most recent look_back entries for prediction
+                X_sequence = X_scaled[-look_back:].reshape(1, look_back, X_scaled.shape[1])
+            else:
+                # Pad with zeros if we don't have enough data
+                padding = np.zeros((look_back - len(X_scaled), X_scaled.shape[1]))
+                X_padded = np.vstack([padding, X_scaled])
+                X_sequence = X_padded.reshape(1, look_back, X_scaled.shape[1])
         
         # Generate prediction with reduced verbosity
         raw_predictions = model.predict(X_sequence, verbose=0)

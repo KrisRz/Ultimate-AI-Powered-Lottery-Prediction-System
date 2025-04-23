@@ -103,11 +103,19 @@ def train_holtwinters_model(X_train, y_train, check_for_stationarity=True):
         List of trained models and their configuration
     """
     # Validate input
+    if y_train is None or (isinstance(y_train, np.ndarray) and y_train.size == 0):
+        raise ValueError("y_train cannot be None or empty")
+    
     if not isinstance(y_train, np.ndarray):
         try:
             y_train = np.array(y_train)
         except Exception as e:
             raise ValueError(f"Cannot convert y_train to numpy array: {str(e)}")
+    
+    # Handle case where y_train might be a 3D array from LSTM models
+    if len(y_train.shape) == 3:
+        logging.warning(f"Received 3D y_train with shape {y_train.shape}, using the last time step")
+        y_train = y_train[:, -1, :]
     
     # Check shape
     if len(y_train.shape) != 2 or y_train.shape[1] != 6:

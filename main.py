@@ -6,9 +6,10 @@ import traceback
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Add scripts directory to path for imports
+# Add project root to path for imports
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
 
 try:
     # Try direct imports first
@@ -30,6 +31,9 @@ logger = logging.getLogger(__name__)
 # Constants
 DATA_PATH = Path("data/lottery_data_1995_2025.csv")
 RESULTS_PATH = Path("results/predictions.json")
+
+# Create results directory if it doesn't exist
+os.makedirs(RESULTS_PATH.parent, exist_ok=True)
 
 def main(retrain: str = 'no', data_path: str = str(DATA_PATH), 
          n_predictions: int = 10, verbose: bool = True) -> Dict[str, Any]:

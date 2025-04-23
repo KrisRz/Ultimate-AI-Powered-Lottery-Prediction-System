@@ -1,12 +1,31 @@
 import numpy as np
 import logging
-from catboost import CatBoostRegressor, Pool
+from catboost import CatBoostRegressor, Pool, cv
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold
 import optuna
 from typing import List, Dict, Tuple, Any, Union, Optional
 from .utils import log_training_errors, ensure_valid_prediction
 
-def objective(trial, X, y, cat_features=None, cv=3):
+def preprocess_categorical_features(X, cat_features):
+    """
+    Preprocess categorical features to ensure they are strings
+    
+    Args:
+        X: Features array
+        cat_features: List of categorical feature indices
+        
+    Returns:
+        X with categorical features converted to strings
+    """
+    X_processed = X.copy()
+    if cat_features:
+        for cat_idx in cat_features:
+            # Convert to integer first to avoid float strings
+            X_processed[:, cat_idx] = X_processed[:, cat_idx].astype(int).astype(str)
+    return X_processed
+
+def objective(trial, X, y, cat_features=None, cv_folds=3) -> float:
     """
     Optuna objective function for CatBoost parameter tuning
     
@@ -15,7 +34,7 @@ def objective(trial, X, y, cat_features=None, cv=3):
         X: Training features
         y: Target variable
         cat_features: Indices of categorical features
-        cv: Number of cross-validation folds
+        cv_folds: Number of cross-validation folds
         
     Returns:
         Mean validation score
@@ -29,19 +48,20 @@ def objective(trial, X, y, cat_features=None, cv=3):
         'random_strength': trial.suggest_float('random_strength', 0.1, 10.0),
         'bagging_temperature': trial.suggest_float('bagging_temperature', 0.0, 10.0),
         'border_count': trial.suggest_int('border_count', 32, 255),
-        'verbose': False
+        'verbose': 0
     }
     
-    # Prepare cross-validation
-    scores = []
+    # Preprocess categorical features
+    X_processed = preprocess_categorical_features(X, cat_features)
     
     # Create dataset with categorical features
-    train_data = Pool(data=X, label=y, cat_features=cat_features)
+    train_data = Pool(data=X_processed, label=y, cat_features=cat_features)
     
-    # Cross-validation with CatBoost's built-in function
-    cv_results = CatBoostRegressor(**params).cv(
+    # Use catboost's built-in CV function
+    cv_results = cv(
         train_data,
-        fold_count=cv,
+        params,
+        fold_count=cv_folds,
         early_stopping_rounds=20,
         stratified=False,
         partition_random_seed=42
@@ -50,7 +70,7 @@ def objective(trial, X, y, cat_features=None, cv=3):
     # Get the best validation score (lower RMSE is better)
     best_score = min(cv_results['test-RMSE-mean'])
     
-    return -best_score  # Negative because we want to maximize
+    return -float(best_score)  # Negative because we want to maximize
 
 def detect_categorical_features(X_train, column_names=None) -> List[int]:
     """
@@ -132,6 +152,10 @@ def train_catboost_model(X_train, y_train, params=None, tune_hyperparams=True, n
     if non_cat_indices:
         X_scaled[:, non_cat_indices] = scaler.fit_transform(X_train[:, non_cat_indices])
     
+    # Convert categorical features to integers first, then to strings
+    for cat_idx in cat_features:
+        X_scaled[:, cat_idx] = X_scaled[:, cat_idx].astype(int).astype(str)
+    
     # Train model for each number position
     models = []
     best_params_list = []
@@ -143,10 +167,10 @@ def train_catboost_model(X_train, y_train, params=None, tune_hyperparams=True, n
             logging.info(f"Tuning hyperparameters for CatBoost model {i+1}/6")
             try:
                 study = optuna.create_study(direction='maximize')
-                study.optimize(lambda trial: objective(trial, X_scaled, y_train[:, i], cat_features, cv=3), 
+                study.optimize(lambda trial: objective(trial, X_scaled, y_train[:, i], cat_features, cv_folds=3), 
                                n_trials=n_trials)
                 best_params = study.best_params
-                best_params['verbose'] = False  # Ensure quiet training
+                best_params['verbose'] = 0  # Ensure quiet training
                 best_params_list.append(best_params)
                 logging.info(f"Best parameters for model {i+1}: {best_params}")
             except Exception as e:
@@ -157,7 +181,7 @@ def train_catboost_model(X_train, y_train, params=None, tune_hyperparams=True, n
                     'learning_rate': 0.1,
                     'depth': 6,
                     'l2_leaf_reg': 3.0,
-                    'verbose': False
+                    'verbose': 0
                 }
         else:
             # Use provided params or defaults
@@ -166,7 +190,7 @@ def train_catboost_model(X_train, y_train, params=None, tune_hyperparams=True, n
                 'learning_rate': 0.1,
                 'depth': 6,
                 'l2_leaf_reg': 3.0,
-                'verbose': False
+                'verbose': 0
             }
         
         # Train model with best parameters
@@ -240,6 +264,9 @@ def predict_catboost_model(models, scaler, X, cat_features=None):
         non_cat_indices = [i for i in range(X.shape[1]) if i not in cat_features]
         if non_cat_indices:
             X_scaled[:, non_cat_indices] = scaler.transform(X[:, non_cat_indices])
+        
+        # Preprocess categorical features
+        X_scaled = preprocess_categorical_features(X_scaled, cat_features)
         
         # Generate predictions
         predictions = np.zeros((X.shape[0], 6))

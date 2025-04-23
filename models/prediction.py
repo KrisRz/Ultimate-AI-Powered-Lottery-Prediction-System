@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional, Any, Callable, TypeVar, Protocol
 from collections import defaultdict, Counter
 from itertools import combinations
 from tqdm import tqdm
@@ -8,6 +8,15 @@ from mlxtend.frequent_patterns import apriori
 from mlxtend.frequent_patterns import association_rules
 from .utils import ensure_valid_prediction, log_memory_usage, LOOK_BACK, N_PREDICTIONS
 from .base import BaseModel, TimeSeriesModel, EnsembleModel, MetaModel
+import logging
+import time
+import os
+import pickle
+
+T = TypeVar('T')
+
+class PredictionFunction(Protocol):
+    def __call__(self, df: pd.DataFrame, models: Dict[str, Any]) -> Union[List[int], np.ndarray]: ...
 
 def predict_with_lstm(df: pd.DataFrame, models: Dict) -> List[int]:
     """Predict next numbers using LSTM model."""
@@ -297,10 +306,11 @@ def predict_with_meta(df: pd.DataFrame, models: Dict) -> List[int]:
     except Exception as e:
         return ensure_valid_prediction([])
 
-def predict_next_draw(df: pd.DataFrame, models: Dict) -> Dict[str, List[int]]:
-    """Predict next draw numbers using all models."""
-    predictions = {}
-    prediction_functions = {
+def predict_next_draw(df: pd.DataFrame, models: Dict[str, Any]) -> Dict[str, List[int]]:
+    """Predict next draw numbers using all models with enhanced validation."""
+    predictions: Dict[str, List[int]] = {}
+    failed_models: List[str] = []
+    prediction_functions: Dict[str, PredictionFunction] = {
         'lstm': predict_with_lstm,
         'arima': predict_with_arima,
         'holtwinters': predict_with_holtwinters,
@@ -315,11 +325,152 @@ def predict_next_draw(df: pd.DataFrame, models: Dict) -> Dict[str, List[int]]:
         'meta': predict_with_meta
     }
     
-    for model_name, predict_func in prediction_functions.items():
-        if model_name in models:
-            predictions[model_name] = predict_func(df, models)
+    # Validate input data
+    if df.empty or 'Main_Numbers' not in df.columns:
+        raise ValueError("Invalid input data format")
     
+    for model_name, predict_func in prediction_functions.items():
+        if model_name not in models:
+            continue
+            
+        try:
+            # Get model and attempt prediction
+            model = models[model_name]
+            if model is None:
+                # Try to recover model
+                model = recover_failed_model(model_name, df)
+                if model is None:
+                    failed_models.append(model_name)
+                    continue
+                    
+            # Make prediction with retry mechanism
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    raw_pred = predict_func(df, {model_name: model})
+                    
+                    # Validate prediction thoroughly
+                    if not validate_prediction(raw_pred):
+                        # Try to fix invalid prediction
+                        fixed_pred = ensure_valid_prediction(raw_pred)
+                        if validate_prediction(fixed_pred):
+                            predictions[model_name] = fixed_pred
+                            break
+                        else:
+                            raise ValueError(f"Could not fix invalid prediction from {model_name}")
+                    else:
+                        predictions[model_name] = ensure_valid_prediction(raw_pred)
+                        break
+                        
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        logging.error(f"Failed to get prediction from {model_name} after {max_retries} attempts: {str(e)}")
+                        failed_models.append(model_name)
+                    else:
+                        logging.warning(f"Retry {attempt + 1} for {model_name}: {str(e)}")
+                        time.sleep(1)  # Brief pause before retry
+                        
+        except Exception as e:
+            logging.error(f"Error with {model_name}: {str(e)}")
+            failed_models.append(model_name)
+            
+    if not predictions:
+        raise RuntimeError("No valid predictions from any model")
+        
+    if failed_models:
+        logging.warning(f"Failed models: {', '.join(failed_models)}")
+        
     return predictions
+
+def validate_prediction(pred: Union[List[int], np.ndarray], thorough: bool = True) -> bool:
+    """
+    Thoroughly validate a prediction
+    
+    Args:
+        pred: Prediction to validate
+        thorough: Whether to perform additional validation checks
+        
+    Returns:
+        bool: Whether prediction is valid
+    """
+    try:
+        if pred is None:
+            return False
+            
+        # Convert to numpy array if needed
+        if isinstance(pred, list):
+            pred = np.array(pred)
+            
+        # Basic validation
+        if not isinstance(pred, np.ndarray):
+            return False
+            
+        if pred.shape != (6,):
+            return False
+            
+        if not np.all((pred >= 1) & (pred <= 59)):
+            return False
+            
+        if len(set(pred)) != 6:
+            return False
+            
+        if thorough:
+            # Additional validation checks
+            if not np.all(np.floor(pred) == pred):  # Check for non-integers
+                return False
+                
+            # Check for reasonable distribution
+            if np.std(pred) > 30:  # Unreasonable spread
+                return False
+                
+            # Check for sequential numbers (might be unlikely)
+            diffs = np.diff(np.sort(pred))
+            if np.any(diffs == 1) and np.sum(diffs == 1) > 2:
+                logging.warning("Prediction contains more than 2 sequential numbers")
+                
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error in prediction validation: {str(e)}")
+        return False
+
+def recover_failed_model(model_name: str, df: pd.DataFrame) -> Optional[Any]:
+    """
+    Attempt to recover a failed model
+    
+    Args:
+        model_name: Name of the failed model
+        df: Training data
+        
+    Returns:
+        Recovered model or None
+    """
+    try:
+        # Try to load from checkpoint
+        model_path = f"models/checkpoints/{model_name}_latest.pkl"
+        if os.path.exists(model_path):
+            with open(model_path, 'rb') as f:
+                model = pickle.load(f)
+            logging.info(f"Recovered {model_name} from checkpoint")
+            return model
+            
+        # If no checkpoint, try retraining
+        if model_name == 'lstm':
+            from models.lstm_model import train_lstm_model
+            model = train_lstm_model(df)
+        elif model_name == 'xgboost':
+            from models.xgboost_model import train_xgboost_model
+            model = train_xgboost_model(df)
+        # Add other model types...
+        
+        if model is not None:
+            logging.info(f"Successfully retrained {model_name}")
+            return model
+            
+    except Exception as e:
+        logging.error(f"Failed to recover {model_name}: {str(e)}")
+        
+    return None
 
 def ensemble_prediction(df: pd.DataFrame, models: Dict, n_predictions: int = 10) -> List[List[int]]:
     """Generate ensemble predictions using multiple models."""

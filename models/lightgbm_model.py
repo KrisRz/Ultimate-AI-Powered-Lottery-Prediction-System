@@ -7,7 +7,7 @@ import optuna
 from typing import List, Dict, Tuple, Any, Union
 from .utils import log_training_errors, ensure_valid_prediction
 
-def objective(trial, X, y, cv=3):
+def objective(trial, X, y, cv=3) -> float:
     """
     Optuna objective function for LightGBM parameter tuning
     
@@ -46,19 +46,21 @@ def objective(trial, X, y, cv=3):
         y_train_fold, y_val_fold = y[train_idx], y[val_idx]
         
         model = lgb.LGBMRegressor(**params, random_state=42)
+        # Create early stopping callback
+        callbacks = [lgb.early_stopping(stopping_rounds=20)]
         model.fit(
             X_train_fold, y_train_fold,
             eval_set=[(X_val_fold, y_val_fold)],
             eval_metric='mse',
-            early_stopping_rounds=50,
-            verbose=False
+            callbacks=callbacks
         )
         
-        # Get best iteration score
-        score = model.best_score_['valid_0']['l2']
-        scores.append(-score)  # Negative because we want to maximize
+        # Evaluate on validation set
+        pred = model.predict(X_val_fold)
+        mse = np.mean((y_val_fold - pred) ** 2)
+        scores.append(-mse)  # Negative because we want to maximize
     
-    return np.mean(scores)
+    return float(np.mean(scores))
 
 @log_training_errors
 def train_lightgbm_model(X_train, y_train, params=None, tune_hyperparams=True, n_trials=50):
@@ -148,17 +150,18 @@ def train_lightgbm_model(X_train, y_train, params=None, tune_hyperparams=True, n
         try:
             model = lgb.LGBMRegressor(**best_params, random_state=42)
             
-            # Use early stopping with a validation set
+            # Use validation set if we have enough data
             if X_train.shape[0] > 1000:  # Only if we have enough data
                 X_train_part, X_val_part = X_scaled[:-200], X_scaled[-200:]
                 y_train_part, y_val_part = y_train[:-200, i], y_train[-200:, i]
                 
+                # Create early stopping callback
+                callbacks = [lgb.early_stopping(stopping_rounds=20)]
                 model.fit(
                     X_train_part, y_train_part,
                     eval_set=[(X_val_part, y_val_part)],
                     eval_metric='mse',
-                    early_stopping_rounds=50,
-                    verbose=False
+                    callbacks=callbacks
                 )
             else:
                 model.fit(X_scaled, y_train[:, i])
