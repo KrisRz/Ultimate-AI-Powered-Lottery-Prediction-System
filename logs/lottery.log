@@ -1,0 +1,119 @@
+2025-04-27 09:53:51,177 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:53:51,177 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:54:29,887 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:54:29,887 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:54:55,631 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:54:55,631 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:54:55,651 - models.optimized_training - INFO - GPU available: 1 device(s)
+2025-04-27 09:54:55,651 - models.optimized_training - INFO - GPU 0: /physical_device:GPU:0
+2025-04-27 09:54:55,652 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:54:55,652 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:55:07,735 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:55:07,735 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:55:07,737 - models.optimized_training - INFO - GPU available: 1 device(s)
+2025-04-27 09:55:07,737 - models.optimized_training - INFO - GPU 0: /physical_device:GPU:0
+2025-04-27 09:55:07,738 - root - INFO - Logging initialized at level INFO
+2025-04-27 09:55:07,738 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
+2025-04-27 09:55:07,738 - __main__ - INFO - Loading lottery data...
+2025-04-27 09:55:07,751 - __main__ - INFO - Loaded 1924 lottery draws
+2025-04-27 09:55:07,751 - models.optimized_training - INFO - Preparing data for model training...
+2025-04-27 09:55:08,838 - models.optimized_training - INFO - Data preparation completed in 1.09 seconds
+2025-04-27 09:55:08,839 - __main__ - INFO - Training models with current configuration...
+2025-04-27 09:55:08,840 - models.optimized_training - INFO - Preparing data for model training...
+2025-04-27 09:55:08,840 - models.optimized_training - INFO - Preparing data for model training...
+2025-04-27 09:55:09,944 - models.optimized_training - INFO - Data preparation completed in 1.10 seconds
+2025-04-27 09:55:09,944 - models.optimized_training - INFO - Data preparation complete. Training with 4 workers.
+2025-04-27 09:55:09,989 - models.optimized_training - INFO - Training lstm model...
+2025-04-27 09:55:09,992 - models.optimized_training - INFO - Training xgboost model...
+2025-04-27 09:55:09,992 - models.optimized_training - INFO - Training cnn_lstm model...
+2025-04-27 09:55:09,999 - models.optimized_training - INFO - Training lightgbm model...
+2025-04-27 09:55:10,813 - models.optimized_training - INFO - Saved lightgbm model to cache with key lightgbm_7117932799033131941
+2025-04-27 09:55:10,815 - models.optimized_training - INFO - Training catboost model...
+2025-04-27 09:55:10,815 - models.optimized_training - INFO - Successfully trained lightgbm model
+2025-04-27 09:55:11,112 - models.optimized_training - INFO - train_xgboost_optimized completed in 1.12s, memory delta: 19.24MB
+2025-04-27 09:55:11,134 - models.optimized_training - INFO - Saved xgboost model to cache with key xgboost_7117932799033131941
+2025-04-27 09:55:11,137 - models.optimized_training - INFO - Successfully trained xgboost model
+2025-04-27 09:55:11,137 - models.optimized_training - INFO - Training autoencoder model...
+2025-04-27 09:55:11,169 - models.optimized_training - ERROR - Error in train_model_task for autoencoder: X has 6 features, but MinMaxScaler is expecting 1200 features as input.
+2025-04-27 09:55:11,171 - models.optimized_training - INFO - Training meta model...
+2025-04-27 09:55:11,172 - models.optimized_training - ERROR - Error in train_model_task for meta: Unknown model type: meta
+2025-04-27 09:55:11,172 - models.optimized_training - WARNING - Failed to train autoencoder model
+2025-04-27 09:55:11,175 - models.optimized_training - WARNING - Failed to train meta model
+2025-04-27 09:55:11,521 - models.optimized_training - INFO - Training LSTM model with GPU acceleration
+2025-04-27 09:55:11,559 - models.optimized_training - INFO - Training CNN-LSTM model with GPU acceleration
+2025-04-27 09:55:15,147 - models.optimized_training - INFO - Saved catboost model to cache with key catboost_7117932799033131941
+2025-04-27 09:55:15,150 - models.optimized_training - INFO - Successfully trained catboost model
+2025-04-27 09:57:34,077 - models.optimized_training - INFO - train_cnn_lstm_optimized completed in 144.07s, memory delta: 356.38MB
+2025-04-27 09:57:34,154 - models.optimized_training - INFO - Saved cnn_lstm model to cache with key cnn_lstm_7117932799033131941
+2025-04-27 09:57:34,155 - models.optimized_training - INFO - Successfully trained cnn_lstm model
+2025-04-27 10:00:00,833 - models.optimized_training - INFO - train_lstm_optimized completed in 290.84s, memory delta: 348.98MB
+2025-04-27 10:00:00,858 - models.optimized_training - INFO - Saved lstm model to cache with key lstm_7117932799033131941
+2025-04-27 10:00:00,858 - models.optimized_training - INFO - Successfully trained lstm model
+2025-04-27 10:00:00,859 - models.optimized_training - INFO - Training meta model with 5 base models
+2025-04-27 10:00:00,859 - models.optimized_training - ERROR - Error training meta model: 'list' object has no attribute 'predict'
+2025-04-27 10:00:00,859 - models.optimized_training - INFO - Trained 5 models in 290.87 seconds
+2025-04-27 10:00:00,948 - models.optimized_training - INFO - Saved 5 models to models/trained_models.pkl
+2025-04-27 10:00:00,948 - models.optimized_training - INFO - train_all_models_parallel completed in 292.11s, memory delta: 360.41MB
+2025-04-27 10:00:01,035 - __main__ - INFO - Models saved successfully with timestamp 20250427_095507
+2025-04-27 10:00:01,035 - __main__ - INFO - Generating 10 predictions...
+2025-04-27 10:00:01,035 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,035 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,036 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,037 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,038 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,039 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,041 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,042 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,043 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,044 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,045 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
+2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
+2025-04-27 10:00:01,046 - models.optimized_training - WARNING - No valid predictions generated
+2025-04-27 10:00:01,049 - __main__ - INFO - Predictions saved successfully with timestamp 20250427_095507

@@ -1,0 +1,118 @@
+{
+    "timestamp": "20250425_160409",
+    "predictions": [
+        [
+            7,
+            15,
+            18,
+            38,
+            50,
+            54
+        ],
+        [
+            5,
+            6,
+            13,
+            14,
+            18,
+            46
+        ],
+        [
+            11,
+            18,
+            28,
+            30,
+            34,
+            53
+        ],
+        [
+            8,
+            17,
+            18,
+            22,
+            25,
+            36
+        ],
+        [
+            4,
+            11,
+            20,
+            38,
+            48,
+            49
+        ],
+        [
+            6,
+            8,
+            31,
+            34,
+            45,
+            46
+        ],
+        [
+            5,
+            6,
+            18,
+            21,
+            28,
+            30
+        ],
+        [
+            17,
+            19,
+            28,
+            31,
+            39,
+            45
+        ],
+        [
+            9,
+            13,
+            27,
+            46,
+            50,
+            58
+        ],
+        [
+            21,
+            22,
+            32,
+            42,
+            44,
+            46
+        ]
+    ],
+    "metadata": {
+        "models_used": [
+            "xgboost",
+            "lstm",
+            "cnn_lstm"
+        ],
+        "model_weights": {
+            "lstm": 0.2,
+            "cnn_lstm": 0.2,
+            "xgboost": 0.15,
+            "lightgbm": 0.15,
+            "catboost": 0.15,
+            "autoencoder": 0.1,
+            "meta": 0.05
+        },
+        "feature_config": {
+            "use_historical_stats": true,
+            "sequence_length": 200,
+            "use_date_features": true,
+            "use_frequency_features": true,
+            "use_pattern_features": true
+        },
+        "data_size": 1924,
+        "training_config": {
+            "validation_split": 0.2,
+            "early_stopping_patience": 10,
+            "batch_size": 32,
+            "epochs": 100,
+            "use_gpu": true,
+            "parallel_training": true,
+            "max_workers": null
+        }
+    }
+}
