@@ -94,3 +94,5 @@ models/monitoring/
 _backup/test_env/
 test_env/
 .DS_Store
+.DS_Store
+.coverage
