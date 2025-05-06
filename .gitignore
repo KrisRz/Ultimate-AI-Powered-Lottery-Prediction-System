@@ -91,4 +91,4 @@ models/monitoring/
 *.pkl
 
 # Backup files
-_backup/
+_backup/test_env/
