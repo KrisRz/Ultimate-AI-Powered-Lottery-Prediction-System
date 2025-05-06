@@ -7,12 +7,30 @@ Thumbs.db
 venv/
 env/
 lottery_env/
+test_env/
 
 # Python bytecode
 __pycache__/
+*.py[cod]
 *.pyc
-*.pyo
-*.pyd
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Logs and temporary files
 *.log
@@ -21,14 +39,12 @@ __pycache__/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+*.ipynb_checkpoints
 
 # Output data
 data/output/
+outputs/
 *.csv
-
-# ML models
-*.h5
-*.pkl
 
 # Build artifacts
 *.egg-info/
@@ -40,3 +56,39 @@ jakStart.html
 
 # Git-related
 .git/
+
+# Benchmarks
+.benchmarks/
+tests/.benchmarks/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.sqlite3
+logs/
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Model related (ignore everything except scripts)
+models/checkpoints/
+models/deployment/
+models/monitoring/
+*.h5
+*.pkl
+
+# Backup files
+_backup/
