@@ -1,0 +1,12 @@
+{
+  "timestamp": "20250501_200349",
+  "predictions": [],
+  "metadata": {
+    "models_used": [
+      "lightgbm",
+      "random_forest",
+      "linear_regression"
+    ],
+    "n_predictions": 10
+  }
+}

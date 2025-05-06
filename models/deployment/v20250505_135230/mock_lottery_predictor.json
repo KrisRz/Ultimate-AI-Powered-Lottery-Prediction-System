@@ -1,0 +1,14 @@
+{
+    "name": "mock_lottery_predictor",
+    "coefficients": [
+        0.8989108672094827,
+        0.08007318423527388,
+        0.7832713372591671,
+        0.302207657118447,
+        0.017422041743635153,
+        0.639913456992259
+    ],
+    "prediction_function": "return random numbers between 1-59",
+    "version": "1.0.0",
+    "type": "statistical"
+}

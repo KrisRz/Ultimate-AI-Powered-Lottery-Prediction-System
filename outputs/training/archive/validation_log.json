@@ -1,0 +1,656 @@
+[
+  {
+    "timestamp": "2025-04-25T19:51:53.601812",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [
+          "Invalid date format in 1 values",
+          "Failed to convert 1 values to datetime"
+        ],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [
+          "Required column Draw Date has 1 missing values"
+        ],
+        "warnings": [
+          "Draw Date is not chronological at indices: []"
+        ]
+      }
+    },
+    "errors": [
+      "Draw Date: Invalid date format in 1 values",
+      "Draw Date: Failed to convert 1 values to datetime",
+      "Consistency: Required column Draw Date has 1 missing values"
+    ],
+    "warnings": [
+      "Consistency: Draw Date is not chronological at indices: []"
+    ],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:51:53.619056",
+    "data_shape": {
+      "rows": 0,
+      "columns": []
+    },
+    "checks": {},
+    "errors": [
+      "Empty dataframe - no data to validate"
+    ],
+    "warnings": [],
+    "fixes_applied": []
+  },
+  {
+    "timestamp": "2025-04-25T19:51:53.625343",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Winners: Found 1 values below minimum 0"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Winners: Set 1 invalid values to 0",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:51:53.642767",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Day",
+        "Balls",
+        "Jackpot",
+        "Winners",
+        "Draw Details",
+        "Main_Numbers",
+        "Bonus"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [
+          "Invalid date format in 1 values",
+          "Failed to convert 1 values to datetime"
+        ],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Day": {
+        "errors": [
+          "Found 1 invalid values: ['Invalid']"
+        ],
+        "warnings": [],
+        "fixes": []
+      },
+      "Balls": {
+        "errors": [
+          "Found 1 values with invalid format. Examples: ['invalid']",
+          "Row 0: Invalid Balls format 'invalid' (couldn't fix)"
+        ],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Draw Details": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Set 1 values below minimum to 1"
+        ]
+      },
+      "consistency": {
+        "errors": [
+          "Required column Draw Date has 1 missing values"
+        ],
+        "warnings": [
+          "Draw Date is not chronological at indices: []"
+        ]
+      }
+    },
+    "errors": [
+      "Winners: Found 1 values below minimum 0",
+      "Draw Date: Invalid date format in 1 values",
+      "Draw Date: Failed to convert 1 values to datetime",
+      "Day: Found 1 invalid values: ['Invalid']",
+      "Balls: Found 1 values with invalid format. Examples: ['invalid']",
+      "Balls: Row 0: Invalid Balls format 'invalid' (couldn't fix)",
+      "Consistency: Required column Draw Date has 1 missing values"
+    ],
+    "warnings": [
+      "Consistency: Draw Date is not chronological at indices: []"
+    ],
+    "fixes_applied": [
+      "Winners: Set 1 invalid values to 0",
+      "Draw Details: Filled 1 missing values",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format",
+      "Bonus: Set 1 values below minimum to 1"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:54:29.484172",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Draw Details', 'Day'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:56:02.403017",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Draw Details', 'Day'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:57:50.415280",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Draw Details', 'Day'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T19:58:59.500031",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Draw Details', 'Day'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T20:00:13.285363",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Day', 'Draw Details'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  },
+  {
+    "timestamp": "2025-04-25T20:01:26.315674",
+    "data_shape": {
+      "rows": 2,
+      "columns": [
+        "Draw Date",
+        "Balls",
+        "Jackpot",
+        "Winners"
+      ]
+    },
+    "checks": {
+      "Draw Date": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Converted to datetime (format auto-detected)"
+        ]
+      },
+      "Balls": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Jackpot": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Winners": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "Main_Numbers": {
+        "errors": [],
+        "warnings": [],
+        "fixes": [
+          "Row 0: Fixed Main_Numbers format",
+          "Row 1: Fixed Main_Numbers format"
+        ]
+      },
+      "Bonus": {
+        "errors": [],
+        "warnings": [],
+        "fixes": []
+      },
+      "consistency": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "errors": [
+      "Missing required columns: {'Day', 'Draw Details'}"
+    ],
+    "warnings": [],
+    "fixes_applied": [
+      "Extracted Main_Numbers and Bonus from Balls column",
+      "Draw Date: Converted to datetime (format auto-detected)",
+      "Main_Numbers: Row 0: Fixed Main_Numbers format",
+      "Main_Numbers: Row 1: Fixed Main_Numbers format"
+    ]
+  }
+]

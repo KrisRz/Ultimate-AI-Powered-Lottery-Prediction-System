@@ -1,0 +1,16 @@
+{
+    "model_type": "mock_model",
+    "description": "Mock lottery prediction model for demonstration",
+    "created_by": "Deployment Demo Script",
+    "metrics": {
+        "mse": 12.34,
+        "accuracy": 0.95
+    },
+    "environment": {
+        "python_version": "3.11.9 (main, Apr  3 2025, 12:42:36) [Clang 16.0.0 (clang-1600.0.26.6)]",
+        "platform": "darwin"
+    },
+    "deployment_time": "2025-05-05T13:52:30.919304",
+    "model_name": "mock_lottery_predictor",
+    "version": "v20250505_135230"
+}

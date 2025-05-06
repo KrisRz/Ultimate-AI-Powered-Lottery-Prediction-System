@@ -1,0 +1,41 @@
+{
+  "timestamp": "2025-05-05T11:49:24.794209",
+  "data_shape": {
+    "X_train": [
+      802,
+      10,
+      6
+    ],
+    "y_train": [
+      802,
+      6
+    ]
+  },
+  "models": [
+    "lstm",
+    "xgboost",
+    "lightgbm"
+  ],
+  "training_config": {
+    "look_back": 200,
+    "validation_split": 0.15,
+    "test_split": 0.1,
+    "use_enhanced_features": true,
+    "scaling_method": "robust",
+    "batch_size": 64,
+    "epochs": 300,
+    "learning_rate": 0.001,
+    "early_stopping_patience": 30,
+    "shuffle": true,
+    "dropout_rate": 0.3,
+    "l2_reg": 0.001,
+    "use_gpu": true,
+    "mixed_precision": true,
+    "num_workers": 15,
+    "memory_growth": true,
+    "save_best_only": true,
+    "monitor_metric": "val_loss",
+    "verbose": 1,
+    "save_history": true
+  }
+}

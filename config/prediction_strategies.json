@@ -174,27 +174,45 @@
     "advanced_ensemble": {
       "description": "Combines multiple prediction methods with dynamic weighting",
       "enabled": true,
-      "confidence_weighting": 0.9,
+      "confidence_weighting": 0.95,
       "component_strategies": [
         "statistical_frequency",
         "pattern_based",
         "time_series_forecasting", 
         "machine_learning_cluster",
         "deep_learning_sequence",
-        "probability_model"
+        "probability_model",
+        "autoencoder_features"
       ],
       "ensemble_method": "stacked",
       "weighting_adjustment": {
         "performance_based": true,
         "adaptive_weights": true,
-        "rebalancing_frequency": "weekly",
-        "diversity_promotion": true
+        "rebalancing_frequency": "daily",
+        "diversity_promotion": true,
+        "weight_decay": 0.98,
+        "min_weight_threshold": 0.05
       },
       "meta_learning": {
         "enabled": true,
-        "meta_features": ["draw_volatility", "pattern_strength", "prediction_consensus"],
+        "meta_features": [
+          "draw_volatility",
+          "pattern_strength",
+          "prediction_consensus",
+          "model_uncertainty",
+          "historical_accuracy",
+          "ensemble_diversity"
+        ],
         "meta_model": "gradient_boosting",
-        "online_learning": true
+        "online_learning": true,
+        "learning_rate": 0.01,
+        "update_frequency": "prediction"
+      },
+      "uncertainty_estimation": {
+        "enabled": true,
+        "method": "bootstrap",
+        "n_samples": 100,
+        "confidence_level": 0.95
       }
     }
   },

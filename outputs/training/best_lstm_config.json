@@ -1,0 +1,10 @@
+{
+  "config": {
+    "lstm_units_1": 64,
+    "lstm_units_2": 32,
+    "dropout": 0.2,
+    "learning_rate": 0.001
+  },
+  "val_loss": 0.021050885319709778,
+  "timestamp": "2025-05-05T18:10:32.317993"
+}

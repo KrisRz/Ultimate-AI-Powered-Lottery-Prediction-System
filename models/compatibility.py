@@ -1,334 +1,512 @@
+"""
+Model compatibility utilities.
+
+This file contains low-level compatibility functions for model operations:
+1. Functions for ensuring valid predictions from models
+2. Data format conversion for model inputs/outputs
+3. Model import and loading utilities
+4. Core prediction functions for individual models
+5. Prediction format validation and standardization
+
+This file focuses on MODEL-LEVEL compatibility, while scripts/compatibility.py 
+focuses on higher-level MODULE/SYSTEM compatibility and provides convenience 
+wrappers for application logic.
+"""
+
 import numpy as np
-import pandas as pd
-import importlib
+from typing import Any, Dict, List, Optional, Union, Tuple, Callable
 import logging
-from typing import Dict, List, Tuple, Any, Optional
+import random
+import importlib
+import sys
 from pathlib import Path
+import os
 import json
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
-# Import models functionality
-try:
-    from models.lstm_model import predict_lstm_model
-    from models.arima_model import predict_arima_model
-    from models.holtwinters_model import predict_holtwinters_model
-    from models.linear_model import predict_linear_models as predict_linear_model
-    from models.xgboost_model import predict_xgboost_model
-    from models.lightgbm_model import predict_lightgbm_model
-    from models.knn_model import predict_knn_model
-    from models.gradient_boosting_model import predict_gradient_boosting_model
-    from models.catboost_model import predict_catboost_model
-    from models.cnn_lstm_model import predict_cnn_lstm_model
-    from models.autoencoder_model import predict_autoencoder_model
-    from models.meta_model import predict_meta_model
-except ImportError as e:
-    logger.error(f"Error importing model functions: {e}")
-    # For testing purposes, create stub functions
-    def predict_lstm_model(*args, **kwargs):
-        return [1, 2, 3, 4, 5, 6]
-    
-    def predict_arima_model(*args, **kwargs):
-        return [7, 8, 9, 10, 11, 12]
-    
-    def predict_holtwinters_model(*args, **kwargs):
-        return [13, 14, 15, 16, 17, 18]
-    
-    def predict_linear_model(*args, **kwargs):
-        return [19, 20, 21, 22, 23, 24]
-    
-    def predict_xgboost_model(*args, **kwargs):
-        return [25, 26, 27, 28, 29, 30]
-    
-    def predict_lightgbm_model(*args, **kwargs):
-        return [31, 32, 33, 34, 35, 36]
-    
-    def predict_knn_model(*args, **kwargs):
-        return [37, 38, 39, 40, 41, 42]
-    
-    def predict_gradient_boosting_model(*args, **kwargs):
-        return [43, 44, 45, 46, 47, 48]
-    
-    def predict_catboost_model(*args, **kwargs):
-        return [49, 50, 51, 52, 53, 54]
-    
-    def predict_cnn_lstm_model(*args, **kwargs):
-        return [1, 10, 20, 30, 40, 50]
-    
-    def predict_autoencoder_model(*args, **kwargs):
-        return [5, 15, 25, 35, 45, 55]
-    
-    def predict_meta_model(*args, **kwargs):
-        return [7, 14, 21, 28, 35, 42]
-
-# Wrapper functions to ensure compatibility
-def ensure_valid_prediction(prediction, min_val=1, max_val=59):
-    """Ensure prediction is valid with 6 unique numbers between min_val and max_val."""
-    import random
-    
-    # Check if prediction is already valid
-    if (isinstance(prediction, list) and 
-        len(prediction) == 6 and 
-        all(isinstance(n, int) and min_val <= n <= max_val for n in prediction) and
-        len(set(prediction)) == 6):
-        return sorted(prediction)
-    
-    # Generate a valid prediction
-    valid_numbers = set()
-    if isinstance(prediction, list) or isinstance(prediction, np.ndarray):
-        # Try to keep valid numbers from original prediction
-        for num in prediction:
-            if isinstance(num, (int, np.integer)) and min_val <= num <= max_val and len(valid_numbers) < 6:
-                valid_numbers.add(int(num))
-    
-    # Add random numbers if needed
-    while len(valid_numbers) < 6:
-        valid_numbers.add(random.randint(min_val, max_val))
-    
-    return sorted(list(valid_numbers))
-
-def import_prediction_function(model_name):
-    """Import the prediction function for a model."""
-    model_functions = {
-        'lstm': predict_lstm_model,
-        'arima': predict_arima_model,
-        'holtwinters': predict_holtwinters_model,
-        'linear': predict_linear_model,
-        'xgboost': predict_xgboost_model,
-        'lightgbm': predict_lightgbm_model,
-        'knn': predict_knn_model,
-        'gradient_boosting': predict_gradient_boosting_model,
-        'catboost': predict_catboost_model,
-        'cnn_lstm': predict_cnn_lstm_model,
-        'autoencoder': predict_autoencoder_model,
-        'meta': predict_meta_model
-    }
-    
-    return model_functions.get(model_name)
-
-def predict_with_model(model_name, model, data):
-    """Generate a prediction using a model."""
-    try:
-        # Get the prediction function
-        predict_func = import_prediction_function(model_name)
-        
-        if predict_func is None:
-            logger.warning(f"No prediction function for {model_name}. Using random prediction.")
-            return ensure_valid_prediction([])
-        
-        # Generate prediction
-        prediction = predict_func(model, data)
-        
-        # Validate prediction
-        prediction = ensure_valid_prediction(prediction)
-        
-        return prediction
-    except Exception as e:
-        logger.error(f"Error in predict_with_model for {model_name}: {e}")
-        return ensure_valid_prediction([])
-
-def score_combinations(combinations, data, weights=None):
-    """Score combinations based on historical patterns.
-    
-    This compatibility wrapper adds the weights parameter with a default value.
-    """
-    if weights is None:
-        # Get weights from analyze data
-        try:
-            from scripts.analyze_data import get_prediction_weights
-            weights = get_prediction_weights(data)
-        except ImportError:
-            # Create default weights
-            weights = {
-                'number_weights': {n: 1/59 for n in range(1, 60)},
-                'pair_weights': {},
-                'pattern_weights': {
-                    'consecutive_pairs': 0.1,
-                    'even_odd_ratio': {n: 1/7 for n in range(7)},
-                    'sum_ranges': {'mean': 150, 'std': 20}
-                }
-            }
-    
-    scored_combinations = []
-    for numbers in combinations:
-        # Basic scoring
-        score = sum(numbers) / 100  # Simple score based on sum
-        scored_combinations.append((numbers, score))
-    
-    return sorted(scored_combinations, key=lambda x: x[1], reverse=True)
-
-def ensemble_prediction(individual_predictions, data, model_weights, prediction_count=10):
-    """Generate ensemble predictions from individual model predictions."""
-    if not individual_predictions:
-        # Empty inputs should raise ValueError as expected by tests
-        raise ValueError("No individual predictions provided")
-    
-    # Generate the specified number of predictions
-    predictions = []
-    for _ in range(prediction_count):
-        # Simple implementation: take a random prediction and ensure it's valid
-        if individual_predictions:
-            idx = np.random.randint(0, len(individual_predictions))
-            pred = ensure_valid_prediction(individual_predictions[idx])
-        else:
-            pred = ensure_valid_prediction([])
-        
-        predictions.append(pred)
-    
-    return predictions
-
-def monte_carlo_simulation(data, n_simulations=1000, n_combinations=None):
-    """Generate predictions using Monte Carlo simulation.
-    
-    This compatibility wrapper adds the n_combinations parameter to match the test.
-    """
-    predictions = []
-    for _ in range(n_simulations):
-        # Generate a random prediction
-        pred = ensure_valid_prediction([])
-        predictions.append(pred)
-    
-    return predictions
-
-def save_predictions(predictions, metrics=None, output_path=None):
-    """Save predictions to a file.
-    
-    This compatibility wrapper adds the output_path parameter to match the test.
-    """
-    # Create output data
-    output = {
-        'predictions': predictions,
-        'timestamp': pd.Timestamp.now().isoformat(),
-        'count': len(predictions)
-    }
-    
-    if metrics:
-        output['metrics'] = metrics
-    
-    # Save to file if path is provided
-    if output_path:
-        try:
-            path = Path(output_path)
-            path.parent.mkdir(exist_ok=True)
-            
-            with open(path, 'w') as f:
-                json.dump(output, f, indent=2)
-            
-            return True
-        except Exception as e:
-            logger.error(f"Error saving predictions to {output_path}: {e}")
-            return False
-    
-    return True
-
-def predict_next_draw(models, data, n_predictions=10, save=True):
-    """Generate predictions for the next lottery draw."""
-    # Generate individual predictions from each model
-    individual_predictions = []
-    for model_name, model in models.items():
-        prediction = predict_with_model(model_name, model, data)
-        individual_predictions.append(prediction)
-    
-    # Get model weights (placeholder)
-    model_weights = {model_name: 1.0/len(models) for model_name in models}
-    
-    # Generate ensemble predictions
-    predictions = ensemble_prediction(individual_predictions, data, model_weights, n_predictions)
-    
-    # Save predictions if requested
-    if save:
-        metrics = calculate_prediction_metrics(predictions, data)
-        save_predictions(predictions, metrics)
-    
-    return predictions
-
-def calculate_prediction_metrics(predictions, data):
-    """Calculate metrics for predictions."""
-    metrics = {
-        'accuracy': 0.5,  # Placeholder value for testing
-        'match_rate': 3.0,
-        'perfect_match_rate': 0.0,
-        'rmse': 2.0
-    }
-    return metrics
-
-def calculate_metrics(predictions, actual):
-    """Calculate metrics between predictions and actual values."""
-    metrics = {
-        'accuracy': 0.5,  # Placeholder value for testing
-        'match_rate': 3.0,
-        'perfect_match_rate': 0.0,
-        'rmse': 2.0
-    }
-    return metrics
-
-def backtest(models, df, test_size=10):
-    """Backtest models on historical data."""
-    metrics = {
-        'accuracy': 0.5,  # Placeholder value for testing
-        'match_rate': 3.0,
-        'perfect_match_rate': 0.0,
-        'total_predictions': test_size
-    }
-    return metrics
-
-def get_model_weights(models: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Get weights for each model based on their historical performance.
+def import_prediction_function(model_name: str) -> Optional[Callable]:
+    """Import prediction function for a given model.
     
     Args:
-        models: Dictionary of model objects
+        model_name: Name of the model
         
+    Returns:
+        Prediction function if found, None otherwise
+    """
+    try:
+        # Map model names to their modules
+        model_modules = {
+            'lstm': 'models.lstm_model',
+            'arima': 'models.arima_model',
+            'holtwinters': 'models.holtwinters_model',
+            'linear': 'models.linear_model',
+            'xgboost': 'models.xgboost_model',
+            'lightgbm': 'models.lightgbm_model',
+            'knn': 'models.knn_model',
+            'gradient_boosting': 'models.gradient_boosting_model',
+            'catboost': 'models.catboost_model',
+            'cnn_lstm': 'models.cnn_lstm_model',
+            'autoencoder': 'models.autoencoder_model',
+            'meta': 'models.meta_model'
+        }
+        
+        # Get module name
+        module_name = model_modules.get(model_name.lower())
+        if not module_name:
+            logger.warning(f"Unknown model type: {model_name}")
+            return None
+            
+        # Import module
+        module = importlib.import_module(module_name)
+        
+        # Get prediction function
+        predict_func_name = f"predict_{model_name.lower()}_model"
+        if hasattr(module, predict_func_name):
+            return getattr(module, predict_func_name)
+        else:
+            logger.warning(f"Prediction function {predict_func_name} not found in {module_name}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error importing prediction function for {model_name}: {str(e)}")
+        return None
+
+def is_model_compatible(model: Any) -> bool:
+    """Check if a model is compatible with the prediction system.
+    
+    Args:
+        model: Model to check
+        
+    Returns:
+        Whether the model is compatible
+    """
+    try:
+        # Check for required methods
+        required_methods = ['fit', 'predict']
+        for method in required_methods:
+            if not hasattr(model, method):
+                logger.warning(f"Model missing required method: {method}")
+                return False
+        return True
+    except Exception as e:
+        logger.error(f"Error checking model compatibility: {str(e)}")
+        return False
+
+def ensure_model_compatibility(model: Any) -> bool:
+    """Ensure a model is compatible with the prediction system.
+    
+    Args:
+        model: Model to check
+        
+    Returns:
+        Whether the model is compatible
+    """
+    try:
+        if not is_model_compatible(model):
+            logger.warning("Model is not compatible")
+            return False
+            
+        # Additional compatibility checks can be added here
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error ensuring model compatibility: {str(e)}")
+        return False
+
+def convert_model_format(model: Any, target_format: str) -> Any:
+    """Convert a model to a different format.
+    
+    Args:
+        model: Model to convert
+        target_format: Target format
+        
+    Returns:
+        Converted model
+    """
+    try:
+        # Currently only supports the default format
+        if target_format != 'default':
+            logger.warning(f"Unsupported target format: {target_format}")
+            return model
+            
+        return model
+    except Exception as e:
+        logger.error(f"Error converting model format: {str(e)}")
+        return model
+
+def ensure_valid_prediction(pred: Union[List, np.ndarray], as_array: bool = True) -> Union[np.ndarray, List[int]]:
+    """
+    Ensure predictions are 6 unique integers between 1 and 59.
+    
+    Args:
+        pred: Raw model prediction
+        as_array: Whether to return numpy array (True) or list (False)
+        
+    Returns:
+        Array or list of 6 unique integers between 1 and 59
+    """
+    try:
+        # Convert to numpy array if it's a list
+        if isinstance(pred, list):
+            pred = np.array(pred)
+        
+        # Handle NaN, infinity, or other invalid values
+        if pred is None or not isinstance(pred, (list, np.ndarray)):
+            logger.warning(f"Invalid prediction type: {type(pred)}. Generating random numbers.")
+            result = sorted(random.sample(range(1, 60), 6))
+            return np.array(result) if as_array else list(result)
+        
+        # Check for NaN or infinite values
+        if np.isnan(pred).any() or np.isinf(pred).any():
+            logger.warning(f"Prediction contains NaN or Inf values: {pred}. Fixing...")
+            pred = np.nan_to_num(pred, nan=30.0, posinf=59.0, neginf=1.0)
+        
+        # Handle potential fractional values by rounding
+        pred = np.round(pred).astype(int)
+        
+        # Ensure values are within valid range (1-59)
+        pred = np.clip(pred, 1, 59)
+        
+        # Check if we have the right number of predictions
+        if len(pred) != 6:
+            logger.warning(f"Prediction has {len(pred)} numbers instead of 6. Adjusting...")
+            if len(pred) > 6:
+                # Take the first 6 values
+                pred = pred[:6]
+            else:
+                # Add random numbers until we have 6
+                current = set(pred)
+                while len(current) < 6:
+                    candidate = random.randint(1, 59)
+                    if candidate not in current:
+                        current.add(candidate)
+                pred = np.array(list(current))
+        
+        # Ensure uniqueness
+        unique_values = set(pred)
+        if len(unique_values) < 6:
+            logger.warning(f"Prediction has duplicate values: {pred}. Fixing...")
+            while len(unique_values) < 6:
+                candidate = random.randint(1, 59)
+                if candidate not in unique_values:
+                    unique_values.add(candidate)
+            pred = np.array(list(unique_values))
+        
+        # Sort and return in requested format
+        result = sorted([int(x) for x in pred])
+        return np.array(result) if as_array else result
+    
+    except Exception as e:
+        logger.error(f"Error processing prediction: {e}. Generating random numbers.")
+        result = sorted(random.sample(range(1, 60), 6))
+        return np.array(result) if as_array else list(result)
+
+def predict_with_model(model_name: str, model: Any, X: np.ndarray) -> np.ndarray:
+    """Make predictions with a model.
+    
+    Args:
+        model_name: Name of the model
+        model: Model instance
+        X: Input features
+        
+    Returns:
+        Model predictions
+    """
+    try:
+        # Get prediction function
+        predict_func = import_prediction_function(model_name)
+        if predict_func is not None:
+            # Use model-specific prediction function
+            predictions = predict_func(model, X)
+        else:
+            # Fallback to standard predict method
+            predictions = model.predict(X)
+            
+        # Ensure valid predictions
+        return ensure_valid_prediction(predictions)
+        
+    except Exception as e:
+        logger.error(f"Error making predictions with {model_name}: {str(e)}")
+        # Return random predictions as fallback
+        return ensure_valid_prediction([])
+
+def score_combinations(predictions: List[List[int]], weights: Optional[Dict[str, float]] = None) -> np.ndarray:
+    """Score combinations of predictions.
+    
+    Args:
+        predictions: List of prediction lists
+        weights: Optional dictionary of model weights
+        
+    Returns:
+        Array of scores for each combination
+    """
+    try:
+        if not predictions:
+            return np.array([])
+            
+        # Convert predictions to numpy array
+        pred_array = np.array(predictions)
+        
+        if weights is None:
+            # Equal weights if not provided
+            weights = {str(i): 1.0/len(predictions) for i in range(len(predictions))}
+            
+        # Calculate weighted scores
+        scores = np.zeros(len(predictions))
+        for i, pred in enumerate(predictions):
+            # Score based on frequency of numbers
+            freq = np.bincount(pred, minlength=60)[1:]  # Skip 0
+            scores[i] = np.sum(freq * np.array([weights.get(str(j), 1.0) for j in range(1, 60)]))
+            
+        return scores
+        
+    except Exception as e:
+        logger.error(f"Error scoring combinations: {str(e)}")
+        return np.zeros(len(predictions))
+
+def ensemble_prediction(models: List[Any], X: np.ndarray, weights: Optional[Dict[str, float]] = None) -> np.ndarray:
+    """Make ensemble predictions.
+    
+    Args:
+        models: List of models
+        X: Input features
+        weights: Optional dictionary of model weights
+        
+    Returns:
+        Array of ensemble predictions
+    """
+    try:
+        if not models:
+            return np.zeros((X.shape[0], 6))
+            
+        # Get predictions from each model
+        predictions = []
+        for model in models:
+            try:
+                pred = model.predict(X)
+                predictions.append(pred)
+            except Exception as e:
+                logger.error(f"Error getting predictions from model: {str(e)}")
+                predictions.append(np.zeros((X.shape[0], 6)))
+                
+        # Convert predictions to numpy array
+        predictions = np.array(predictions)
+        
+        if weights is None:
+            # Equal weights if not provided
+            weights = {str(i): 1.0/len(models) for i in range(len(models))}
+            
+        # Calculate weighted predictions
+        weighted_predictions = np.zeros((X.shape[0], 6))
+        for i, pred in enumerate(predictions):
+            weight = weights.get(str(i), 1.0/len(models))
+            weighted_predictions += weight * pred
+            
+        # Ensure valid predictions
+        return ensure_valid_prediction(weighted_predictions)
+        
+    except Exception as e:
+        logger.error(f"Error making ensemble predictions: {str(e)}")
+        return np.zeros((X.shape[0], 6))
+
+def monte_carlo_simulation(model: Any, X: np.ndarray, n_simulations: int = 1000) -> np.ndarray:
+    """Run Monte Carlo simulation for predictions.
+    
+    Args:
+        model: Model to use for predictions
+        X: Input features
+        n_simulations: Number of simulations to run
+        
+    Returns:
+        Array of simulated predictions
+    """
+    try:
+        predictions = []
+        for _ in range(n_simulations):
+            # Add random noise to input
+            noise = np.random.normal(0, 0.01, X.shape)
+            X_noisy = X + noise
+            
+            # Get prediction
+            pred = predict_with_model('lstm', model, X_noisy)
+            predictions.append(pred)
+            
+        # Convert to numpy array
+        predictions = np.array(predictions)
+        
+        # Calculate mean prediction
+        mean_pred = np.mean(predictions, axis=0)
+        
+        # Ensure valid prediction
+        return ensure_valid_prediction(mean_pred)
+        
+    except Exception as e:
+        logger.error(f"Error in Monte Carlo simulation: {str(e)}")
+        return ensure_valid_prediction([])
+
+def save_predictions(predictions: List[List[int]], file_path: str) -> None:
+    """Save predictions to a file.
+    
+    Args:
+        predictions: List of prediction lists
+        file_path: Path to save predictions
+    """
+    try:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        # Save predictions
+        with open(file_path, 'w') as f:
+            json.dump(predictions, f, indent=4)
+            
+        logger.info(f"Saved predictions to {file_path}")
+        
+    except Exception as e:
+        logger.error(f"Error saving predictions: {str(e)}")
+        raise
+
+def predict_next_draw(model: Any, X: np.ndarray, n_predictions: int = 1) -> np.ndarray:
+    """Predict next lottery draw.
+    
+    Args:
+        model: Model to use for predictions
+        X: Input features
+        n_predictions: Number of predictions to generate
+        
+    Returns:
+        Array of predictions
+    """
+    try:
+        predictions = []
+        for _ in range(n_predictions):
+            # Add random noise to input
+            noise = np.random.normal(0, 0.01, X.shape)
+            X_noisy = X + noise
+            
+            # Get prediction
+            pred = predict_with_model('lstm', model, X_noisy)
+            predictions.append(pred)
+            
+        # Convert to numpy array
+        predictions = np.array(predictions)
+        
+        # Calculate mean prediction
+        mean_pred = np.mean(predictions, axis=0)
+        
+        # Ensure valid prediction
+        return ensure_valid_prediction(mean_pred)
+        
+    except Exception as e:
+        logger.error(f"Error predicting next draw: {str(e)}")
+        return ensure_valid_prediction([])
+
+def calculate_prediction_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """Calculate metrics for lottery number predictions.
+    
+    Args:
+        y_true: True lottery numbers (normalized between 0 and 1)
+        y_pred: Predicted lottery numbers (normalized between 0 and 1)
+        
+    Returns:
+        Dictionary of metrics
+    """
+    # Denormalize predictions
+    y_true_denorm = np.round(y_true * 49).astype(int)
+    y_pred_denorm = np.round(y_pred * 49).astype(int)
+    
+    # Calculate metrics
+    metrics = {
+        'mse': np.mean((y_true - y_pred) ** 2),
+        'mae': np.mean(np.abs(y_true - y_pred)),
+        'exact_matches': np.mean(np.all(y_true_denorm == y_pred_denorm, axis=1)),
+        'partial_matches': np.mean(np.sum(y_true_denorm == y_pred_denorm, axis=1) / y_true.shape[1])
+    }
+    
+    return metrics
+
+def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """Calculate metrics between true and predicted values.
+    
+    Args:
+        y_true: True values
+        y_pred: Predicted values
+        
+    Returns:
+        Dictionary of metrics
+    """
+    try:
+        # Ensure arrays are numpy arrays
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        
+        # Calculate basic metrics
+        metrics = {
+            'mse': np.mean((y_true - y_pred) ** 2),
+            'rmse': np.sqrt(np.mean((y_true - y_pred) ** 2)),
+            'mae': np.mean(np.abs(y_true - y_pred)),
+            'r2': 1 - np.sum((y_true - y_pred) ** 2) / np.sum((y_true - np.mean(y_true)) ** 2),
+            'explained_variance': np.var(y_pred) / np.var(y_true)
+        }
+        
+        # Calculate lottery-specific metrics
+        correct_numbers = np.sum(np.isin(y_pred, y_true))
+        metrics.update({
+            'correct_numbers': correct_numbers,
+            'accuracy': correct_numbers / len(y_true)
+        })
+        
+        return metrics
+        
+    except Exception as e:
+        logger.error(f"Error calculating metrics: {str(e)}")
+        return {}
+
+def backtest(model: Any, X: np.ndarray, y: np.ndarray, window_size: int = 10) -> Dict[str, float]:
+    """Perform backtesting on the model.
+    
+    Args:
+        model: Model to backtest
+        X: Input features
+        y: Target values
+        window_size: Size of rolling window
+        
+    Returns:
+        Dictionary of backtest metrics
+    """
+    metrics = []
+    
+    # Perform rolling window validation
+    for i in range(0, len(X) - window_size, window_size):
+        # Get window data
+        X_window = X[i:i + window_size]
+        y_window = y[i:i + window_size]
+        
+        # Make predictions
+        y_pred = model.predict(X_window)
+        
+        # Calculate metrics
+        window_metrics = calculate_prediction_metrics(y_window, y_pred)
+        metrics.append(window_metrics)
+    
+    # Average metrics across windows
+    avg_metrics = {}
+    for key in metrics[0].keys():
+        avg_metrics[key] = np.mean([m[key] for m in metrics])
+    
+    return avg_metrics
+
+def get_model_weights() -> Dict[str, float]:
+    """Get weights for each model in the ensemble.
+    
     Returns:
         Dictionary of model weights
     """
-    try:
-        # Default weights if performance data isn't available
-        default_weights = {
-            'lstm': 0.15,
-            'holtwinters': 0.10,
-            'linear': 0.05,
-            'xgboost': 0.15,
-            'lightgbm': 0.15,
-            'knn': 0.05,
-            'gradient_boosting': 0.10,
-            'catboost': 0.10,
-            'cnn_lstm': 0.10,
-            'autoencoder': 0.05,
-            'meta': 0.00  # Meta model is used separately
-        }
-        
-        # Try to load performance data
-        try:
-            performance_file = Path('results/model_performance.json')
-            if performance_file.exists():
-                with open(performance_file, 'r') as f:
-                    performance = json.load(f)
-                
-                # Extract accuracy metrics
-                weights = {}
-                for model_name in models.keys():
-                    if model_name in performance:
-                        # Use accuracy as weight, with minimum of 0.01
-                        weights[model_name] = max(performance[model_name].get('accuracy', 0), 0.01)
-                    else:
-                        weights[model_name] = default_weights.get(model_name, 0.05)
-                
-                # Normalize weights to sum to 1
-                total = sum(weights.values())
-                if total > 0:
-                    weights = {k: v/total for k, v in weights.items()}
-                    return weights
-            
-            # If no performance data, use equal weights for all models
-            equal_weight = 1.0 / len(models) if models else 0
-            return {model_name: equal_weight for model_name in models}
-            
-        except Exception as e:
-            logger.warning(f"Error loading model performance data: {str(e)}")
-            return default_weights
+    # For now, use equal weights for all models
+    weights = {
+        'lstm': 0.4,
+        'xgboost': 0.3,
+        'lightgbm': 0.3
+    }
     
-    except Exception as e:
-        logger.error(f"Error getting model weights: {str(e)}")
-        return {model: 1.0 / len(models) for model in models} 
+    return weights 

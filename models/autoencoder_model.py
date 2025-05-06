@@ -1,223 +1,469 @@
+import os
+import sys
+import logging
 import numpy as np
 import tensorflow as tf
-import logging
+import pandas as pd
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout, Concatenate, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.preprocessing import MinMaxScaler
-from typing import Tuple, List, Dict, Any, Union
-from .utils import ensure_valid_prediction, log_training_errors
+from tensorflow.keras.layers import Input, Dense, Flatten, BatchNormalization, Dropout, Reshape, Activation, Conv2D, MaxPooling2D, Conv2DTranspose, UpSampling2D, Cropping2D, LSTM, RepeatVector
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
+from sklearn.preprocessing import StandardScaler
+from typing import Tuple, List, Dict, Any, Optional
+from scripts.utils.model_utils import (
+    setup_gpu_memory_growth,
+    set_random_seed,
+    create_sequences,
+    normalize_data,
+    denormalize_data,
+    create_callbacks,
+    validate_predictions,
+    log_training_errors,
+    ensure_valid_prediction,
+    log_prediction_errors
+)
+from tensorflow.keras.optimizers import Adam
 
-def create_predictive_autoencoder(input_dim: int, output_dim: int = 6):
-    """
-    Create an autoencoder model that predicts the next 6 numbers
-    
-    Args:
-        input_dim: Dimension of the input features
-        output_dim: Dimension of the output (default 6 for lottery numbers)
-        
-    Returns:
-        Compiled Keras model
-    """
-    # Encoder
-    input_layer = Input(shape=(input_dim,))
-    
-    # Deeper encoder with batch normalization
-    encoded = Dense(64, activation='relu')(input_layer)
-    encoded = BatchNormalization()(encoded)
-    encoded = Dropout(0.2)(encoded)
-    
-    encoded = Dense(32, activation='relu')(encoded)
-    encoded = BatchNormalization()(encoded)
-    encoded = Dropout(0.2)(encoded)
-    
-    latent = Dense(16, activation='relu')(encoded)
-    
-    # Decoder for next numbers prediction
-    decoded = Dense(32, activation='relu')(latent)
-    decoded = BatchNormalization()(decoded)
-    decoded = Dropout(0.2)(decoded)
-    
-    # Output layer for next 6 numbers
-    output_layer = Dense(output_dim, activation='sigmoid')(decoded)
-    
-    # Create model
-    model = Model(input_layer, output_layer)
-    model.compile(optimizer='adam', loss='mse')
-    
-    return model
+from .base import BaseModel
 
-def create_sequential_training_data(data: np.ndarray, look_back: int = 5) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Create training data for sequence prediction (X = past draws, y = next draw)
+logger = logging.getLogger(__name__)
+
+def create_encoder_decoder(input_dim: int, config: Dict[str, Any]) -> Tuple[tf.keras.Model, tf.keras.Model]:
+    """Create encoder and decoder models with improved architecture"""
+    # Input layer
+    input_layer = tf.keras.layers.Input(shape=(10, 6, 1))
     
-    Args:
-        data: Array of lottery draws (each row is a draw)
-        look_back: Number of previous draws to use for predicting next draw
-        
-    Returns:
-        Tuple of (X_seq, y_seq) for training
-    """
-    X_seq, y_seq = [], []
+    # Encoder - Deeper architecture with residual connections
+    x = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(input_layer)
+    x = tf.keras.layers.BatchNormalization()(x)
+    skip1 = x
     
-    # Ensure we have enough data
-    if len(data) <= look_back:
-        raise ValueError(f"Not enough data for look_back={look_back}. Need more than {look_back} draws.")
+    x = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Add()([x, skip1])
+    x = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+    x = tf.keras.layers.Dropout(config['dropout'])(x)
     
-    # Create sequences
-    for i in range(len(data) - look_back):
-        # X is a flattened sequence of past draws
-        X_seq.append(data[i:i+look_back].flatten())
-        # y is the next draw (6 numbers)
-        y_seq.append(data[i+look_back])
-        
-    return np.array(X_seq), np.array(y_seq)
+    x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    skip2 = x
+    
+    x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Add()([x, skip2])
+    encoded = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+    
+    # Decoder - Symmetric to encoder with skip connections
+    x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(encoded)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    x = tf.keras.layers.Add()([x, skip2])
+    x = tf.keras.layers.Dropout(config['dropout'])(x)
+    
+    x = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    x = tf.keras.layers.Add()([x, skip1])
+    
+    # Output with attention mechanism
+    attention = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(x)
+    x = tf.keras.layers.Multiply()([x, attention])
+    
+    x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    decoded = tf.keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+    
+    # Ensure output shape matches input shape
+    decoded = tf.keras.layers.Cropping2D(((0, decoded.shape[1] - 10), (0, decoded.shape[2] - 6)))(decoded)
+    
+    # Create models
+    encoder = tf.keras.Model(input_layer, encoded)
+    autoencoder = tf.keras.Model(input_layer, decoded)
+    
+    # Compile with improved optimizer settings
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate=config['learning_rate'],
+        clipnorm=1.0,
+        clipvalue=0.5,
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-07
+    )
+    
+    autoencoder.compile(
+        optimizer=optimizer,
+        loss=['mse', 'mae'],
+        loss_weights=[0.7, 0.3],
+        metrics=['mae']
+    )
+    
+    return encoder, autoencoder
 
 @log_training_errors
-def train_autoencoder_model(X_train, y_train=None, look_back=5, epochs=50, batch_size=32):
-    """
-    Train an autoencoder model to predict the next 6 numbers
-    
+def train_autoencoder_model(X: np.ndarray, y: np.ndarray, **kwargs) -> Tuple[Tuple[tf.keras.Model, tf.keras.Model], StandardScaler]:
+    """Train autoencoder model for lottery number prediction.
+
     Args:
-        X_train: Training data (historical lottery draws)
-        y_train: Target data (if None, will use X_train to create sequences)
-        look_back: Number of previous draws to use for prediction
-        epochs: Number of training epochs
-        batch_size: Training batch size
-        
+        X (np.ndarray): Training features
+        y (np.ndarray): Target values
+        **kwargs: Additional arguments including:
+            - epochs (int): Number of training epochs
+            - batch_size (int): Batch size for training
+            - encoder_dims (List[int]): Dimensions of encoder layers
+            - decoder_dims (List[int]): Dimensions of decoder layers
+            - latent_dim (int): Dimension of latent space
+            - activation (str): Activation function
+            - learning_rate (float): Learning rate for optimizer
+
     Returns:
-        Tuple of (model, scaler, look_back)
+        Tuple[Tuple[tf.keras.Model, tf.keras.Model], StandardScaler]: Trained models and scaler
     """
     try:
-        # Validate input
-        if not isinstance(X_train, np.ndarray):
-            X_train = np.array(X_train)
-        
-        # Check if X_train has the right shape
-        if len(X_train.shape) < 2:
-            raise ValueError(f"X_train must be at least 2D, got shape {X_train.shape}")
-        
-        # Handle 3D input (reshape to 2D)
-        if len(X_train.shape) == 3:
-            logging.info(f"Reshaping 3D input with shape {X_train.shape} to 2D for autoencoder")
-            # Reshape from (samples, timesteps, features) to (samples, timesteps*features)
-            samples = X_train.shape[0]
-            X_train_flat = X_train.reshape(samples, -1)
-            X_seq = X_train_flat
-            
-            # If y_train is None, we can't proceed
-            if y_train is None:
-                raise ValueError("When providing 3D input, y_train must be specified")
-            else:
-                if not isinstance(y_train, np.ndarray):
-                    y_train = np.array(y_train)
-                y_seq = y_train
-        else:
-            # If y_train is None, create sequential training data
-            if y_train is None:
-                if X_train.shape[1] == 6:  # Each row is a draw with 6 numbers
-                    logging.info(f"Creating sequential training data with look_back={look_back}")
-                    X_seq, y_seq = create_sequential_training_data(X_train, look_back)
-                else:
-                    raise ValueError(f"When y_train is None, X_train must have 6 columns (got {X_train.shape[1]})")
-            else:
-                # User provided explicit X_train and y_train
-                if not isinstance(y_train, np.ndarray):
-                    y_train = np.array(y_train)
-                
-                # Check shapes
-                if y_train.shape[1] != 6:
-                    raise ValueError(f"y_train must have 6 columns, got {y_train.shape[1]}")
-                
-                X_seq, y_seq = X_train, y_train
-            
-        # Scale the data
-        X_scaler = MinMaxScaler()
-        X_scaled = X_scaler.fit_transform(X_seq)
-        
-        y_scaler = MinMaxScaler()
-        y_scaled = y_scaler.fit_transform(y_seq)
-        
-        # Create and train the model
-        input_dim = X_scaled.shape[1]
-        model = create_predictive_autoencoder(input_dim=input_dim, output_dim=6)
-        
-        # Use early stopping to prevent overfitting
-        early_stopping = EarlyStopping(
-            monitor='val_loss',
-            patience=20,
-            restore_best_weights=True,
-            verbose=0
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(f"Number of samples in X ({X.shape[0]}) and y ({y.shape[0]}) must match")
+        if X.shape[1] < 2:
+            raise ValueError(f"X must have at least 2 features, got {X.shape[1]}")
+
+        # Get parameters from kwargs with defaults
+        epochs = kwargs.get('epochs', 100)
+        batch_size = kwargs.get('batch_size', 32)
+        encoder_dims = kwargs.get('encoder_dims', [64, 32, 16])
+        decoder_dims = kwargs.get('decoder_dims', [16, 32, 64])
+        latent_dim = kwargs.get('latent_dim', 16)
+        activation = kwargs.get('activation', 'relu')
+        learning_rate = kwargs.get('learning_rate', 0.001)
+        dropout = kwargs.get('dropout', 0.2)
+
+        # Scale input data
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # Create models
+        encoder, decoder = create_encoder_decoder(
+            input_dim=X.shape[1],
+            config={
+                'learning_rate': learning_rate,
+                'dropout': dropout
+            }
         )
-        
-        # Train with validation split
-        model.fit(
-            X_scaled, y_scaled,
+
+        # Create optimizers - create new instances for each model
+        encoder_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
+        decoder_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
+
+        # Compile models with separate optimizers
+        encoder.compile(optimizer=encoder_optimizer, loss='mse')
+        decoder.compile(optimizer=decoder_optimizer, loss='mse')
+
+        # Create callbacks
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss',
+            patience=10,
+            restore_best_weights=True
+        )
+
+        # Train autoencoder
+        encoded = encoder.predict(X_scaled)
+        decoder.fit(
+            encoded, X_scaled,
             epochs=epochs,
             batch_size=batch_size,
-            verbose=0,
             validation_split=0.2,
-            callbacks=[early_stopping]
+            callbacks=[early_stopping],
+            verbose=0
         )
-        
-        # Log model summary
-        logging.info(f"Autoencoder model trained on {len(X_scaled)} sequences")
-        logging.info(f"Input shape: {input_dim}, Output shape: 6")
-        
-        return model, (X_scaler, y_scaler), look_back
-        
+
+        return encoder, decoder, scaler
+
     except Exception as e:
-        logging.error(f"Error in autoencoder training: {str(e)}")
+        logger.error(f"Error in autoencoder training: {str(e)}")
         raise
 
-def predict_autoencoder_model(model, scalers, X, look_back=5):
-    """
-    Generate predictions using trained autoencoder model
-    
+def predict_autoencoder_model(encoder: tf.keras.Model, decoder: tf.keras.Model, scaler: StandardScaler, X: np.ndarray) -> np.ndarray:
+    """Generate predictions using trained autoencoder model.
+
     Args:
-        model: Trained Keras model
-        scalers: Tuple of (X_scaler, y_scaler)
-        X: Input features or raw draw history
-        look_back: Number of previous draws used for prediction
-        
+        encoder (tf.keras.Model): Trained encoder model
+        decoder (tf.keras.Model): Trained decoder model
+        scaler (StandardScaler): Fitted scaler for input features
+        X (np.ndarray): Input features to predict on
+
     Returns:
-        Array of 6 valid lottery numbers
+        np.ndarray: Predicted values
     """
     try:
-        X_scaler, y_scaler = scalers
-        
-        # Check if X is raw draw history or already prepared features
-        if not isinstance(X, np.ndarray):
-            X = np.array(X)
-            
-        # Handle different input shapes
-        if len(X.shape) == 2 and X.shape[1] == 6:  # Raw draw history
-            # Need at least look_back draws
-            if len(X) < look_back:
-                raise ValueError(f"Need at least {look_back} draws in history, got {len(X)}")
-                
-            # Get the most recent draws
-            recent_draws = X[-look_back:].flatten().reshape(1, -1)
-            X_prepared = recent_draws
-        else:
-            # Assume X is already prepared in the right format
-            X_prepared = X
-            
         # Scale input
-        X_scaled = X_scaler.transform(X_prepared)
-        
-        # Generate prediction
-        y_scaled_pred = model.predict(X_scaled)
-        
-        # Inverse transform to get actual numbers
-        y_pred = y_scaler.inverse_transform(y_scaled_pred)
-        
-        # Ensure we have valid lottery numbers
-        valid_prediction = ensure_valid_prediction(y_pred[0])
-        
-        return valid_prediction
-        
+        X_scaled = scaler.transform(X)
+
+        # Generate predictions
+        encoded = encoder.predict(X_scaled, verbose=0)
+        predictions = decoder.predict(encoded, verbose=0)
+
+        # Inverse transform predictions
+        predictions = scaler.inverse_transform(predictions)
+
+        # Ensure valid predictions
+        predictions = ensure_valid_prediction(predictions)
+
+        return predictions
+
     except Exception as e:
-        logging.error(f"Error in autoencoder prediction: {str(e)}")
-        # Return random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6)) 
+        log_prediction_errors(e, "autoencoder")
+        raise
+
+class AutoencoderModel:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.encoder = None
+        self.model = None
+        self.is_trained = False
+        
+    def build(self, input_shape: Tuple[int, int, int, int]):
+        """Build the autoencoder model"""
+        self.encoder, self.model = create_encoder_decoder(input_shape[1], self.config)
+        
+    def train(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None) -> tf.keras.callbacks.History:
+        """Train the autoencoder model with improved training process"""
+        try:
+            if self.model is None:
+                self.build(X_train.shape)
+                
+            # Ensure input has correct shape
+            if len(X_train.shape) != 4:
+                raise ValueError(f"Expected 4D input (batch_size, timesteps, features, channels), got shape {X_train.shape}")
+                
+            # Prepare validation data
+            validation_data = None
+            if X_val is not None and y_val is not None:
+                validation_data = (X_val, X_val)
+                
+            # Create callbacks with improved settings
+            callbacks = [
+                # Early stopping with longer patience
+                tf.keras.callbacks.EarlyStopping(
+                    monitor='val_loss',
+                    patience=15,
+                    restore_best_weights=True,
+                    min_delta=1e-4
+                ),
+                # Cosine decay learning rate schedule
+                tf.keras.callbacks.ReduceLROnPlateau(
+                    monitor='val_loss',
+                    factor=0.5,
+                    patience=7,
+                    min_lr=1e-6,
+                    cooldown=3
+                ),
+                # Model checkpoint
+                tf.keras.callbacks.ModelCheckpoint(
+                    'best_autoencoder.h5',
+                    monitor='val_loss',
+                    save_best_only=True,
+                    save_weights_only=True
+                ),
+                # TensorBoard logging
+                tf.keras.callbacks.TensorBoard(
+                    log_dir='./logs',
+                    histogram_freq=1,
+                    write_graph=True
+                )
+            ]
+            
+            # Add data augmentation
+            data_augmentation = tf.keras.Sequential([
+                tf.keras.layers.GaussianNoise(0.1),
+                tf.keras.layers.RandomRotation(0.02),
+                tf.keras.layers.RandomZoom(0.1)
+            ])
+            
+            # Train with augmented data
+            history = self.model.fit(
+                data_augmentation(X_train, training=True),
+                X_train,  # Original data as target
+                epochs=self.config['epochs'],
+                batch_size=self.config['batch_size'],
+                validation_data=validation_data,
+                callbacks=callbacks,
+                verbose=1,
+                shuffle=True
+            )
+            
+            self.is_trained = True
+            return history
+            
+        except Exception as e:
+            logger.error(f"Error training autoencoder model: {str(e)}")
+            raise
+            
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Generate predictions using ensemble of predictions with improved post-processing"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Call train() first.")
+            
+        # Ensure input has correct shape
+        if len(X.shape) != 4:
+            raise ValueError(f"Expected 4D input (batch_size, timesteps, features, channels), got shape {X.shape}")
+            
+        # Generate multiple predictions with different noise levels
+        n_predictions = 5
+        predictions = []
+        
+        for i in range(n_predictions):
+            # Add random noise
+            X_noisy = X + np.random.normal(0, 0.01 * (i + 1), X.shape)
+            
+            # Get prediction
+            pred = self.model.predict(X_noisy, verbose=0)
+            
+            # Reshape if needed
+            if len(pred.shape) > 2:
+                pred = pred.reshape(pred.shape[0], -1)[:, :6]
+                
+            predictions.append(pred)
+            
+        # Ensemble predictions
+        ensemble_pred = np.mean(predictions, axis=0)
+        
+        # Apply constraints
+        ensemble_pred = np.clip(ensemble_pred, 0, 1)  # Ensure values are between 0 and 1
+        
+        # Sort each row to ensure ascending order
+        ensemble_pred = np.sort(ensemble_pred, axis=1)
+        
+        # Remove duplicates within each prediction
+        for i in range(len(ensemble_pred)):
+            row = ensemble_pred[i]
+            _, unique_indices = np.unique(row, return_index=True)
+            if len(unique_indices) < 6:
+                # Fill missing values with new random values
+                n_missing = 6 - len(unique_indices)
+                missing_values = np.random.uniform(row.min(), row.max(), n_missing)
+                row = np.concatenate([row[unique_indices], missing_values])
+                ensemble_pred[i] = np.sort(row)
+        
+        return ensemble_pred
+
+    def encode(self, X):
+        if self.model is None:
+            raise ValueError("Model not trained. Call train() first.")
+        X_scaled = self.scaler.transform(X)
+        # Reshape to 4D if needed
+        if len(X_scaled.shape) != 4:
+            X_scaled = X_scaled.reshape(X_scaled.shape[0], X_scaled.shape[1], X_scaled.shape[2], 1)
+        return self.model.predict(X_scaled, verbose=0)
+
+    def create_encoder_decoder(self, input_dim, encoder_dims, decoder_dims, latent_dim, activation='relu'):
+        """Create encoder and decoder models"""
+        # Input layer
+        input_layer = Input(shape=(input_dim, 6, 1))
+        
+        # Encoder
+        x = Conv2D(32, (3, 3), activation=activation, padding='same')(input_layer)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(16, (3, 3), activation=activation, padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(8, (3, 3), activation=activation, padding='same')(x)
+        encoded = MaxPooling2D((2, 2), padding='same')(x)
+        
+        # Decoder
+        x = Conv2D(8, (3, 3), activation=activation, padding='same')(encoded)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(16, (3, 3), activation=activation, padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(32, (3, 3), activation=activation, padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        decoded = Conv2D(6, (3, 3), activation='sigmoid', padding='same')(x)
+        
+        # Autoencoder model
+        autoencoder = Model(input_layer, decoded)
+        autoencoder.compile(optimizer=Adam(learning_rate=self.learning_rate), loss='mse')
+        
+        return autoencoder
+
+    def train_autoencoder_model(self, X, y, X_val=None, y_val=None, config=None):
+        """Train the autoencoder model"""
+        try:
+            # Reshape input to match expected dimensions
+            X_reshaped = X.reshape(-1, X.shape[1], 6, 1)
+            if X_val is not None:
+                X_val_reshaped = X_val.reshape(-1, X_val.shape[1], 6, 1)
+            
+            # Create and compile model if not already done
+            if self.model is None:
+                self.model = self.create_encoder_decoder(
+                    input_dim=X.shape[1],
+                    encoder_dims=self.config['encoder_dims'],
+                    decoder_dims=self.config['decoder_dims'],
+                    latent_dim=self.config['latent_dim'],
+                    activation=self.config['activation']
+                )
+            
+            # Train model
+            validation_data = (X_val_reshaped, X_val_reshaped) if X_val is not None else None
+            history = self.model.fit(
+                X_reshaped, X_reshaped,
+                epochs=self.config['epochs'],
+                batch_size=self.config['batch_size'],
+                validation_data=validation_data,
+                callbacks=[
+                    EarlyStopping(
+                        monitor='val_loss',
+                        patience=10,
+                        restore_best_weights=True
+                    ),
+                    ReduceLROnPlateau(
+                        monitor='val_loss',
+                        factor=0.5,
+                        patience=5,
+                        min_lr=1e-6
+                    )
+                ],
+                verbose=1
+            )
+            
+            return history
+            
+        except Exception as e:
+            logger.error(f"Error training autoencoder model: {str(e)}")
+            raise
+
+    def save(self, path):
+        """Save the model to the specified path"""
+        if self.model is not None:
+            self.model.save(path)
+        else:
+            raise ValueError("No trained model to save")
+
+def build_autoencoder(input_shape: Tuple[int, int, int] = (200, 6, 1)) -> tf.keras.Model:
+    """Build autoencoder model with the correct input shape."""
+    # Encoder
+    encoder_input = Input(shape=input_shape)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(encoder_input)
+    x = BatchNormalization()(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+    x = Dropout(0.2)(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)
+    x = Dropout(0.2)(x)
+    x = Flatten()(x)
+    encoded = Dense(64, activation='relu')(x)
+    
+    # Decoder
+    x = Dense(64 * 25 * 3, activation='relu')(encoded)
+    x = Reshape((25, 3, 64))(x)
+    x = Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+    x = Conv2DTranspose(32, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+    decoded = Conv2D(1, (3, 3), activation='linear', padding='same')(x)
+    
+    # Autoencoder
+    autoencoder = Model(encoder_input, decoded)
+    autoencoder.compile(
+        optimizer=Adam(learning_rate=0.001),
+        loss='mse',
+        metrics=['mae']
+    )
+    
+    return autoencoder 

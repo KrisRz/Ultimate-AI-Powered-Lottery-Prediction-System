@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-05-05T17:30:59.461135",
+  "backtest_metrics": {
+    "mse": 0.024468357072268302,
+    "mae": 0.1290799274792274,
+    "exact_matches": 0.0,
+    "partial_matches": 0.035555555555555556
+  },
+  "data_size": 160
+}

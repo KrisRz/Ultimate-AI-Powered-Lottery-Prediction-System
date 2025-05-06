@@ -111,183 +111,161 @@ def detect_categorical_features(X_train, column_names=None) -> List[int]:
     return categorical_indices
 
 @log_training_errors
-def train_catboost_model(X_train, y_train, params=None, tune_hyperparams=True, n_trials=50, 
-                         cat_features=None, column_names=None):
+def train_catboost_model(X_train: np.ndarray, y_train: np.ndarray, cat_features: Optional[List[int]] = None, params: Optional[Dict] = None) -> Tuple[List[CatBoostRegressor], StandardScaler]:
     """
-    Train CatBoost Regressor models for lottery number prediction
+    Train CatBoost models for lottery number prediction
     
     Args:
-        X_train: Training features
-        y_train: Target numbers (array of shape [n_samples, 6])
-        params: Optional predefined parameters
-        tune_hyperparams: Whether to perform hyperparameter tuning
-        n_trials: Number of hyperparameter tuning trials
-        cat_features: Indices of categorical features (auto-detected if None)
-        column_names: Names of feature columns for better categorical detection
-        
+        X_train: Training features array of shape [n_samples, n_features]
+        y_train: Target values array of shape [n_samples, 6]
+        cat_features: Optional list of indices indicating categorical features
+        params: Optional dictionary of model parameters:
+            - iterations: Number of boosting iterations (default: 1000)
+            - learning_rate: Learning rate (default: 0.03)
+            - depth: Tree depth (default: 6)
+            - l2_leaf_reg: L2 regularization (default: 3.0)
+            - verbose: Verbosity during training (default: False)
+            
     Returns:
-        Tuple of (list of trained models, scaler, cat_features)
+        Tuple of (trained models list, fitted scaler)
     """
-    # Validate input
-    if not isinstance(X_train, np.ndarray):
-        X_train = np.array(X_train)
-    if not isinstance(y_train, np.ndarray):
-        y_train = np.array(y_train)
-    
-    # Check shapes
-    if len(y_train.shape) != 2 or y_train.shape[1] != 6:
-        raise ValueError(f"y_train must have shape [n_samples, 6], got {y_train.shape}")
-    
-    # Initialize scaler and scale input data (exclude categorical features from scaling)
-    scaler = StandardScaler()
-    X_scaled = X_train.copy()
-    
-    # Detect categorical features if not provided
-    if cat_features is None:
-        cat_features = detect_categorical_features(X_train, column_names)
-        logging.info(f"Detected categorical features at indices: {cat_features}")
-    
-    # Scale non-categorical features
-    non_cat_indices = [i for i in range(X_train.shape[1]) if i not in cat_features]
-    if non_cat_indices:
-        X_scaled[:, non_cat_indices] = scaler.fit_transform(X_train[:, non_cat_indices])
-    
-    # Convert categorical features to integers first, then to strings
-    for cat_idx in cat_features:
-        X_scaled[:, cat_idx] = X_scaled[:, cat_idx].astype(int).astype(str)
-    
-    # Train model for each number position
-    models = []
-    best_params_list = []
-    feature_importance_list = []
-    
-    for i in range(6):
-        # Set up hyperparameter tuning if requested
-        if tune_hyperparams and params is None:
-            logging.info(f"Tuning hyperparameters for CatBoost model {i+1}/6")
-            try:
-                study = optuna.create_study(direction='maximize')
-                study.optimize(lambda trial: objective(trial, X_scaled, y_train[:, i], cat_features, cv_folds=3), 
-                               n_trials=n_trials)
-                best_params = study.best_params
-                best_params['verbose'] = 0  # Ensure quiet training
-                best_params_list.append(best_params)
-                logging.info(f"Best parameters for model {i+1}: {best_params}")
-            except Exception as e:
-                logging.error(f"Error during hyperparameter tuning: {str(e)}")
-                logging.info("Using default parameters due to tuning failure")
-                best_params = {
-                    'iterations': 100,
-                    'learning_rate': 0.1,
-                    'depth': 6,
-                    'l2_leaf_reg': 3.0,
-                    'verbose': 0
-                }
-        else:
-            # Use provided params or defaults
-            best_params = params or {
-                'iterations': 100,
-                'learning_rate': 0.1,
+    try:
+        # Validate input shapes
+        if X_train.shape[0] != y_train.shape[0]:
+            raise ValueError("Number of samples in X_train and y_train must match")
+        if y_train.shape[1] != 6:
+            raise ValueError("y_train must have 6 target columns")
+            
+        # Set default params if not provided
+        if params is None:
+            params = {
+                'iterations': 1000,
+                'learning_rate': 0.03,
                 'depth': 6,
                 'l2_leaf_reg': 3.0,
-                'verbose': 0
+                'verbose': False
             }
+            
+        # Convert numeric features to float and keep categorical features as strings
+        X_train_processed = X_train.copy()
+        if cat_features:
+            non_cat_mask = np.ones(X_train.shape[1], dtype=bool)
+            non_cat_mask[cat_features] = False
+            X_train_processed[:, non_cat_mask] = X_train_processed[:, non_cat_mask].astype(float)
+        else:
+            X_train_processed = X_train_processed.astype(float)
+            
+        # Scale features except categorical ones
+        scaler = StandardScaler()
+        if cat_features:
+            # Save categorical features
+            cat_values = {i: X_train_processed[:, i].copy() for i in cat_features}
+            # Scale only non-categorical features
+            X_train_processed[:, non_cat_mask] = scaler.fit_transform(X_train_processed[:, non_cat_mask])
+            # Restore categorical features
+            for i, values in cat_values.items():
+                X_train_processed[:, i] = values
+        else:
+            X_train_processed = scaler.fit_transform(X_train_processed)
         
-        # Train model with best parameters
-        try:
-            model = CatBoostRegressor(**best_params)
-            
-            # Create proper dataset with categorical features
-            train_pool = Pool(data=X_scaled, label=y_train[:, i], cat_features=cat_features)
-            
-            # Train the model
-            model.fit(train_pool, plot=False)
+        # Train a model for each target
+        models = []
+        for i in range(6):
+            model = CatBoostRegressor(
+                iterations=params['iterations'],
+                learning_rate=params['learning_rate'],
+                depth=params['depth'],
+                l2_leaf_reg=params.get('l2_leaf_reg', 3.0),
+                verbose=params.get('verbose', False)
+            )
+            model.fit(X_train_processed, y_train[:, i], cat_features=cat_features)
             models.append(model)
             
-            # Extract feature importance
-            if hasattr(model, 'feature_importances_'):
-                importances = model.feature_importances_
-                indices = np.argsort(importances)[-10:]  # Top 10 features
-                
-                # Create feature importance dict with names if available
-                if column_names:
-                    top_features = {column_names[idx]: float(importances[idx]) for idx in indices}
-                else:
-                    top_features = {f"feature_{idx}": float(importances[idx]) for idx in indices}
-                
-                feature_importance_list.append(top_features)
-                logging.info(f"Top features for model {i+1}: {top_features}")
-                
-                # Check if categorical features are important
-                cat_importance = [(idx, float(importances[idx])) for idx in cat_features if idx in indices]
-                if cat_importance:
-                    logging.info(f"Important categorical features: {cat_importance}")
-                
-        except Exception as e:
-            logging.error(f"Error training model {i+1}: {str(e)}")
-            raise
-    
-    # Store feature importance for analysis
-    if feature_importance_list:
-        try:
-            import json
-            with open("logs/catboost_feature_importance.json", "w") as f:
-                json.dump(feature_importance_list, f, indent=2)
-        except Exception as e:
-            logging.warning(f"Could not save feature importance: {str(e)}")
-    
-    return models, scaler, cat_features
+        return models, scaler
+        
+    except Exception as e:
+        logging.error(f"Error in CatBoost training: {str(e)}")
+        raise
 
-def predict_catboost_model(models, scaler, X, cat_features=None):
+def predict_catboost_model(model, X: np.ndarray) -> np.ndarray:
     """
     Generate predictions using trained CatBoost models
     
     Args:
-        models: List of trained CatBoost models
-        scaler: Fitted StandardScaler for non-categorical features
-        X: Input features for prediction
-        cat_features: Indices of categorical features
+        model: List of trained CatBoost models (one for each number position)
+        X: Input features to predict on
         
     Returns:
-        Array of predicted numbers of shape [n_samples, 6]
+        Array of predicted numbers
     """
-    try:
-        # Validate input
-        if not isinstance(X, np.ndarray):
-            X = np.array(X)
+    # Validate input
+    if not isinstance(X, np.ndarray):
+        X = np.array(X)
+    
+    # Make predictions for each number position
+    predictions = []
+    for i, m in enumerate(model):
+        pred = m.predict(X)
+        predictions.append(pred)
+    
+    # Stack predictions and round to integers
+    predictions = np.round(np.column_stack(predictions)).astype(int)
+    
+    # Ensure predictions are within valid range
+    predictions = np.clip(predictions, 1, 59)
+    
+    return predictions 
+
+class CatBoostModel:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.models = None
+        self.scaler = None
+        self.is_trained = False
+        self.cat_features = None
         
-        # Scale non-categorical features
-        X_scaled = X.copy()
-        if cat_features is None:
-            cat_features = []
+    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train the CatBoost model"""
+        # Detect categorical features if not specified
+        if 'cat_features' not in self.config:
+            self.cat_features = detect_categorical_features(X)
+        else:
+            self.cat_features = self.config['cat_features']
             
-        non_cat_indices = [i for i in range(X.shape[1]) if i not in cat_features]
-        if non_cat_indices:
-            X_scaled[:, non_cat_indices] = scaler.transform(X[:, non_cat_indices])
+        self.models, self.scaler = train_catboost_model(
+            X, 
+            y, 
+            cat_features=self.cat_features,
+            params=self.config
+        )
+        self.is_trained = True
         
-        # Preprocess categorical features
-        X_scaled = preprocess_categorical_features(X_scaled, cat_features)
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Generate predictions using trained model"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Call train() first.")
+        return predict_catboost_model(self.models, X)
         
-        # Generate predictions
-        predictions = np.zeros((X.shape[0], 6))
+    def save(self, path: str) -> None:
+        """Save the model to disk"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Nothing to save.")
+        import joblib
+        joblib.dump({
+            'models': self.models,
+            'scaler': self.scaler,
+            'config': self.config,
+            'cat_features': self.cat_features
+        }, path)
         
-        for i, model in enumerate(models):
-            # Create proper prediction pool with categorical features
-            pred_pool = Pool(data=X_scaled, cat_features=cat_features)
-            predictions[:, i] = model.predict(pred_pool)
-        
-        # Validate predictions
-        if predictions.shape[0] == 1:  # Single prediction
-            return ensure_valid_prediction(predictions[0])
-            
-        # For multiple predictions, ensure each row is valid
-        valid_predictions = []
-        for i in range(predictions.shape[0]):
-            valid_predictions.append(ensure_valid_prediction(predictions[i]))
-        
-        return np.array(valid_predictions)
-        
-    except Exception as e:
-        logging.error(f"Error in CatBoost prediction: {str(e)}")
-        # Return random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6)) 
+    @classmethod
+    def load(cls, path: str) -> 'CatBoostModel':
+        """Load a saved model from disk"""
+        import joblib
+        data = joblib.load(path)
+        model = cls(data['config'])
+        model.models = data['models']
+        model.scaler = data['scaler']
+        model.cat_features = data['cat_features']
+        model.is_trained = True
+        return model 

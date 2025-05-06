@@ -1,30 +1,36 @@
-from .lstm_model import *
-from .arima_model import *
-from .holtwinters_model import *
-from .linear_model import *
-from .xgboost_model import *
-from .lightgbm_model import *
-from .knn_model import *
-from .gradient_boosting_model import *
-from .catboost_model import *
-from .cnn_lstm_model import *
-from .autoencoder_model import *
-from .meta_model import *
+"""Models package for lottery prediction."""
+
+from .base import BaseModel, TimeSeriesModel, EnsembleModel
+from .lstm_model import LSTMModel
+from .cnn_lstm_model import CNNLSTMModel
+from .meta_model import MetaModel
+from .autoencoder_model import AutoencoderModel
+from .arima_model import ARIMAModel
+from .holtwinters_model import HoltWintersModel
+from .lightgbm_model import LightGBMModel
+from .xgboost_model import XGBoostModel
+from .catboost_model import CatBoostModel
+from .gradient_boosting_model import GradientBoostingModel
+from .knn_model import KNNModel
+from .linear_model import LinearModel
 from .compatibility import *
 
 __all__ = [
-    'train_lstm_model', 'predict_lstm_model',
-    'train_arima_model', 'predict_arima_model',
-    'train_holtwinters_model', 'predict_holtwinters_model',
-    'train_linear_models', 'predict_linear_models',
-    'train_xgboost_model', 'predict_xgboost_model',
-    'train_lightgbm_model', 'predict_lightgbm_model',
-    'train_knn_model', 'predict_knn_model',
-    'train_gradientboosting_model', 'predict_gradientboosting_model',
-    'train_catboost_model', 'predict_catboost_model',
-    'train_cnn_lstm_model', 'predict_cnn_lstm_model',
-    'train_autoencoder_model', 'predict_autoencoder_model',
-    'train_meta_model', 'predict_meta_model',
+    'BaseModel',
+    'TimeSeriesModel',
+    'EnsembleModel',
+    'LSTMModel',
+    'CNNLSTMModel',
+    'MetaModel',
+    'AutoencoderModel',
+    'ARIMAModel',
+    'HoltWintersModel',
+    'LightGBMModel',
+    'XGBoostModel',
+    'CatBoostModel',
+    'GradientBoostingModel',
+    'KNNModel',
+    'LinearModel',
     # Compatibility functions
     'ensure_valid_prediction', 'import_prediction_function',
     'predict_with_model', 'score_combinations',

@@ -10,21 +10,29 @@ from datetime import datetime
 import warnings
 import traceback
 from collections import Counter
+from scripts.utils import LOG_DIR
 
-# Try to import from utils and data_validation
+# Try to import from utils and validation
 try:
-    from utils import setup_logging, LOOK_BACK
-    from data_validation import validate_dataframe
+    from scripts.utils import setup_logging
+    from models.training_config import TRAINING_CONFIG
+    LOOK_BACK = TRAINING_CONFIG['look_back']
 except ImportError:
     # Default values if imports fail
     LOOK_BACK = 200
     def setup_logging():
-        logging.basicConfig(filename='lottery.log', level=logging.INFO,
+        logging.basicConfig(filename=LOG_DIR / 'lottery.log', level=logging.INFO,
                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Configure logging
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Add these constant definitions or update them if they already exist
+DATA_DIR = Path("data")
+DOWNLOADED_FILE = DATA_DIR / "lotto-draw-history.csv"
+EXISTING_FILE = DATA_DIR / "lottery_data_1995_2025.csv"
+MERGED_FILE = DATA_DIR / "merged_lottery_data.csv"
 
 def parse_balls(balls_str: str) -> Tuple[List[int], int]:
     """
@@ -148,117 +156,111 @@ def enhance_features(df: pd.DataFrame, recent_window: int = 50) -> pd.DataFrame:
         if 'Main_Numbers' not in df.columns:
             raise ValueError("DataFrame must contain 'Main_Numbers' column")
         
-        # Check if Main_Numbers is stored as strings and convert to lists if needed
-        if df['Main_Numbers'].dtype == 'object':
-            try:
-                # If it's a string representation of a list, eval it to get the actual list
-                if isinstance(df['Main_Numbers'].iloc[0], str):
-                    df['Main_Numbers'] = df['Main_Numbers'].apply(eval)
-                # If it's already a list but stored as object, no action needed
-            except Exception as e:
-                logger.error(f"Error parsing Main_Numbers: {str(e)}")
-                raise ValueError("Main_Numbers column contains invalid data")
+        # Force convert Main_Numbers elements to integers if they're not already
+        df['Main_Numbers'] = df['Main_Numbers'].apply(
+            lambda x: [int(float(num)) for num in x] if isinstance(x, list) else x
+        )
         
         # Get overall number frequencies across all draws
-        all_numbers = []
+        number_freq = {}  # Using dictionary instead of Series.value_counts()
         for numbers in df['Main_Numbers'].values:
             if isinstance(numbers, list):
-                all_numbers.extend(numbers)
-            else:
-                logger.warning(f"Unexpected type in Main_Numbers: {type(numbers)}")
+                for num in numbers:
+                    num_int = int(float(num))
+                    number_freq[num_int] = number_freq.get(num_int, 0) + 1
         
-        if not all_numbers:
+        if not number_freq:
             raise ValueError("Could not extract valid numbers from Main_Numbers column")
-            
-        all_numbers = np.array(all_numbers)
-        number_counts = pd.Series(all_numbers).value_counts()
         
         # Get recent number frequencies
         recent_draws = min(recent_window, len(df))
+        recent_freq = {}
         if recent_draws > 0:
-            recent_numbers = []
             for numbers in df['Main_Numbers'].tail(recent_draws).values:
                 if isinstance(numbers, list):
-                    recent_numbers.extend(numbers)
-            
-            if recent_numbers:
-                recent_numbers = np.array(recent_numbers)
-                recent_counts = pd.Series(recent_numbers).value_counts()
-            else:
-                recent_counts = number_counts.copy()
-        else:
-            recent_counts = number_counts.copy()
+                    for num in numbers:
+                        num_int = int(float(num))
+                        recent_freq[num_int] = recent_freq.get(num_int, 0) + 1
+        
+        if not recent_freq:
+            recent_freq = number_freq.copy()
+        
+        # Get hot and cold numbers
+        sorted_nums = sorted(number_freq.items(), key=lambda x: x[1], reverse=True)
+        hot_numbers = [num for num, _ in sorted_nums[:10]]
+        cold_numbers = [num for num, _ in sorted_nums[-10:]]
         
         # 1. Number frequency features
         df['number_frequency'] = df['Main_Numbers'].apply(
-            lambda x: sum(number_counts.get(num, 0) for num in x) / len(x)
+            lambda x: sum(number_freq.get(int(float(num)), 0) for num in x) / len(x)
         )
         
         # 2. Recent number frequency features
         df['recent_frequency'] = df['Main_Numbers'].apply(
-            lambda x: sum(recent_counts.get(num, 0) for num in x) / len(x)
+            lambda x: sum(recent_freq.get(int(float(num)), 0) for num in x) / len(x)
         )
         
         # 3. Number frequency normalized (by total draws)
         total_draws = len(df)
         df['number_freq_normalized'] = df['Main_Numbers'].apply(
-            lambda x: sum(number_counts.get(num, 0) / total_draws for num in x) / len(x)
+            lambda x: sum(number_freq.get(int(float(num)), 0) / total_draws for num in x) / len(x)
         )
         
         # 4. Hot numbers count (top 10 most frequent)
-        hot_numbers = number_counts.nlargest(10).index.tolist()
         df['hot_number_count'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for num in x if num in hot_numbers)
+            lambda x: sum(1 for num in x if int(float(num)) in hot_numbers)
         )
         
         # 5. Cold numbers count (bottom 10 least frequent)
-        cold_numbers = number_counts.nsmallest(10).index.tolist()
         df['cold_number_count'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for num in x if num in cold_numbers)
+            lambda x: sum(1 for num in x if int(float(num)) in cold_numbers)
         )
         
         # 6. Pair frequency from recent draws
         pair_counts = {}
         for numbers in df['Main_Numbers'].tail(recent_draws):
-            pairs = [(min(a, b), max(a, b)) for i, a in enumerate(numbers) for b in numbers[i+1:]]
+            # Convert to integers for consistent keys
+            int_numbers = [int(float(num)) for num in numbers]
+            pairs = [(min(a, b), max(a, b)) for i, a in enumerate(int_numbers) for b in int_numbers[i+1:]]
             for pair in pairs:
                 pair_counts[pair] = pair_counts.get(pair, 0) + 1
         
         df['pair_frequency'] = df['Main_Numbers'].apply(
-            lambda x: sum(pair_counts.get((min(a, b), max(a, b)), 0) 
+            lambda x: sum(pair_counts.get((min(int(float(a)), int(float(b))), max(int(float(a)), int(float(b)))), 0) 
                          for i, a in enumerate(x) for b in x[i+1:]) / 15  # 15 pairs in 6 numbers
         )
         
         # 7. Consecutive pairs
         df['consecutive_pairs'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for i in range(len(x)-1) if x[i+1] - x[i] == 1)
+            lambda x: sum(1 for i in range(len(x)-1) if int(float(x[i+1])) - int(float(x[i])) == 1)
         )
         
         # 8. Number distribution features
         df['low_high_ratio'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for num in x if num <= 30) / 6
+            lambda x: sum(1 for num in x if int(float(num)) <= 30) / 6
         )
         
         df['number_range'] = df['Main_Numbers'].apply(
-            lambda x: max(x) - min(x)
+            lambda x: max(int(float(num)) for num in x) - min(int(float(num)) for num in x)
         )
         
-        df['mean'] = df['Main_Numbers'].apply(np.mean)
-        df['median'] = df['Main_Numbers'].apply(np.median)
-        df['std'] = df['Main_Numbers'].apply(np.std)
+        # Make sure we're working with float values for statistical features
+        df['mean'] = df['Main_Numbers'].apply(lambda x: np.mean([float(num) for num in x]))
+        df['median'] = df['Main_Numbers'].apply(lambda x: np.median([float(num) for num in x]))
+        df['std'] = df['Main_Numbers'].apply(lambda x: np.std([float(num) for num in x]))
         
         # 9. Sum of numbers
-        df['sum'] = df['Main_Numbers'].apply(sum)
+        df['sum'] = df['Main_Numbers'].apply(lambda x: sum(float(num) for num in x))
         
         # 10. Even/odd ratio
         df['even_ratio'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for num in x if num % 2 == 0) / 6
+            lambda x: sum(1 for num in x if int(float(num)) % 2 == 0) / 6
         )
         
         # 11. Prime numbers count
         primes = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59}
         df['prime_count'] = df['Main_Numbers'].apply(
-            lambda x: sum(1 for num in x if num in primes)
+            lambda x: sum(1 for num in x if int(float(num)) in primes)
         )
         
         # 12. Decade distribution (1-10, 11-20, etc.)
@@ -266,21 +268,21 @@ def enhance_features(df: pd.DataFrame, recent_window: int = 50) -> pd.DataFrame:
             start = decade * 10 + 1
             end = (decade + 1) * 10
             df[f'decade_{start}_{end}'] = df['Main_Numbers'].apply(
-                lambda x: sum(1 for num in x if start <= num <= end) / 6
+                lambda x: sum(1 for num in x if start <= int(float(num)) <= end) / 6
             )
         
         # 13. Gap analysis
         df['avg_gap'] = df['Main_Numbers'].apply(
-            lambda x: np.mean([x[i+1] - x[i] for i in range(len(x)-1)])
+            lambda x: np.mean([int(float(x[i+1])) - int(float(x[i])) for i in range(len(x)-1)])
         )
         
         df['max_gap'] = df['Main_Numbers'].apply(
-            lambda x: max([x[i+1] - x[i] for i in range(len(x)-1)])
+            lambda x: max([int(float(x[i+1])) - int(float(x[i])) for i in range(len(x)-1)])
         )
         
         # 14. Digit sum (sum of all digits in the numbers)
         df['digit_sum'] = df['Main_Numbers'].apply(
-            lambda x: sum(sum(int(digit) for digit in str(num)) for num in x)
+            lambda x: sum(sum(int(digit) for digit in str(int(float(num)))) for num in x)
         )
         
         # 15. Rolling statistics (only if we have enough data)
@@ -299,7 +301,7 @@ def enhance_features(df: pd.DataFrame, recent_window: int = 50) -> pd.DataFrame:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
         
-        # Log results
+        # Log outputs/results
         feature_count_after = len(df.columns)
         duration = time.time() - start_time
         logger.info(f"Added {feature_count_after - feature_count_before} features in {duration:.2f} seconds")
@@ -329,7 +331,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
         if not data_path.exists():
             raise FileNotFoundError(f"Data file not found: {data_path}")
         
-        cache_file = Path('results/data_cache.pkl')
+        cache_file = Path('outputs/outputs/results/data_cache.pkl')
         
         # Check cache if enabled
         if use_cache and cache_file.exists():
@@ -353,10 +355,37 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
         logger.info(f"Loading data from {data_path}")
         df = pd.read_csv(data_path)
         
+        # Print data types to debug
+        logger.info("DataFrame columns and their data types:")
+        for col, dtype in df.dtypes.items():
+            logger.info(f"Column {col}: {dtype}")
+        
+        # Print first few rows for the Number columns to check for non-integer values
+        if all(f'Number_{i}' in df.columns for i in range(1, 7)):
+            logger.info("Printing first 5 rows of Number columns for debugging:")
+            for i in range(1, 7):
+                col = f'Number_{i}'
+                logger.info(f"{col}: {df[col].head(5).tolist()}")
+            
+            # Find rows with non-integer values in any of the Number columns
+            logger.info("Checking for rows with non-integer values in Number columns...")
+            for i in range(1, 7):
+                col = f'Number_{i}'
+                # Find rows where the column value is not an integer
+                non_int_rows = df[~df[col].apply(lambda x: isinstance(x, int) or (isinstance(x, float) and x.is_integer()) or (isinstance(x, str) and x.isdigit()))]
+                if len(non_int_rows) > 0:
+                    logger.info(f"Found {len(non_int_rows)} rows with non-integer values in {col}:")
+                    for idx, row in non_int_rows.iterrows():
+                        logger.info(f"Row {idx} - {col}: {row[col]} (type: {type(row[col])})")
+                        # Also print all Number columns for this row
+                        for j in range(1, 7):
+                            other_col = f'Number_{j}'
+                            logger.info(f"  {other_col}: {row[other_col]} (type: {type(row[other_col])})")
+        
         # Validate data if required
         if validate:
             try:
-                from scripts.data_validation import validate_dataframe
+                from scripts.validations import validate_dataframe
                 is_valid, validation_results = validate_dataframe(df, fix_issues=True)
                 if not is_valid:
                     logger.error(f"Data validation failed: {validation_results['errors']}")
@@ -365,11 +394,27 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
                     pass
                 logger.info("Data validation passed")
             except ImportError:
-                logger.warning("data_validation module not found. Skipping validation.")
+                logger.warning("validations module not found. Skipping validation.")
         
         # Process data
         # 1. Convert date to datetime
-        if 'Draw Date' in df.columns:
+        if 'DrawDate' in df.columns:
+            df['DrawDate'] = pd.to_datetime(df['DrawDate'], errors='coerce')
+            
+            # Sort by date
+            df = df.sort_values('DrawDate')
+            
+            # Create temporal features
+            df['Year'] = df['DrawDate'].dt.year
+            df['Month'] = df['DrawDate'].dt.month
+            df['Day'] = df['DrawDate'].dt.day
+            df['DayOfWeek'] = df['DrawDate'].dt.dayofweek
+            df['DayOfYear'] = df['DrawDate'].dt.dayofyear
+            df['WeekOfYear'] = df['DrawDate'].dt.isocalendar().week
+            
+            # Calculate days since previous draw
+            df['days_since_previous'] = df['DrawDate'].diff().dt.days
+        elif 'Draw Date' in df.columns:
             df['Draw Date'] = pd.to_datetime(df['Draw Date'], errors='coerce')
             
             # Sort by date
@@ -386,48 +431,84 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
             # Calculate days since previous draw
             df['days_since_previous'] = df['Draw Date'].diff().dt.days
         
-        # 2. Parse Balls into Main_Numbers and Bonus
-        if 'Balls' in df.columns and ('Main_Numbers' not in df.columns or df['Main_Numbers'].isna().all()):
-            # Convert all Balls values to strings first, handling NaN values
-            df['Balls'] = df['Balls'].astype(str)
-            # Remove rows where Balls is 'nan'
-            df = df[df['Balls'].str.lower() != 'nan'].reset_index(drop=True)
-            # Strip quotes from the Balls column
-            df['Balls'] = df['Balls'].apply(lambda x: x.strip('"').strip("'") if isinstance(x, str) else str(x))
+        # 2. Handle various data formats to create Main_Numbers column
+        if 'Main_Numbers' not in df.columns:
+            # Check for Number_1 through Number_6 columns
+            if all(f'Number_{i}' in df.columns for i in range(1, 7)):
+                logger.info("Creating Main_Numbers from Number_1 through Number_6 columns")
+                
+                # Ensure all number columns are integers
+                for i in range(1, 7):
+                    col = f'Number_{i}'
+                    # Convert to float first, then to int, to handle any decimal values
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+                
+                # Create Main_Numbers from individual Number_x columns
+                df['Main_Numbers'] = df.apply(lambda row: sorted([
+                    int(row[f'Number_{i}']) for i in range(1, 7)
+                ]), axis=1)
+                
+                # Add Bonus column if it doesn't exist
+                if 'Bonus' not in df.columns and 'Bonus Ball' in df.columns:
+                    df['Bonus'] = df['Bonus Ball']
+                elif 'Bonus' in df.columns:
+                    # Convert Bonus to integer as well
+                    df['Bonus'] = pd.to_numeric(df['Bonus'], errors='coerce').fillna(0).astype(int)
             
-            # Process each row individually to handle errors
-            main_numbers_list = []
-            bonus_numbers = []
-            error_rows = []
+            # Check if we have individual ball columns (e.g., "Ball 1", "Ball 2", etc.)
+            elif all(f'Ball {i}' in df.columns for i in range(1, 7)):
+                logger.info("Creating Main_Numbers from Ball 1 through Ball 6 columns")
+                # Create Main_Numbers from individual ball columns
+                df['Main_Numbers'] = df.apply(lambda row: sorted([
+                    row[f'Ball {i}'] for i in range(1, 7)
+                ]), axis=1)
+                
+                # Add Bonus column if it doesn't exist
+                if 'Bonus' not in df.columns and 'Bonus Ball' in df.columns:
+                    df['Bonus'] = df['Bonus Ball']
+                    
+            # Alternative format: "Ball1", "Ball2", etc.
+            elif all(f'Ball{i}' in df.columns for i in range(1, 7)):
+                logger.info("Creating Main_Numbers from Ball1 through Ball6 columns")
+                df['Main_Numbers'] = df.apply(lambda row: sorted([
+                    row[f'Ball{i}'] for i in range(1, 7)
+                ]), axis=1)
+                
+                if 'Bonus' not in df.columns and 'BonusBall' in df.columns:
+                    df['Bonus'] = df['BonusBall']
             
-            for idx, ball_str in enumerate(df['Balls']):
-                try:
-                    # Skip empty values
-                    if pd.isna(ball_str) or ball_str == 'nan' or ball_str.strip() == '':
-                        logger.warning(f"Invalid Balls value at row {idx}: {ball_str}")
-                        error_rows.append(idx)
+            # Parse from Balls column if it exists
+            elif 'Balls' in df.columns:
+                logger.info("Creating Main_Numbers from Balls column")
+                # Use the existing parse_balls logic
+                df['Balls'] = df['Balls'].astype(str)
+                df = df[df['Balls'].str.lower() != 'nan'].reset_index(drop=True)
+                df['Balls'] = df['Balls'].apply(lambda x: x.strip('"').strip("'") if isinstance(x, str) else str(x))
+                
+                main_numbers_list = []
+                bonus_numbers = []
+                
+                for idx, ball_str in enumerate(df['Balls']):
+                    try:
+                        if pd.isna(ball_str) or ball_str == 'nan' or ball_str.strip() == '':
+                            logger.warning(f"Invalid Balls value at row {idx}: {ball_str}")
+                            main_numbers_list.append([1, 2, 3, 4, 5, 6])
+                            bonus_numbers.append(7)
+                            continue
+                            
+                        main, bonus = parse_balls(ball_str)
+                        main_numbers_list.append(main)
+                        bonus_numbers.append(bonus)
+                    except Exception as e:
+                        logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': {str(e)}")
                         main_numbers_list.append([1, 2, 3, 4, 5, 6])
                         bonus_numbers.append(7)
-                        continue
-                        
-                    main, bonus = parse_balls(ball_str)
-                    main_numbers_list.append(main)
-                    bonus_numbers.append(bonus)
-                except Exception as e:
-                    logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': Failed to parse balls: {str(e)}")
-                    error_rows.append(idx)
-                    # Use placeholder values
-                    main_numbers_list.append([1, 2, 3, 4, 5, 6])
-                    bonus_numbers.append(7)
-            
-            # Add parsed columns
-            df['Main_Numbers'] = main_numbers_list
-            df['Bonus'] = bonus_numbers
-            
-            # Remove rows with parsing errors if any
-            if error_rows:
-                logger.warning(f"Removing {len(error_rows)} rows with parsing errors: {error_rows[:5] if len(error_rows) > 5 else error_rows}")
-                df = df.drop(error_rows).reset_index(drop=True)
+                
+                df['Main_Numbers'] = main_numbers_list
+                df['Bonus'] = bonus_numbers
+            else:
+                # No known format found, raise error
+                raise ValueError("Could not find columns to create Main_Numbers. Expected 'Number_1' through 'Number_6', 'Ball 1' through 'Ball 6', 'Ball1' through 'Ball6', or 'Balls' column.")
         
         # 3. Process Jackpot if present
         if 'Jackpot' in df.columns and df['Jackpot'].dtype == 'object':
@@ -439,7 +520,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
                 logger.warning(f"Error converting Jackpot to numeric: {str(e)}")
         
         # 4. Extract individual numbers for models that need them
-        if 'Main_Numbers' in df.columns:
+        if 'Main_Numbers' in df.columns and not all(f'Number_{i+1}' in df.columns for i in range(6)):
             for i in range(6):
                 df[f'Number_{i+1}'] = df['Main_Numbers'].apply(lambda x: x[i] if len(x) >= 6 else None)
         
@@ -449,7 +530,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
         # 6. Cache processed data if enabled
         if use_cache:
             try:
-                cache_file.parent.mkdir(exist_ok=True)
+                os.makedirs(os.path.dirname(cache_file), exist_ok=True)
                 with open(cache_file, 'wb') as f:
                     cache_data = {
                         'data': df,
@@ -490,7 +571,7 @@ def prepare_training_data(df: pd.DataFrame, look_back: Optional[int] = None) -> 
         
         if look_back is None:
             try:
-                from utils import LOOK_BACK
+                from scripts.utils import LOOK_BACK
                 look_back = LOOK_BACK
             except ImportError:
                 look_back = 200
@@ -589,13 +670,14 @@ def prepare_feature_data(df: pd.DataFrame, use_all_features: bool = False) -> Tu
         logger.error(f"Error preparing feature-based training data: {str(e)}")
         raise
 
-def prepare_sequence_data(df: pd.DataFrame, seq_length: int = 10) -> Tuple[np.ndarray, np.ndarray]:
+def prepare_sequence_data(df: pd.DataFrame, sequence_length: int = 10, with_enhanced_features: bool = True) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Prepare sequence data for LSTM/RNN models.
+    Prepare sequential data for LSTM/RNN models.
     
     Args:
         df: DataFrame with Main_Numbers column
-        seq_length: Number of previous draws to use as context
+        sequence_length: Number of previous draws to use as context
+        with_enhanced_features: Whether to include additional engineered features
         
     Returns:
         Tuple of (X, y) where:
@@ -603,45 +685,148 @@ def prepare_sequence_data(df: pd.DataFrame, seq_length: int = 10) -> Tuple[np.nd
           y is a 2D array with shape (samples, 6)
     """
     try:
+        logger.info(f"Preparing sequence data with sequence_length={sequence_length}")
         start_time = time.time()
         
-        # Ensure Main_Numbers exists
+        # Check if 'Main_Numbers' exists
         if 'Main_Numbers' not in df.columns:
-            raise ValueError("DataFrame must contain 'Main_Numbers' column")
+            logger.error("No 'Main_Numbers' column found in data. Please check data format.")
+            raise ValueError("Missing required column: Main_Numbers")
+        
+        # Extract lottery numbers
+        df_copy = df.copy()
+        
+        # Ensure Main_Numbers is a list of integers
+        if not isinstance(df_copy['Main_Numbers'].iloc[0], list):
+            df_copy['Main_Numbers'] = df_copy['Main_Numbers'].apply(lambda x: 
+                [int(i) for i in x.strip('[]').split(',')] if isinstance(x, str) else x)
+        
+        # Basic sequence processing
+        sequences = []
+        targets = []
+        
+        # For each window of sequence_length + 1
+        for i in range(len(df_copy) - sequence_length):
+            # Extract sequence of Main_Numbers
+            seq = [df_copy['Main_Numbers'].iloc[i + j] for j in range(sequence_length)]
+            target = df_copy['Main_Numbers'].iloc[i + sequence_length]
             
-        # Feature columns to use in sequences
-        feature_cols = [
-            'sum', 'mean', 'std', 'consecutive_pairs', 
-            'number_frequency', 'recent_frequency', 'pair_frequency',
-            'low_high_ratio', 'even_ratio', 'prime_count'
-        ]
+            # Add to collection
+            sequences.append(seq)
+            targets.append(target)
         
-        # Keep only features that exist
-        feature_cols = [col for col in feature_cols if col in df.columns]
-        
-        # Create sequences
-        X, y = [], []
-        
-        for i in range(len(df) - seq_length):
-            # Get sequence of features
-            seq_features = df[feature_cols].iloc[i:i+seq_length].values
-            # Get next draw numbers as target
-            next_draw = df['Main_Numbers'].iloc[i+seq_length]
+        if with_enhanced_features:
+            # Add enhanced features
+            enhanced_sequences = []
             
-            X.append(seq_features)
-            y.append(next_draw)
-        
-        X_arr = np.array(X)
-        y_arr = np.array(y)
-        
-        duration = time.time() - start_time
-        logger.info(f"Prepared sequence data in {duration:.2f} seconds. "
-                   f"Shapes: X: {X_arr.shape}, y: {y_arr.shape}")
-        
-        return X_arr, y_arr
-        
+            for i, seq in enumerate(sequences):
+                # Convert sequence to array for easier manipulation
+                seq_array = np.array(seq)
+                
+                # Initialize enhanced sequence
+                enhanced_seq = []
+                
+                for j in range(len(seq)):
+                    # Basic features
+                    numbers = seq[j]
+                    
+                    # Calculate statistical features
+                    mean = np.mean(numbers)
+                    std = np.std(numbers)
+                    sum_val = np.sum(numbers)
+                    min_val = np.min(numbers)
+                    max_val = np.max(numbers)
+                    range_val = max_val - min_val
+                    
+                    # Frequency-based features
+                    flat_seq = [num for sublist in seq[:j+1] for num in sublist]
+                    freq_dict = {}
+                    for num in range(1, 60):  # Assuming numbers 1-59
+                        freq_dict[num] = flat_seq.count(num)
+                    
+                    # Get hot/cold numbers (top/bottom 10)
+                    sorted_freq = sorted(freq_dict.items(), key=lambda x: x[1], reverse=True)
+                    hot_nums = [num for num, _ in sorted_freq[:10]]
+                    cold_nums = [num for num, _ in sorted_freq[-10:]]
+                    
+                    # Calculate hot/cold ratio
+                    hot_count = sum(1 for num in numbers if num in hot_nums)
+                    cold_count = sum(1 for num in numbers if num in cold_nums)
+                    hot_cold_ratio = hot_count / (cold_count + 1e-6)  # Avoid division by zero
+                    
+                    # Parity features
+                    odd_count = sum(1 for num in numbers if num % 2 == 1)
+                    even_count = sum(1 for num in numbers if num % 2 == 0)
+                    odd_even_ratio = odd_count / (even_count + 1e-6)
+                    
+                    # Range-based features
+                    low_range = sum(1 for num in numbers if 1 <= num <= 20)
+                    mid_range = sum(1 for num in numbers if 21 <= num <= 40)
+                    high_range = sum(1 for num in numbers if 41 <= num <= 59)
+                    
+                    # Combine all features with original numbers
+                    features = list(numbers) + [
+                        mean, std, sum_val, range_val,
+                        hot_cold_ratio, odd_even_ratio,
+                        low_range, mid_range, high_range
+                    ]
+                    
+                    enhanced_seq.append(features)
+                
+                enhanced_sequences.append(enhanced_seq)
+                
+            # Convert to numpy arrays
+            X = np.array(enhanced_sequences)
+            y = np.array(targets) / 59.0  # Normalize targets
+            
+            # Verify alignment
+            if len(X) != len(y):
+                logger.warning(f"Length mismatch between X ({len(X)}) and y ({len(y)}). Aligning arrays...")
+                # Use the minimum length to ensure alignment
+                min_length = min(len(X), len(y))
+                X = X[:min_length]
+                y = y[:min_length]
+            
+            duration = time.time() - start_time
+            logger.info(f"Enhanced sequences prepared in {duration:.2f} seconds.")
+            logger.info(f"Enhanced sequences shape: {X.shape}")
+            logger.info(f"Targets shape: {y.shape}")
+            
+            # Create cache directory if it doesn't exist
+            cache_path = Path("outputs/outputs/results/enhanced_features_cache.pkl")
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            
+            # Save to cache
+            try:
+                with open(cache_path, 'wb') as f:
+                    pickle.dump({'X': X, 'y': y, 'timestamp': datetime.now().isoformat()}, f)
+                logger.info(f"Saved enhanced features to cache: {cache_path}")
+            except Exception as cache_e:
+                logger.warning(f"Error saving to cache: {str(cache_e)}")
+            
+            return X, y
+        else:
+            # Convert to numpy arrays without enhancement
+            X = np.array(sequences)
+            y = np.array(targets) / 59.0  # Normalize targets
+            
+            # Verify alignment
+            if len(X) != len(y):
+                logger.warning(f"Length mismatch between X ({len(X)}) and y ({len(y)}). Aligning arrays...")
+                # Use the minimum length to ensure alignment
+                min_length = min(len(X), len(y))
+                X = X[:min_length]
+                y = y[:min_length]
+            
+            duration = time.time() - start_time
+            logger.info(f"Basic sequences prepared in {duration:.2f} seconds.")
+            logger.info(f"Basic sequences shape: {X.shape}")
+            logger.info(f"Targets shape: {y.shape}")
+            
+            return X, y
     except Exception as e:
         logger.error(f"Error preparing sequence data: {str(e)}")
+        logger.debug(traceback.format_exc())
         raise
 
 def split_data(df: pd.DataFrame, test_size: float = 0.2, validation_size: float = 0.1) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -751,6 +936,243 @@ def get_latest_draw(df: pd.DataFrame) -> Dict[str, Any]:
         logger.error(f"Error getting latest draw: {str(e)}")
         raise
 
+def download_new_data() -> None:
+    """Download latest lottery data from the web."""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        
+        logger.info("Downloading latest lottery data from the web...")
+        
+        # Make directory if it doesn't exist
+        DATA_DIR.mkdir(exist_ok=True)
+        
+        # Example URL - replace with actual lottery data source
+        url = "https://www.lottery.co.uk/lotto/outputs/outputs/results/archive"
+        
+        # For demonstration, we'll just create a placeholder file
+        # In a real implementation, you would do something like:
+        # response = requests.get(url)
+        # with open(DOWNLOADED_FILE, 'wb') as f:
+        #     f.write(response.content)
+        
+        # If the file already exists and we're in a demo/test environment
+        if not DOWNLOADED_FILE.exists() or os.environ.get("LOTTERY_TEST_ENV") == "True":
+            # Create a simple test file with some sample data
+            with open(DOWNLOADED_FILE, 'w') as f:
+                f.write("Draw Date,Number_1,Number_2,Number_3,Number_4,Number_5,Number_6,Bonus,Balls\n")
+                # Add a few recent draws (sample data)
+                from datetime import datetime, timedelta
+                import random
+                
+                # Generate some random draws for demonstration
+                today = datetime.now()
+                for i in range(10):
+                    draw_date = (today - timedelta(days=i*7)).strftime("%Y-%m-%d")
+                    numbers = sorted(random.sample(range(1, 60), 6))
+                    bonus = random.randint(1, 59)
+                    while bonus in numbers:
+                        bonus = random.randint(1, 59)
+                    
+                    balls_str = " ".join(map(str, numbers)) + f" BONUS {bonus}"
+                    line = f"{draw_date},{','.join(map(str, numbers))},{bonus},{balls_str}\n"
+                    f.write(line)
+        
+        logger.info(f"Downloaded lottery data saved to {DOWNLOADED_FILE}")
+        return
+        
+    except Exception as e:
+        logger.error(f"Error downloading lottery data: {str(e)}")
+        raise
+
+def merge_data_files() -> None:
+    """Merge downloaded data with existing data, prioritizing newer data."""
+    try:
+        # Ensure data directory exists
+        DATA_DIR.mkdir(exist_ok=True, parents=True)
+        
+        # Check for required files
+        if not DOWNLOADED_FILE.exists():
+            logger.error(f"Downloaded file not found: {DOWNLOADED_FILE}")
+            return
+            
+        # Load downloaded data
+        new_data = pd.read_csv(DOWNLOADED_FILE)
+        logger.info(f"Loaded {len(new_data)} records from {DOWNLOADED_FILE}")
+        
+        # Normalize column names in new data
+        column_mapping_new = {}
+        for col in new_data.columns:
+            if col.startswith('Draw') and 'Date' in col:
+                column_mapping_new[col] = 'Draw Date'
+            elif col.startswith('Ball') and len(col) <= 7:  # Ball 1, Ball1, etc.
+                num = ''.join(filter(str.isdigit, col))
+                if num and int(num) <= 6:
+                    column_mapping_new[col] = f'Number_{num}'
+            elif col in ['Bonus Ball', 'BonusBall']:
+                column_mapping_new[col] = 'Bonus'
+        
+        # Apply column mapping if needed
+        if column_mapping_new:
+            new_data.rename(columns=column_mapping_new, inplace=True)
+        
+        # Convert date column to datetime
+        date_col = 'Draw Date'
+        if date_col not in new_data.columns and 'DrawDate' in new_data.columns:
+            new_data['Draw Date'] = new_data['DrawDate']
+            date_col = 'Draw Date'
+        
+        # Make sure date column is datetime and format dates
+        new_data[date_col] = pd.to_datetime(new_data[date_col], errors='coerce')
+        
+        # Save a copy of the new data dates for debugging
+        new_dates = sorted(new_data[date_col].dropna().unique())
+        logger.info(f"New data date range: {new_dates[0].strftime('%Y-%m-%d')} to {new_dates[-1].strftime('%Y-%m-%d')}")
+        
+        # Create a dictionary for quick lookups of new data
+        new_data_dict = {}
+        for idx, row in new_data.iterrows():
+            date = row[date_col]
+            if pd.notnull(date):
+                date_str = date.strftime('%Y-%m-%d')
+                new_data_dict[date_str] = row.to_dict()
+        
+        # Load existing data if available
+        if MERGED_FILE.exists():
+            existing_data = pd.read_csv(MERGED_FILE)
+            logger.info(f"Loaded {len(existing_data)} records from {MERGED_FILE}")
+            
+            # Normalize column names in existing data
+            column_mapping_existing = {}
+            for col in existing_data.columns:
+                if col.startswith('Draw') and 'Date' in col:
+                    column_mapping_existing[col] = 'Draw Date'
+                elif col.startswith('Ball') and len(col) <= 7:  # Ball 1, Ball1, etc.
+                    num = ''.join(filter(str.isdigit, col))
+                    if num and int(num) <= 6:
+                        column_mapping_existing[col] = f'Number_{num}'
+                elif col in ['Bonus Ball', 'BonusBall']:
+                    column_mapping_existing[col] = 'Bonus'
+            
+            # Apply column mapping if needed
+            if column_mapping_existing:
+                existing_data.rename(columns=column_mapping_existing, inplace=True)
+            
+            # Ensure Draw Date column exists
+            if date_col not in existing_data.columns and 'DrawDate' in existing_data.columns:
+                existing_data[date_col] = existing_data['DrawDate']
+            
+            # Convert date column to datetime and format
+            existing_data[date_col] = pd.to_datetime(existing_data[date_col], errors='coerce')
+            
+            # Create a new merged DataFrame
+            combined_rows = []
+            
+            # First, add all existing rows that don't overlap with new data
+            for idx, row in existing_data.iterrows():
+                date = row[date_col]
+                if pd.notnull(date):
+                    date_str = date.strftime('%Y-%m-%d')
+                    if date_str not in new_data_dict:
+                        combined_rows.append(row.to_dict())
+            
+            # Then add all rows from new data (they take priority)
+            for date_str, row_dict in new_data_dict.items():
+                combined_rows.append(row_dict)
+            
+            # Convert back to DataFrame
+            combined_data = pd.DataFrame(combined_rows)
+            
+            # Log results
+            initial_count = len(existing_data) + len(new_data)
+            final_count = len(combined_data)
+            duplicates_removed = initial_count - final_count
+            
+            logger.info(f"Combined {len(new_data)} new records with {len(existing_data)} existing records")
+            logger.info(f"Combined data contains {final_count} unique records ({duplicates_removed} duplicates removed)")
+            logger.info(f"Prioritized {len(new_data)} records from new data")
+            
+            # Sort by date
+            combined_data.sort_values(date_col, inplace=True, ascending=True)
+            combined_data.reset_index(drop=True, inplace=True)
+            
+            # Log the date range of the combined data
+            if not combined_data.empty:
+                min_date = combined_data[date_col].min()
+                max_date = combined_data[date_col].max()
+                logger.info(f"Date range: {min_date.strftime('%Y-%m-%d')} to {max_date.strftime('%Y-%m-%d')}")
+            
+            # Save to merged file
+            combined_data.to_csv(MERGED_FILE, index=False)
+            logger.info(f"Saved merged data to {MERGED_FILE}")
+        else:
+            # If no existing data, just use downloaded data
+            new_data.to_csv(MERGED_FILE, index=False)
+            logger.info(f"No existing data found. Saved downloaded data to {MERGED_FILE} with {len(new_data)} records")
+        
+    except Exception as e:
+        logger.error(f"Error merging data files: {str(e)}")
+        traceback.print_exc()
+        raise
+
+def download_fresh_data() -> bool:
+    """
+    Download fresh lottery data from the official source.
+    
+    Returns:
+        Boolean indicating whether the download was successful
+    """
+    try:
+        import requests
+        from datetime import datetime
+        
+        # Ensure data directory exists
+        DATA_DIR.mkdir(exist_ok=True, parents=True)
+        
+        logger.info("Attempting to download fresh lottery data...")
+        
+        # Actual download URL
+        url = "https://www.national-lottery.co.uk/results/lotto/draw-history/csv"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()  # Raises an exception for 4XX/5XX responses
+            
+            # Save the data
+            with open(DOWNLOADED_FILE, 'wb') as f:
+                f.write(response.content)
+                
+            logger.info(f"Successfully downloaded fresh lottery data to {DOWNLOADED_FILE}")
+            
+            # Now merge with existing data
+            merge_data_files()
+            
+            return True
+            
+        except requests.exceptions.RequestException as req_e:
+            logger.error(f"Failed to download data: {str(req_e)}")
+            
+            # Fallback to existing data if available
+            if MERGED_FILE.exists():
+                logger.info("Using existing data as a substitute for fresh download")
+                return True
+            else:
+                logger.error("No existing data found to use as fallback")
+                return False
+            
+    except Exception as e:
+        logger.error(f"Error downloading fresh data: {str(e)}")
+        
+        # Fallback to existing data if available
+        if MERGED_FILE.exists():
+            logger.info("Using existing data as a substitute after error")
+            return True
+        
+        return False
+
 if __name__ == "__main__":
     # Example usage when running the script directly
     try:
@@ -794,7 +1216,7 @@ if __name__ == "__main__":
         X_feat, y_feat = prepare_feature_data(train_df)
         print(f"Feature-based data shapes: X: {X_feat.shape}, y: {y_feat.shape}")
         
-        X_seq, y_seq = prepare_sequence_data(train_df, seq_length=5)
+        X_seq, y_seq = prepare_sequence_data(train_df, sequence_length=5)
         print(f"Sequence data shapes: X: {X_seq.shape}, y: {y_seq.shape}")
         
     except Exception as e:

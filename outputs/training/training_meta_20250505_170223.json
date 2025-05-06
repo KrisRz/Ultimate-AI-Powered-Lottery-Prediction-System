@@ -1,0 +1,51 @@
+{
+  "timestamp": "2025-05-05T17:02:23.752893",
+  "data_shape": {
+    "X_train": [
+      800,
+      10,
+      6
+    ],
+    "y_train": [
+      800,
+      6
+    ]
+  },
+  "models": [
+    "lstm"
+  ],
+  "training_config": {
+    "look_back": 200,
+    "validation_split": 0.05,
+    "test_split": 0.05,
+    "use_enhanced_features": true,
+    "scaling_method": "robust",
+    "batch_size": 48,
+    "epochs": 300,
+    "learning_rate": 0.001,
+    "learning_rate_schedule": {
+      "type": "cosine_decay_restarts",
+      "initial_learning_rate": 0.001,
+      "first_decay_steps": 1000,
+      "t_mul": 2.0,
+      "m_mul": 0.9,
+      "alpha": 0.0001
+    },
+    "early_stopping_patience": 40,
+    "shuffle": true,
+    "dropout_rate": 0.3,
+    "l2_reg": 0.001,
+    "n_monte_carlo": 500,
+    "use_gpu": true,
+    "mixed_precision": true,
+    "num_workers": 15,
+    "memory_growth": true,
+    "save_best_only": true,
+    "monitor_metric": "val_loss",
+    "verbose": 1,
+    "save_history": true
+  },
+  "enhanced_features": true,
+  "hyperparameter_tuning": true,
+  "sequence_length": 20
+}

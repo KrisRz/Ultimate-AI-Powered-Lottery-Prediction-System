@@ -43,19 +43,27 @@ MODEL_PARAMS = {
         'lstm_units': 128,
     },
     'xgboost': {
-        'n_estimators': 1000,
+        'n_estimators': 500,
         'learning_rate': 0.01,
         'max_depth': 6,
     },
     'lightgbm': {
-        'n_estimators': 1000,
+        'n_estimators': 500,
         'learning_rate': 0.01,
         'num_leaves': 31,
     },
     'catboost': {
-        'iterations': 1000,
+        'iterations': 500,
         'learning_rate': 0.01,
         'depth': 6,
+        'l2_leaf_reg': 3,
+        'random_strength': 1,
+        'bagging_temperature': 1,
+        'od_type': 'Iter',
+        'od_wait': 20,
+        'verbose': False,
+        'task_type': 'GPU' if TRAINING_CONFIG['use_gpu'] else 'CPU',
+        'devices': '0',
     },
     'autoencoder': {
         'encoding_dim': 32,
@@ -70,7 +78,7 @@ MODEL_PARAMS = {
 # Feature Engineering Configuration
 FEATURE_CONFIG = {
     'use_historical_stats': True,
-    'sequence_length': 200,
+    'sequence_length': 300,
     'use_date_features': True,
     'use_frequency_features': True,
     'use_pattern_features': True,
@@ -79,10 +87,25 @@ FEATURE_CONFIG = {
 # Training Configuration
 TRAINING_CONFIG = {
     'validation_split': 0.2,
-    'early_stopping_patience': 10,
+    'early_stopping_patience': 15,
     'batch_size': 32,
-    'epochs': 100,
+    'epochs': 150,
     'use_gpu': True,
     'parallel_training': True,
     'max_workers': None,  # None = auto-detect CPU cores
+    'mixed_precision': True,  # Enable mixed precision training
+    'gradient_accumulation_steps': 2,  # Accumulate gradients for larger effective batch size
+    'learning_rate_schedule': {
+        'initial_learning_rate': 0.001,
+        'decay_steps': 1000,
+        'decay_rate': 0.9,
+        'staircase': True
+    },
+    'model_checkpointing': {
+        'save_best_only': True,
+        'save_weights_only': False,
+        'save_frequency': 5
+    },
+    'gpu_memory_growth': True,
+    'gpu_memory_fraction': 0.8
 } 

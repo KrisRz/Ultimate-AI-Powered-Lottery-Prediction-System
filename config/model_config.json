@@ -231,23 +231,47 @@
         "enabled": true,
         "architecture": {
           "input_dim": null,
-          "encoder_layers": [128, 64, 32, 16],
-          "latent_dim": 8,
-          "decoder_layers": [16, 32, 64, 128],
-          "activation": "relu",
-          "latent_activation": "linear"
+          "encoder_layers": [256, 128, 64, 32],
+          "latent_dim": 16,
+          "decoder_layers": [32, 64, 128, 256],
+          "activation": "elu",
+          "latent_activation": "linear",
+          "regularization": {
+            "l1": 1e-5,
+            "l2": 1e-5,
+            "activity_regularizer": 1e-5
+          }
         },
         "training": {
-          "batch_size": 64,
-          "epochs": 100,
+          "batch_size": 32,
+          "epochs": 150,
           "optimizer": {
             "name": "adam",
-            "learning_rate": 0.001
+            "learning_rate": 0.001,
+            "beta_1": 0.9,
+            "beta_2": 0.999,
+            "amsgrad": true
           },
           "loss": "mse",
-          "metrics": ["mae", "mse"]
+          "metrics": ["mae", "mse"],
+          "early_stopping": {
+            "monitor": "val_loss",
+            "patience": 15,
+            "restore_best_weights": true
+          },
+          "reduce_lr": {
+            "monitor": "val_loss",
+            "factor": 0.5,
+            "patience": 10,
+            "min_lr": 1e-6
+          }
         },
-        "usage": ["feature_extraction", "anomaly_detection"]
+        "usage": [
+          "feature_extraction",
+          "anomaly_detection",
+          "dimensionality_reduction",
+          "noise_reduction"
+        ]
       }
     },
     
@@ -258,11 +282,18 @@
           "random_forest",
           "gradient_boosting",
           "neural_network",
-          "lstm"
+          "lstm",
+          "autoencoder"
         ],
         "meta_learner": "gradient_boosting",
         "cv_folds": 5,
-        "use_probabilities": true
+        "use_probabilities": true,
+        "performance_weighting": {
+          "enabled": true,
+          "metrics": ["rmse", "mae", "r2"],
+          "weight_update_frequency": "epoch",
+          "min_weight": 0.05
+        }
       },
       "voting": {
         "enabled": true,
@@ -270,10 +301,18 @@
           "random_forest",
           "gradient_boosting",
           "neural_network",
-          "prophet"
+          "lstm",
+          "autoencoder"
         ],
-        "weights": null,
-        "voting_type": "soft"
+        "weights": {
+          "random_forest": 0.2,
+          "gradient_boosting": 0.25,
+          "neural_network": 0.2,
+          "lstm": 0.25,
+          "autoencoder": 0.1
+        },
+        "voting_type": "soft",
+        "dynamic_weights": true
       },
       "bagging": {
         "enabled": true,

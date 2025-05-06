@@ -72,192 +72,121 @@ def objective(trial, X, y, cv=5):
         return -999  # All runs failed
 
 @log_training_errors
-def train_xgboost_model(X_train, y_train, params=None, tune_hyperparams=True, n_trials=50):
+def train_xgboost_model(X, y, params=None):
     """
-    Train XGBoost Regressor models for lottery number prediction
+    Train XGBoost model for lottery prediction.
     
     Args:
-        X_train: Training features
-        y_train: Target numbers (array of shape [n_samples, 6])
-        params: Optional predefined parameters
-        tune_hyperparams: Whether to perform hyperparameter tuning
-        n_trials: Number of hyperparameter tuning trials
+        X: Input features
+        y: Target values
+        params: Model parameters
         
     Returns:
-        Tuple of (list of trained models, scaler)
+        Tuple of (model, scaler)
     """
-    # Validate input
-    if not isinstance(X_train, np.ndarray):
-        try:
-            X_train = np.array(X_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert X_train to numpy array: {str(e)}")
+    # Validate parameters
+    if params:
+        if 'learning_rate' in params and params['learning_rate'] <= 0:
+            raise ValueError("Learning rate must be positive")
+            
+        if 'n_estimators' in params and params['n_estimators'] <= 0:
+            raise ValueError("Number of estimators must be positive")
+            
+        if 'max_depth' in params and params['max_depth'] <= 0:
+            raise ValueError("Max depth must be positive")
     
-    if not isinstance(y_train, np.ndarray):
-        try:
-            y_train = np.array(y_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert y_train to numpy array: {str(e)}")
-    
-    # Check shapes
-    if len(y_train.shape) != 2 or y_train.shape[1] != 6:
-        raise ValueError(f"y_train must have shape [n_samples, 6], got {y_train.shape}")
-    
-    # Initialize scaler and scale input data
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_train)
-    
-    # Train model for each number position
-    models = []
-    feature_importance_list = []
-    best_params_list = []
-    
-    # Default parameters if not specified or tuning fails
+    # Use default parameters if none provided
     default_params = {
-        'objective': 'reg:squarederror',
-        'max_depth': 6,
         'learning_rate': 0.1,
         'n_estimators': 100,
-        'random_state': 42
+        'max_depth': 6,
+        'objective': 'reg:squarederror'
     }
     
-    for i in range(6):
-        logging.info(f"Training XGBoost model for number position {i+1}/6")
-        
-        # Set up hyperparameter tuning if requested
-        if tune_hyperparams and params is None:
-            try:
-                logging.info(f"Tuning hyperparameters for XGBoost model {i+1}")
-                study = optuna.create_study(direction='maximize')
-                study.optimize(
-                    lambda trial: objective(trial, X_scaled, y_train[:, i]), 
-                    n_trials=n_trials,
-                    catch=(Exception,)
-                )
-                tuned_params = study.best_params
-                
-                # Add required parameters not included in tuning
-                tuned_params['objective'] = 'reg:squarederror'
-                tuned_params['random_state'] = 42
-                
-                best_params = tuned_params
-                best_params_list.append(best_params)
-                logging.info(f"Best parameters for model {i+1}: {best_params}")
-            except Exception as e:
-                logging.error(f"Error during hyperparameter tuning: {str(e)}")
-                logging.info("Using default parameters due to tuning failure")
-                best_params = default_params.copy()
-        else:
-            # Use provided params or defaults
-            best_params = params.copy() if params is not None else default_params.copy()
-        
-        # Train model with best parameters
-        try:
-            model = xgb.XGBRegressor(**best_params)
-            
-            # Split data for early stopping
-            if X_train.shape[0] > 1000:  # Only if we have enough data
-                train_idx = np.random.choice(X_scaled.shape[0], int(X_scaled.shape[0] * 0.8), replace=False)
-                val_idx = np.array([i for i in range(X_scaled.shape[0]) if i not in train_idx])
-                
-                X_train_split = X_scaled[train_idx]
-                y_train_split = y_train[train_idx, i]
-                X_val_split = X_scaled[val_idx]
-                y_val_split = y_train[val_idx, i]
-                
-                model.fit(
-                    X_train_split, y_train_split,
-                    eval_set=[(X_val_split, y_val_split)],
-                    eval_metric='rmse',
-                    early_stopping_rounds=50,
-                    verbose=False
-                )
-            else:
-                model.fit(X_scaled, y_train[:, i])
-            
-            models.append(model)
-            
-            # Extract feature importance
-            if hasattr(model, 'feature_importances_'):
-                importances = model.feature_importances_
-                indices = np.argsort(importances)[-10:]  # Top 10 features
-                top_features = {f"feature_{idx}": float(importances[idx]) for idx in indices}
-                feature_importance_list.append(top_features)
-                logging.info(f"Top features for model {i+1}: {top_features}")
-                
-        except Exception as e:
-            logging.error(f"Error training model {i+1}: {str(e)}")
-            # Fallback to default model
-            try:
-                logging.info("Trying fallback with default parameters")
-                model = xgb.XGBRegressor(**default_params)
-                model.fit(X_scaled, y_train[:, i])
-                models.append(model)
-            except Exception as e2:
-                logging.error(f"Fallback training also failed: {str(e2)}")
-                # Create a dummy model that returns the mean
-                mean_value = np.mean(y_train[:, i])
-                
-                class DummyModel:
-                    def predict(self, X):
-                        return np.full(X.shape[0], mean_value)
-                    
-                models.append(DummyModel())
-                logging.warning(f"Using dummy model that returns mean value {mean_value} for position {i+1}")
+    params = {**default_params, **(params or {})}
     
-    # Store feature importance for analysis
-    if feature_importance_list:
-        try:
-            import json
-            with open("logs/xgboost_feature_importance.json", "w") as f:
-                json.dump(feature_importance_list, f, indent=2)
-        except Exception as e:
-            logging.warning(f"Could not save feature importance: {str(e)}")
+    # Scale features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Train model for each target
+    models = []
+    for i in range(y.shape[1]):
+        model = xgb.XGBRegressor(**params)
+        model.fit(X_scaled, y[:, i])
+        models.append(model)
     
     return models, scaler
 
-def predict_xgboost_model(models, scaler, X):
+def predict_xgboost_model(model, X: np.ndarray, scaler: StandardScaler) -> np.ndarray:
     """
     Generate predictions using trained XGBoost models
     
     Args:
-        models: List of trained XGBoost models
+        model: List of trained XGBoost models (one for each number position)
+        X: Input features to predict on
         scaler: Fitted StandardScaler
-        X: Input features for prediction
         
     Returns:
-        Array of predicted numbers of shape [n_samples, 6]
+        Array of predicted numbers
     """
-    try:
-        # Validate input
-        if not isinstance(X, np.ndarray):
-            X = np.array(X)
+    # Validate input
+    if not isinstance(X, np.ndarray):
+        raise ValueError("X must be a numpy array")
+    
+    # Scale input features
+    X_scaled = scaler.transform(X)
+    
+    # Make predictions for each number position
+    predictions = []
+    for i, m in enumerate(model):
+        pred = m.predict(X_scaled)
+        predictions.append(pred)
+    
+    # Stack predictions and round to integers
+    predictions = np.round(np.column_stack(predictions)).astype(int)
+    
+    # Ensure predictions are within valid range
+    predictions = np.clip(predictions, 1, 59)
+    
+    return predictions 
+
+class XGBoostModel:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.models = None
+        self.scaler = None
+        self.is_trained = False
         
-        # Ensure X is 2D
-        if len(X.shape) == 1:
-            X = X.reshape(1, -1)
+    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train the XGBoost model"""
+        self.models, self.scaler = train_xgboost_model(X, y, params=self.config)
+        self.is_trained = True
         
-        # Scale input
-        X_scaled = scaler.transform(X)
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Generate predictions using trained model"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Call train() first.")
+        return predict_xgboost_model(self.models, X, self.scaler)
         
-        # Generate predictions
-        predictions = np.zeros((X.shape[0], 6))
+    def save(self, path: str) -> None:
+        """Save the model to disk"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Nothing to save.")
+        import joblib
+        joblib.dump({
+            'models': self.models,
+            'scaler': self.scaler,
+            'config': self.config
+        }, path)
         
-        for i, model in enumerate(models):
-            predictions[:, i] = model.predict(X_scaled)
-        
-        # Validate predictions
-        if predictions.shape[0] == 1:  # Single prediction
-            return ensure_valid_prediction(predictions[0])
-            
-        # For multiple predictions, ensure each row is valid
-        valid_predictions = []
-        for i in range(predictions.shape[0]):
-            valid_predictions.append(ensure_valid_prediction(predictions[i]))
-        
-        return np.array(valid_predictions)
-        
-    except Exception as e:
-        logging.error(f"Error in XGBoost prediction: {str(e)}")
-        # Return random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6)) 
+    @classmethod
+    def load(cls, path: str) -> 'XGBoostModel':
+        """Load a saved model from disk"""
+        import joblib
+        data = joblib.load(path)
+        model = cls(data['config'])
+        model.models = data['models']
+        model.scaler = data['scaler']
+        model.is_trained = True
+        return model 

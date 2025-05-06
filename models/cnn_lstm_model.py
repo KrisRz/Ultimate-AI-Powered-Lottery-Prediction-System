@@ -1,267 +1,580 @@
+import os
+import sys
+import logging
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense, Dropout, BatchNormalization, Bidirectional
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.regularizers import l2
-from sklearn.preprocessing import RobustScaler
-import logging
-import gc
-import time
-import os
+from typing import Tuple
 from pathlib import Path
-from .utils import LOOK_BACK, ensure_valid_prediction
-from .lstm_model import vectorized_create_sequences
-from .utils.model_storage import cleanup_old_checkpoints
-from typing import Optional, Tuple
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense, Dropout, BatchNormalization, Bidirectional, InputLayer, Conv2D, MaxPooling2D, Reshape, Flatten, Input
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard, CSVLogger
+from tensorflow.keras.optimizers import Adam
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import traceback
 
-# Try to enable GPU acceleration and mixed precision
-try:
-    policy = tf.keras.mixed_precision.Policy('mixed_float16')
-    tf.keras.mixed_precision.set_global_policy(policy)
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
-except Exception as e:
-    logging.warning(f"Could not configure GPU acceleration: {str(e)}")
+logger = logging.getLogger(__name__)
 
-def create_cnn_lstm_model(input_shape, filters=128, kernel_size=3, lstm_units1=128, lstm_units2=64, 
-                         dropout_rate=0.3, l2_reg=0.001, learning_rate=0.001):
-    """
-    Create an optimized CNN-LSTM model for time series prediction
-    
-    Args:
-        input_shape: Tuple specifying input shape (timesteps, features)
-        filters: Number of filters in the Conv1D layer
-        kernel_size: Size of the CNN kernel
-        lstm_units1: Number of units in the first LSTM layer
-        lstm_units2: Number of units in the second LSTM layer
-        dropout_rate: Dropout rate for regularization
-        l2_reg: L2 regularization factor
-        learning_rate: Learning rate for Adam optimizer
-        
-    Returns:
-        Compiled CNN-LSTM model
-    """
-    model = Sequential([
-        # CNN layers with regularization
-        Conv1D(filters=filters, kernel_size=kernel_size, activation='relu', 
-              padding='same', input_shape=input_shape,
-              kernel_regularizer=l2(l2_reg)),
-        BatchNormalization(),
-        MaxPooling1D(pool_size=2),
-        Dropout(dropout_rate/2),
-        
-        # Additional CNN layer for deeper feature extraction
-        Conv1D(filters=filters*2, kernel_size=kernel_size, activation='relu', 
-              padding='same', kernel_regularizer=l2(l2_reg)),
-        BatchNormalization(),
-        MaxPooling1D(pool_size=2),
-        Dropout(dropout_rate/2),
-        
-        # Bidirectional LSTM layers
-        Bidirectional(LSTM(lstm_units1, return_sequences=True,
-                          kernel_regularizer=l2(l2_reg),
-                          recurrent_regularizer=l2(l2_reg/2))),
-        BatchNormalization(),
-        Dropout(dropout_rate),
-        
-        Bidirectional(LSTM(lstm_units2, return_sequences=False,
-                          kernel_regularizer=l2(l2_reg),
-                          recurrent_regularizer=l2(l2_reg/2))),
-        BatchNormalization(),
-        Dropout(dropout_rate),
-        
-        # Dense layers for prediction
-        Dense(64, activation='relu', kernel_regularizer=l2(l2_reg)),
-        BatchNormalization(),
-        Dropout(dropout_rate/2),
-        
-        Dense(6)  # 6 numbers to predict
-    ])
-    
-    # Use Adam optimizer with customized learning rate
-    optimizer = Adam(learning_rate=learning_rate)
-    model.compile(optimizer=optimizer, loss='mse')
-    
-    return model
+# Set fixed random seed for reproducibility
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
+tf.random.set_seed(RANDOM_SEED)
 
-def train_cnn_lstm_model(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    epochs: int = 50,
-    batch_size: int = 64,
-    look_back: Optional[int] = None,
-    validation_split: float = 0.2
-) -> Tuple[tf.keras.Model, RobustScaler, int]:
-    """
-    Train CNN-LSTM model for lottery prediction
-    """
-    start_time = time.time()
-    checkpoint_dir = Path("models/checkpoints")
-    checkpoint_dir.mkdir(exist_ok=True, parents=True)
-    
-    # Set default look_back if not specified
-    if look_back is None:
-        look_back = LOOK_BACK
-    
-    # Initialize scaler
-    scaler = RobustScaler()
-    X_scaled = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
-    
-    # Create model with optimal hyperparameters
-    model = create_cnn_lstm_model(
-        input_shape=(look_back, X_train.shape[2]),  # type: ignore
-        filters=128,
-        kernel_size=3,
-        lstm_units1=128,
-        lstm_units2=64,
-        dropout_rate=0.3,
-        l2_reg=0.001,
-        learning_rate=0.001
-    )
-    
-    # Advanced callbacks for training optimization
-    callbacks = [
-        EarlyStopping(
-            monitor='val_loss',
-            patience=30,
-            restore_best_weights=True,
-            verbose=1
-        ),
-        ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,
-            patience=10,
-            min_lr=1e-6,
-            verbose=1
-        ),
-        ModelCheckpoint(
-            filepath=str(checkpoint_dir / 'cnn_lstm_model_checkpoint_{epoch:02d}.h5'),
-            save_best_only=True,
-            monitor='val_loss',
-            verbose=1
-        ),
-        TensorBoard(log_dir='logs/cnn_lstm_model_' + time.strftime('%Y%m%d-%H%M%S'))
-    ]
-    
-    try:
-        # Train with validation split and callbacks
-        history = model.fit(
-            X_scaled, y_train,
-            epochs=epochs,
-            batch_size=batch_size,
-            verbose=1,
-            validation_split=validation_split,
-            callbacks=callbacks,
-            shuffle=True
+# Force all tensors to use float32
+tf.keras.backend.set_floatx('float32')
+
+# Set global mixed precision policy
+policy = tf.keras.mixed_precision.Policy('float32')
+tf.keras.mixed_precision.set_global_policy(policy)
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Disable GPU
+import tensorflow as tf
+tf.config.set_visible_devices([], 'GPU')  # Disable GPU
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
+
+class CNNLSTMModel:
+    def __init__(self, input_dim=None, name='cnn_lstm', **kwargs):
+        self.name = name
+        self.input_dim = input_dim
+        self.model = None
+        self.scaler = StandardScaler()
+        self.is_trained = False
+        
+        # Default configuration
+        self.config = {
+            'epochs': 100,
+            'batch_size': 32,
+            'cnn_filters': [64, 32],
+            'cnn_kernel_size': 3,
+            'lstm_units': [50, 25],
+            'dense_units': [20],
+            'dropout': 0.2,
+            'learning_rate': 0.001,
+            'validation_split': 0.2,
+            'early_stopping': {
+                'patience': 20,
+                'restore_best_weights': True,
+                'min_delta': 0.0001
+            },
+            'reduce_lr': {
+                'patience': 10,
+                'factor': 0.5,
+                'min_lr': 1e-6
+            }
+        }
+        self.config.update(kwargs)
+        
+    def _build_model(self, input_shape: Tuple[int, int, int, int]) -> tf.keras.Model:
+        """Build the CNN-LSTM model"""
+        # Input layer
+        inputs = tf.keras.layers.Input(shape=input_shape[1:])
+        
+        # CNN layers
+        x = tf.keras.layers.Conv2D(
+            self.config['cnn_filters'][0],
+            (3, 3),
+            activation='relu',
+            padding='same'
+        )(inputs)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D((2, 2))(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        
+        x = tf.keras.layers.Conv2D(
+            self.config['cnn_filters'][1],
+            (3, 3),
+            activation='relu',
+            padding='same'
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D((2, 2))(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        
+        # Reshape for LSTM
+        x = tf.keras.layers.Reshape((x.shape[1], -1))(x)
+        
+        # LSTM layers
+        x = tf.keras.layers.Bidirectional(
+            tf.keras.layers.LSTM(
+                self.config['lstm_units'][0],
+                return_sequences=True
+            )
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        
+        x = tf.keras.layers.Bidirectional(
+            tf.keras.layers.LSTM(
+                self.config['lstm_units'][1]
+            )
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        
+        # Dense layers
+        x = tf.keras.layers.Dense(
+            self.config['dense_units'][0],
+            activation='relu'
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        
+        # Output layer
+        outputs = tf.keras.layers.Dense(6, activation='linear')(x)
+        
+        # Create model
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        
+        # Compile model
+        optimizer = tf.keras.optimizers.Adam(
+            learning_rate=self.config['learning_rate'],
+            clipnorm=1.0,
+            clipvalue=0.5
+        )
+        model.compile(
+            optimizer=optimizer,
+            loss='mse',
+            metrics=['mae']
         )
         
-        # Log training results
-        val_loss = min(history.history['val_loss'])
-        final_loss = history.history['loss'][-1]
-        training_time = time.time() - start_time
+        return model
+
+    def train(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None) -> tf.keras.callbacks.History:
+        """Train CNN-LSTM model"""
+        try:
+            logger.info(f"Starting CNN-LSTM training with input shapes - X_train: {X_train.shape}, y_train: {y_train.shape}")
+            if X_val is not None:
+                logger.info(f"Validation shapes - X_val: {X_val.shape}, y_val: {y_val.shape}")
+            
+            # Check for NaN values
+            if np.isnan(X_train).any():
+                raise ValueError("Training data contains NaN values")
+            if np.isnan(y_train).any():
+                raise ValueError("Training labels contain NaN values")
+            if X_val is not None and np.isnan(X_val).any():
+                raise ValueError("Validation data contains NaN values")
+            if y_val is not None and np.isnan(y_val).any():
+                raise ValueError("Validation labels contain NaN values")
+            
+            # Ensure input has correct shape (batch_size, timesteps, features, channels)
+            if len(X_train.shape) != 4:
+                raise ValueError(f"Expected 4D input (batch_size, timesteps, features, channels), got shape {X_train.shape}")
+            
+            # Build model if not already built
+            if self.model is None:
+                logger.info("Building CNN-LSTM model...")
+                self.input_dim = X_train.shape[1:]
+                logger.info(f"Input dimensions: {self.input_dim}")
+                self.model = self._build_model(X_train.shape)
+                logger.info("Model built successfully")
+            
+            # Create callbacks
+            callbacks = [
+                EarlyStopping(
+                    monitor='val_loss' if X_val is not None else 'loss',
+                    patience=self.config['early_stopping']['patience'],
+                    restore_best_weights=self.config['early_stopping']['restore_best_weights']
+                ),
+                ReduceLROnPlateau(
+                    monitor='val_loss' if X_val is not None else 'loss',
+                    patience=self.config['reduce_lr']['patience'],
+                    factor=self.config['reduce_lr']['factor'],
+                    min_lr=self.config['reduce_lr']['min_lr']
+                )
+            ]
+            
+            # If no validation data provided, use validation_split from config
+            validation_data = None
+            validation_split = 0.0
+            if X_val is not None and y_val is not None:
+                validation_data = (X_val, y_val)
+            else:
+                validation_split = self.config['validation_split']
+                logger.info(f"Using validation split: {validation_split}")
+            
+            # Train model
+            logger.info("Starting model training...")
+            history = self.model.fit(
+                X_train, y_train,
+                epochs=self.config['epochs'],
+                batch_size=self.config['batch_size'],
+                validation_data=validation_data,
+                validation_split=validation_split,
+                callbacks=callbacks,
+                verbose=1
+            )
+            
+            self.is_trained = True
+            logger.info("Model training completed successfully")
+            return history
+            
+        except Exception as e:
+            logger.error(f"Error training CNN-LSTM model: {str(e)}\n{traceback.format_exc()}")
+            raise
+
+    def evaluate(self, X_val, y_val):
+        """Evaluate the model"""
+        if self.model is None:
+            raise ValueError("Model not trained. Call train() first.")
+        return self.model.evaluate(X_val, y_val)[0]  # Return loss
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Generate predictions"""
+        if not self.is_trained:
+            raise ValueError("Model not trained. Call train() first.")
+            
+        # Ensure input has correct shape
+        if len(X.shape) != 4:
+            raise ValueError(f"Expected 4D input (batch_size, timesteps, features, channels), got shape {X.shape}")
+            
+        return self.model.predict(X, verbose=0)
+    
+    def save(self, save_dir):
+        """Save the model"""
+        if self.model is None:
+            raise ValueError("Model not trained. Nothing to save.")
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+        self.model.save(Path(save_dir) / "cnn_lstm_model.h5")
+    
+    def load(self, model_dir):
+        """Load the model"""
+        model_path = Path(model_dir) / "cnn_lstm_model.h5"
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model file not found in {model_dir}")
+        self.model = tf.keras.models.load_model(str(model_path))
+
+def create_model(config):
+    with tf.device('/CPU:0'):
+        inputs = tf.keras.layers.Input(shape=(config['sequence_length'], config['num_features']), dtype=tf.float32)
         
-        logging.info(f"CNN-LSTM model trained successfully in {training_time:.2f} seconds")
-        logging.info(f"Final loss: {final_loss:.4f}, Best validation loss: {val_loss:.4f}")
+        # CNN layers
+        x = tf.keras.layers.Conv1D(
+            filters=config['filters'],
+            kernel_size=config['kernel_size'],
+            activation='relu',
+            padding='same',
+            dtype=tf.float32
+        )(inputs)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(config['dropout_rate'])(x)
         
-        # Cleanup old checkpoints after successful training
-        cleanup_old_checkpoints(checkpoint_dir, pattern="cnn_lstm_model_checkpoint_*.h5")
+        # LSTM layers
+        x = tf.keras.layers.LSTM(
+            units=config['lstm_units'],
+            return_sequences=True,
+            activation='tanh',
+            recurrent_activation='sigmoid',
+            dtype=tf.float32
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(config['dropout_rate'])(x)
+        
+        x = tf.keras.layers.LSTM(
+            units=config['lstm_units'],
+            return_sequences=False,
+            activation='tanh',
+            recurrent_activation='sigmoid',
+            dtype=tf.float32
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(config['dropout_rate'])(x)
+        
+        # Dense layers
+        x = tf.keras.layers.Dense(
+            units=config['dense_units'],
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(config['l2_reg']),
+            dtype=tf.float32
+        )(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(config['dropout_rate'])(x)
+        
+        outputs = tf.keras.layers.Dense(
+            units=config['num_features'],
+            activation='sigmoid',
+            dtype=tf.float32
+        )(x)
+        
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        
+        optimizer = tf.keras.optimizers.Adam(
+            learning_rate=config['learning_rate'],
+            clipnorm=1.0,
+            clipvalue=0.5
+        )
+        
+        model.compile(
+            optimizer=optimizer,
+            loss='mse',
+            metrics=['mae', tf.keras.metrics.RootMeanSquaredError(), tf.keras.metrics.MeanAbsolutePercentageError()]
+        )
+        
+        return model
+
+def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    """Evaluate prediction accuracy with multiple metrics."""
+    metrics = {}
+    
+    # Basic metrics
+    metrics['mse'] = np.mean((y_true - y_pred) ** 2)
+    metrics['mae'] = np.mean(np.abs(y_true - y_pred))
+    metrics['rmse'] = np.sqrt(metrics['mse'])
+    metrics['mape'] = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    
+    # Number matching accuracy
+    correct_numbers = np.sum(y_true == y_pred)
+    total_numbers = y_true.size
+    metrics['number_accuracy'] = (correct_numbers / total_numbers) * 100
+    
+    # Exact match accuracy (all 6 numbers correct)
+    exact_matches = np.sum(np.all(y_true == y_pred, axis=1))
+    total_predictions = len(y_true)
+    metrics['exact_match_accuracy'] = (exact_matches / total_predictions) * 100
+    
+    # Partial match accuracy (3+ numbers correct)
+    partial_matches = np.sum(np.sum(y_true == y_pred, axis=1) >= 3)
+    metrics['partial_match_accuracy'] = (partial_matches / total_predictions) * 100
+    
+    return metrics
+
+def train_cnn_lstm_model(X_train: np.ndarray,
+                        y_train: np.ndarray,
+                        config: dict,
+                        validation_data: tuple = None,
+                        callbacks: list = None) -> Tuple[tf.keras.Model, MinMaxScaler]:
+    """Train CNN-LSTM model with given configuration.
+    
+    Args:
+        X_train: Training data
+        y_train: Training labels
+        config: Model configuration
+        validation_data: Optional validation data tuple (X_val, y_val)
+        callbacks: Optional list of callbacks
+        
+    Returns:
+        Tuple of (trained model, scaler)
+    """
+    try:
+        # Create and compile model
+        model = create_model(config)
+        
+        # Initialize scaler
+        scaler = MinMaxScaler()
+        X_train_scaled = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
+        
+        # Scale validation data if provided
+        if validation_data is not None:
+            X_val, y_val = validation_data
+            X_val_scaled = scaler.transform(X_val.reshape(-1, X_val.shape[-1])).reshape(X_val.shape)
+            validation_data = (X_val_scaled, y_val)
+        
+        # Default callbacks if none provided
+        if callbacks is None:
+            callbacks = [
+                EarlyStopping(
+                    monitor='val_loss',
+                    patience=config.get('early_stopping_patience', 10),
+                    restore_best_weights=True
+                ),
+                ReduceLROnPlateau(
+                    monitor='val_loss',
+                    factor=0.5,
+                    patience=5,
+                    min_lr=1e-6
+                )
+            ]
+        
+        # Train model
+        model.fit(
+            X_train_scaled, y_train,
+            epochs=config['epochs'],
+            batch_size=config['batch_size'],
+            validation_data=validation_data,
+            callbacks=callbacks,
+            verbose=0
+        )
+        
+        return model, scaler
         
     except Exception as e:
-        logging.error(f"Error training CNN-LSTM model: {str(e)}")
+        logger.error(f"Error training CNN-LSTM model: {str(e)}")
         raise
-    
-    # Clean up memory
-    gc.collect()
-    if len(tf.config.list_physical_devices('GPU')) > 0:
-        try:
-            tf.keras.backend.clear_session()
-        except Exception as e:
-            logging.warning(f"Could not clear GPU memory: {e}")
-    
-    return model, scaler, look_back
 
-def predict_cnn_lstm_model(model, scaler, X, look_back=None):
+def predict_cnn_lstm_model(model: Sequential, X: np.ndarray, scaler: MinMaxScaler) -> Tuple[np.ndarray, dict]:
     """
-    Generate predictions using trained CNN-LSTM model
+    Generate predictions using trained CNN-LSTM model and return accuracy metrics
     
     Args:
         model: Trained CNN-LSTM model
+        X: Input features for prediction
         scaler: Fitted scaler
-        X: Input data for prediction
-        look_back: Number of timesteps (default: use LOOK_BACK from utils)
         
     Returns:
-        Array of 6 valid lottery numbers (sorted, unique, in range 1-59)
+        Tuple of (predictions, accuracy_metrics)
     """
     try:
-        # Use provided look_back or default
-        if look_back is None:
-            look_back = LOOK_BACK
-            
         # Validate input
-        if X is None:
-            raise ValueError("Input data cannot be None")
-            
         if not isinstance(X, np.ndarray):
             X = np.array(X)
-        
-        # Handle already 3D input
-        if len(X.shape) == 3:
-            # Reshape for scaling (combine batch and time dimensions)
-            orig_shape = X.shape
-            reshaped_X = X.reshape(-1, X.shape[2])
-            # Scale the data
-            scaled_X = scaler.transform(reshaped_X)
-            # Reshape back to original shape
-            X_sequence = scaled_X.reshape(orig_shape)
-        else:
-            # Scale input data
-            X_scaled = scaler.transform(X)
             
-            # Use efficient numpy operations for sequence creation
-            if len(X_scaled) >= look_back:
-                # Take the most recent look_back entries for prediction
-                X_sequence = X_scaled[-look_back:].reshape(1, look_back, X_scaled.shape[1])
-            else:
-                # Pad with zeros if we don't have enough data
-                padding = np.zeros((look_back - len(X_scaled), X_scaled.shape[1]))
-                X_padded = np.vstack([padding, X_scaled])
-                X_sequence = X_padded.reshape(1, look_back, X_scaled.shape[1])
+        # Check for NaN values
+        if np.isnan(X).any():
+            raise ValueError("Input contains NaN values")
+            
+        # Validate input shape
+        if len(X.shape) != 3:
+            raise ValueError(f"Input must be 3D (samples, timesteps, features), got shape {X.shape}")
+        if X.shape[1] != 10:  # Expected timesteps
+            raise ValueError(f"Expected 10 timesteps, got {X.shape[1]}")
+            
+        # Scale input - reshape to 2D for scaling
+        X_reshaped = X.reshape(-1, X.shape[-1])
+        X_scaled = scaler.transform(X_reshaped)
+        X_scaled = X_scaled.reshape(X.shape)
+            
+        # Generate predictions
+        predictions = model.predict(X_scaled)
         
-        # Generate prediction with reduced verbosity
-        raw_predictions = model.predict(X_sequence, verbose=0)
+        # Scale predictions back to original range
+        predictions = predictions * 60.0
         
-        # Ensure valid prediction format (6 unique numbers between 1-59)
-        valid_predictions = ensure_valid_prediction(raw_predictions[0])
+        # Ensure valid predictions
+        predictions = np.clip(np.round(predictions), 1, 59)
         
-        return valid_predictions
+        # Calculate accuracy metrics
+        accuracy_metrics = evaluate_predictions(X, predictions)
+        
+        logger.info("Prediction Accuracy Metrics:")
+        logger.info(f"Number Accuracy: {accuracy_metrics['number_accuracy']:.2f}%")
+        logger.info(f"Exact Match Accuracy: {accuracy_metrics['exact_match_accuracy']:.2f}%")
+        logger.info(f"Partial Match Accuracy (3+ numbers): {accuracy_metrics['partial_match_accuracy']:.2f}%")
+        logger.info(f"MAE: {accuracy_metrics['mae']:.4f}")
+        logger.info(f"RMSE: {accuracy_metrics['rmse']:.4f}")
+        logger.info(f"MAPE: {accuracy_metrics['mape']:.2f}%")
+        
+        return predictions, accuracy_metrics
         
     except Exception as e:
         logging.error(f"Error in CNN-LSTM prediction: {str(e)}")
-        # Generate random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6))
+        raise
 
-def load_pretrained_cnn_lstm_model(model_path="models/checkpoints/cnn_lstm_model_checkpoint.h5"):
+def save_cnn_lstm_model(models: Tuple[Sequential, MinMaxScaler], save_dir: str) -> None:
     """
-    Load a pretrained CNN-LSTM model from disk
+    Save trained CNN-LSTM model and scaler
     
     Args:
-        model_path: Path to the saved model file
-        
-    Returns:
-        Loaded model or None if loading fails
+        models: Tuple of (trained CNN-LSTM model, scaler)
+        save_dir: Directory to save model files
     """
     try:
-        if os.path.exists(model_path):
-            model = tf.keras.models.load_model(model_path)
-            logging.info(f"Loaded pretrained CNN-LSTM model from {model_path}")
-            return model
-        else:
-            logging.warning(f"Pretrained CNN-LSTM model not found at {model_path}")
-            return None
+        model, scaler = models
+        save_path = Path(save_dir)
+        save_path.mkdir(parents=True, exist_ok=True)
+        
+        # Save model architecture and weights
+        model.save(save_path / "cnn_lstm_model.h5", save_format='h5')
+        
+        # Save optimizer state
+        symbolic_weights = getattr(model.optimizer, 'weights', None)
+        if symbolic_weights:
+            optimizer_weights = tf.keras.backend.batch_get_value(symbolic_weights)
+            with open(save_path / "optimizer.pkl", 'wb') as f:
+                pickle.dump({
+                    'class_name': model.optimizer.__class__.__name__,
+                    'config': model.optimizer.get_config(),
+                    'weights': optimizer_weights
+                }, f)
+        
+        # Save scaler
+        with open(save_path / "scaler.pkl", 'wb') as f:
+            pickle.dump(scaler, f)
+            
     except Exception as e:
-        logging.error(f"Error loading pretrained CNN-LSTM model: {str(e)}")
-        return None 
+        logging.error(f"Error saving CNN-LSTM model: {str(e)}")
+        raise
+
+def load_pretrained_cnn_lstm_model(model_dir: str) -> Tuple[Sequential, MinMaxScaler]:
+    """
+    Load pretrained CNN-LSTM model and scaler
+    
+    Args:
+        model_dir: Directory containing saved model files
+        
+    Returns:
+        Tuple of (loaded CNN-LSTM model, scaler)
+    """
+    try:
+        model_path = Path(model_dir)
+        
+        # Load model
+        model = tf.keras.models.load_model(model_path / "cnn_lstm_model.h5")
+        
+        # Load optimizer state if available
+        optimizer_path = model_path / "optimizer.pkl"
+        if optimizer_path.exists():
+            with open(optimizer_path, 'rb') as f:
+                optimizer_dict = pickle.load(f)
+                
+            # Recreate optimizer with saved configuration
+            optimizer_class = getattr(tf.keras.optimizers, optimizer_dict['class_name'])
+            optimizer = optimizer_class.from_config(optimizer_dict['config'])
+            
+            # Set optimizer weights after compiling model
+            model.compile(optimizer=optimizer, loss='mse')
+            
+            # Set optimizer weights if model has been trained
+            if len(optimizer_dict['weights']) > 0:
+                optimizer.set_weights(optimizer_dict['weights'])
+        
+        # Load scaler
+        with open(model_path / "scaler.pkl", 'rb') as f:
+            scaler = pickle.load(f)
+            
+        return model, scaler
+        
+    except Exception as e:
+        logging.error(f"Error loading CNN-LSTM model: {str(e)}")
+        raise
+
+def build_cnn_lstm_model(input_shape: Tuple[int, int, int] = (200, 6, 1)) -> tf.keras.Model:
+    """Build CNN-LSTM model with the correct input shape."""
+    model = Sequential([
+        InputLayer(input_shape=input_shape),
+        
+        # Simpler CNN layers
+        Conv2D(32, (3, 3), activation='relu', padding='same'),
+        BatchNormalization(),
+        MaxPooling2D(pool_size=(2, 2)),
+        Dropout(0.4),
+        
+        # Single CNN layer
+        Conv2D(16, (3, 3), activation='relu', padding='same'),
+        BatchNormalization(),
+        MaxPooling2D(pool_size=(2, 2)),
+        Dropout(0.4),
+        
+        # Reshape for LSTM
+        Reshape((-1, 16)),
+        
+        # Single LSTM layer
+        LSTM(32),
+        BatchNormalization(),
+        Dropout(0.4),
+        
+        # Single dense layer
+        Dense(16, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.4),
+        
+        # Output layer with sigmoid to bound values
+        Dense(6, activation='sigmoid')
+    ])
+    
+    model.compile(
+        optimizer=Adam(learning_rate=0.0005),  # Reduced learning rate
+        loss='mse',
+        metrics=['mae']
+    )
+    
+    return model 

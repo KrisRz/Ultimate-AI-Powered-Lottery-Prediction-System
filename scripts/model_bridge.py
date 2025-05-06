@@ -4,11 +4,24 @@ This module imports functions from the models.compatibility module and re-export
 making them available to scripts with a direct import path.
 """
 
+import numpy as np
+import pandas as pd
+from typing import Dict, List, Any, Optional, Union, Tuple
 import logging
 import sys
 import os
+import time
+import traceback
+import random
+import json
+from datetime import datetime
+from pathlib import Path
 
-# Setup logging
+from scripts.utils import setup_logging, LOG_DIR
+from scripts.validations.data_validator import validate_prediction
+
+# Configure logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Add models directory to path if needed

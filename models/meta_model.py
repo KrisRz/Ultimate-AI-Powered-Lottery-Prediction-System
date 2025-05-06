@@ -1,309 +1,378 @@
-import numpy as np
+"""Meta model that combines predictions from other models."""
+
+import os
+import sys
 import logging
-from sklearn.ensemble import RandomForestRegressor
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adam
+from sklearn.ensemble import StackingRegressor
+from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.preprocessing import StandardScaler
-from typing import List, Dict, Tuple, Any, Union, Optional
-import optuna
-from sklearn.model_selection import KFold
-from .utils import log_training_errors, ensure_valid_prediction
+from typing import Dict, Any, Tuple, Union
+import pickle
+from pathlib import Path
 
-# Import optional meta-learners with fallback
-try:
-    import xgboost as xgb
-    XGBOOST_AVAILABLE = True
-except ImportError:
-    XGBOOST_AVAILABLE = False
-    logging.warning("XGBoost not available. Install with 'pip install xgboost' for additional meta-learners.")
+logger = logging.getLogger(__name__)
 
-try:
-    import lightgbm as lgb
-    LIGHTGBM_AVAILABLE = True
-except ImportError:
-    LIGHTGBM_AVAILABLE = False
-    logging.warning("LightGBM not available. Install with 'pip install lightgbm' for additional meta-learners.")
-
-def get_meta_learner(meta_learner_type: str = 'random_forest', params: Optional[Dict] = None) -> Any:
+def train_meta_model(X: np.ndarray, y: np.ndarray, base_predictions: Dict[str, np.ndarray], meta_params: Dict = None) -> Tuple[StackingRegressor, StandardScaler]:
     """
-    Get the appropriate meta-learner model based on specified type
+    Train a meta model using predictions from base models.
     
     Args:
-        meta_learner_type: Type of meta-learner ('random_forest', 'xgboost', 'lightgbm')
-        params: Optional parameters for the meta-learner
+        X: Training features
+        y: Target values
+        base_predictions: Dictionary of base model predictions
+        meta_params: Optional parameters for meta model
         
     Returns:
-        Meta-learner model instance
-    """
-    if params is None:
-        params = {}
-    
-    # Ensure random_state is set for reproducibility
-    if 'random_state' not in params:
-        params['random_state'] = 42
-    
-    # Create the requested meta-learner
-    if meta_learner_type == 'random_forest':
-        # Default parameters for RandomForest if not specified
-        if 'n_estimators' not in params:
-            params['n_estimators'] = 100
-        return RandomForestRegressor(**params)
-    
-    elif meta_learner_type == 'xgboost':
-        if not XGBOOST_AVAILABLE:
-            logging.warning("XGBoost requested but not available. Falling back to RandomForest.")
-            return get_meta_learner('random_forest', params)
-        
-        # Default parameters for XGBoost if not specified
-        xgb_params = {
-            'n_estimators': params.get('n_estimators', 100),
-            'learning_rate': params.get('learning_rate', 0.1),
-            'max_depth': params.get('max_depth', 6),
-            'subsample': params.get('subsample', 0.8),
-            'colsample_bytree': params.get('colsample_bytree', 0.8),
-            'gamma': params.get('gamma', 0),
-            'random_state': params['random_state']
-        }
-        return xgb.XGBRegressor(**xgb_params)
-    
-    elif meta_learner_type == 'lightgbm':
-        if not LIGHTGBM_AVAILABLE:
-            logging.warning("LightGBM requested but not available. Falling back to RandomForest.")
-            return get_meta_learner('random_forest', params)
-        
-        # Default parameters for LightGBM if not specified
-        lgb_params = {
-            'n_estimators': params.get('n_estimators', 100),
-            'learning_rate': params.get('learning_rate', 0.1),
-            'max_depth': params.get('max_depth', 6),
-            'subsample': params.get('subsample', 0.8),
-            'colsample_bytree': params.get('colsample_bytree', 0.8),
-            'num_leaves': params.get('num_leaves', 31),
-            'random_state': params['random_state']
-        }
-        return lgb.LGBMRegressor(**lgb_params)
-    
-    else:
-        logging.warning(f"Unknown meta-learner type: {meta_learner_type}. Falling back to RandomForest.")
-        return get_meta_learner('random_forest', params)
-
-def objective(trial, X, y, meta_learner_type='random_forest', cv=5):
-    """
-    Optuna objective function for meta-learner parameter tuning
-    
-    Args:
-        trial: Optuna trial object
-        X: Training features (base model predictions)
-        y: Target variable
-        meta_learner_type: Type of meta-learner to optimize
-        cv: Number of cross-validation folds
-        
-    Returns:
-        Mean cross-validation score
-    """
-    # Define hyperparameters based on meta-learner type
-    if meta_learner_type == 'random_forest':
-        params = {
-            'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-            'max_depth': trial.suggest_int('max_depth', 3, 15),
-            'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
-            'random_state': 42
-        }
-    elif meta_learner_type == 'xgboost' and XGBOOST_AVAILABLE:
-        params = {
-            'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-            'max_depth': trial.suggest_int('max_depth', 3, 10),
-            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-            'gamma': trial.suggest_float('gamma', 0, 5),
-            'random_state': 42
-        }
-    elif meta_learner_type == 'lightgbm' and LIGHTGBM_AVAILABLE:
-        params = {
-            'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-            'max_depth': trial.suggest_int('max_depth', 3, 10),
-            'num_leaves': trial.suggest_int('num_leaves', 10, 100),
-            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-            'random_state': 42
-        }
-    else:
-        # Fallback to RandomForest
-        params = {
-            'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-            'max_depth': trial.suggest_int('max_depth', 3, 15),
-            'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
-            'random_state': 42
-        }
-        meta_learner_type = 'random_forest'
-    
-    # Cross-validation setup
-    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
-    scores = []
-    
-    # Get the meta-learner with current trial parameters
-    model = get_meta_learner(meta_learner_type, params)
-    
-    # Perform cross-validation
-    for train_idx, val_idx in kf.split(X):
-        X_train_fold, X_val_fold = X[train_idx], X[val_idx]
-        y_train_fold, y_val_fold = y[train_idx], y[val_idx]
-        
-        model.fit(X_train_fold, y_train_fold)
-        score = model.score(X_val_fold, y_val_fold)
-        scores.append(score)
-    
-    return np.mean(scores)
-
-@log_training_errors
-def train_meta_model(base_predictions, y_train, meta_learner_type='random_forest', 
-                    tune_hyperparams=True, n_trials=50):
-    """
-    Train a meta-learner model to combine predictions from base models
-    
-    Args:
-        base_predictions: Stacked predictions from base models with shape [n_samples, n_models, 6]
-                          or [n_samples, n_models*6]
-        y_train: Target values (lottery numbers) with shape [n_samples, 6]
-        meta_learner_type: Type of meta-learner ('random_forest', 'xgboost', 'lightgbm')
-        tune_hyperparams: Whether to perform hyperparameter tuning
-        n_trials: Number of hyperparameter tuning trials
-        
-    Returns:
-        Tuple of (trained meta-model, scaler, meta_learner_type)
-    """
-    # Validate input
-    if not isinstance(base_predictions, np.ndarray):
-        try:
-            base_predictions = np.array(base_predictions)
-        except Exception as e:
-            raise ValueError(f"Cannot convert base_predictions to numpy array: {str(e)}")
-    
-    if not isinstance(y_train, np.ndarray):
-        try:
-            y_train = np.array(y_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert y_train to numpy array: {str(e)}")
-    
-    # Check shapes and reshape if needed
-    if len(base_predictions.shape) == 3:
-        # Shape is [n_samples, n_models, 6] - flatten to [n_samples, n_models*6]
-        logging.info(f"Reshaping base predictions from {base_predictions.shape} to [n_samples, n_models*6]")
-        base_predictions = base_predictions.reshape(base_predictions.shape[0], -1)
-    elif len(base_predictions.shape) != 2:
-        raise ValueError(f"base_predictions must have shape [n_samples, n_models*6] or [n_samples, n_models, 6], got {base_predictions.shape}")
-    
-    # Ensure y_train has shape [n_samples, 6]
-    if len(y_train.shape) != 2 or y_train.shape[1] != 6:
-        raise ValueError(f"y_train must have shape [n_samples, 6], got {y_train.shape}")
-    
-    # Ensure base_predictions and y_train have same number of samples
-    if base_predictions.shape[0] != y_train.shape[0]:
-        raise ValueError(f"base_predictions and y_train must have same number of samples, got {base_predictions.shape[0]} and {y_train.shape[0]}")
-    
-    # Scale the input data
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(base_predictions)
-    
-    # Initialize parameters
-    best_params = None
-    
-    # Tune hyperparameters if requested
-    if tune_hyperparams:
-        try:
-            logging.info(f"Tuning hyperparameters for {meta_learner_type} meta-learner")
-            study = optuna.create_study(direction='maximize')
-            study.optimize(
-                lambda trial: objective(trial, X_scaled, y_train, meta_learner_type), 
-                n_trials=n_trials
-            )
-            best_params = study.best_params
-            logging.info(f"Best parameters: {best_params}")
-        except Exception as e:
-            logging.error(f"Error during hyperparameter tuning: {str(e)}")
-            logging.info("Using default parameters due to tuning failure")
-    
-    # Create and train the meta-learner
-    model = get_meta_learner(meta_learner_type, best_params)
-    
-    try:
-        # Train for all 6 numbers together
-        model.fit(X_scaled, y_train)
-        logging.info(f"Meta-model ({meta_learner_type}) trained on {X_scaled.shape[0]} samples with {X_scaled.shape[1]} features")
-    except Exception as e:
-        logging.error(f"Error training meta-model: {str(e)}")
-        # Fallback to RandomForest with default parameters
-        logging.info("Falling back to RandomForest with default parameters")
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
-        model.fit(X_scaled, y_train)
-    
-    return model, scaler, meta_learner_type
-
-def predict_meta_model(model, scaler, base_predictions, meta_learner_type=None):
-    """
-    Generate predictions using the trained meta-model
-    
-    Args:
-        model: Trained meta-model
-        scaler: Fitted StandardScaler
-        base_predictions: Stacked predictions from base models with shape [n_samples, n_models, 6]
-                          or [n_samples, n_models*6]
-        meta_learner_type: Type of meta-learner (for informational purposes only)
-        
-    Returns:
-        Array of valid lottery numbers
+        Tuple of (trained meta model, scaler)
     """
     try:
-        # Validate input
-        if not isinstance(base_predictions, np.ndarray):
-            base_predictions = np.array(base_predictions)
+        # Scale features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
         
-        # Check shape and reshape if needed
-        if len(base_predictions.shape) == 3:
-            # Shape is [n_samples, n_models, 6] - flatten to [n_samples, n_models*6]
-            base_predictions = base_predictions.reshape(base_predictions.shape[0], -1)
-        elif len(base_predictions.shape) != 2:
-            raise ValueError(f"base_predictions must have shape [n_samples, n_models*6] or [n_samples, n_models, 6], got {base_predictions.shape}")
+        # Prepare meta-features
+        meta_features = np.hstack([
+            pred.reshape(len(X), -1) 
+            for pred in base_predictions.values()
+        ])
+        meta_features = np.hstack([meta_features, X_scaled])
         
-        # Scale the input
-        X_scaled = scaler.transform(base_predictions)
+        # Configure meta model
+        default_params = {
+            'estimators': [('ridge', Ridge())],
+            'final_estimator': Ridge(),
+            'cv': 5,
+            'n_jobs': -1
+        }
         
-        # Generate predictions
-        predictions = model.predict(X_scaled)
-        
-        # If predictions shape is [n_samples, 6]
-        if len(predictions.shape) == 2 and predictions.shape[1] == 6:
-            # For single prediction, process it
-            if predictions.shape[0] == 1:
-                return ensure_valid_prediction(predictions[0])
+        if meta_params:
+            default_params.update(meta_params)
             
-            # For multiple predictions, validate each
-            valid_predictions = []
-            for i in range(predictions.shape[0]):
-                valid_predictions.append(ensure_valid_prediction(predictions[i]))
-            return np.array(valid_predictions)
-        
-        # If predictions shape is [n_samples,], reshape to [n_samples, 6] if possible
-        elif len(predictions.shape) == 1:
-            if predictions.shape[0] % 6 == 0:
-                predictions = predictions.reshape(-1, 6)
-                if predictions.shape[0] == 1:
-                    return ensure_valid_prediction(predictions[0])
+        # Train separate model for each output
+        models = []
+        for i in range(y.shape[1]):
+            model = StackingRegressor(**default_params)
+            model.fit(meta_features, y[:, i])
+            models.append(model)
+            
+        # Create a wrapper model that combines predictions
+        class MultiOutputStackingRegressor(StackingRegressor):
+            def __init__(self, models, **kwargs):
+                super().__init__(**kwargs)
+                self.models = models
+                self.__dict__.update(models[0].__dict__)
                 
-                valid_predictions = []
-                for i in range(predictions.shape[0]):
-                    valid_predictions.append(ensure_valid_prediction(predictions[i]))
-                return np.array(valid_predictions)
-            else:
-                return ensure_valid_prediction(predictions[:6])  # Take first 6 values
-        
-        # Unusual prediction shape, try to handle it
-        logging.warning(f"Unusual prediction shape: {predictions.shape}, attempting to convert to valid lottery numbers")
-        return ensure_valid_prediction(predictions.flatten()[:6])
+            def predict(self, X):
+                predictions = np.array([model.predict(X) for model in self.models]).T
+                predictions = np.clip(np.round(predictions), 1, 59)
+                
+                # Ensure unique numbers by replacing duplicates
+                for i in range(len(predictions)):
+                    while len(set(predictions[i])) < 6:
+                        unique_nums = set(predictions[i])
+                        needed = 6 - len(unique_nums)
+                        candidates = set(range(1, 60)) - unique_nums
+                        replacements = np.random.choice(list(candidates), size=needed, replace=False)
+                        predictions[i] = np.sort(list(unique_nums) + list(replacements))
+                        
+                return predictions
+                
+        wrapper_model = MultiOutputStackingRegressor(models, **default_params)
+        return wrapper_model, scaler
         
     except Exception as e:
-        logging.error(f"Error in meta-model prediction: {str(e)}")
-        # Return random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6)) 
+        logger.error(f"Error training meta model: {str(e)}")
+        return None
+
+def predict_meta_model(meta_model, base_models, X_test):
+    """
+    Generate predictions using the meta model
+    
+    Args:
+        meta_model: Trained meta model
+        base_models: Dictionary of base models and their prediction functions
+        X_test: Test features
+        
+    Returns:
+        Array of predicted numbers
+    """
+    try:
+        # Generate base model predictions
+        base_predictions = []
+        for model_name, (model, predict_fn) in base_models.items():
+            if model_name == 'lstm':
+                # Reshape for LSTM
+                X_test_lstm = X_test.reshape(-1, 1, X_test.shape[-1])
+                pred = predict_fn(model, X_test_lstm, None)  # Scaler is handled inside predict_fn
+            else:
+                pred = predict_fn(model, X_test)
+            base_predictions.append(pred)
+            
+        # Stack predictions
+        stacked_predictions = np.hstack(base_predictions)
+        
+        # Generate meta predictions
+        meta_predictions = meta_model.predict(stacked_predictions)
+        
+        # Ensure valid predictions
+        meta_predictions = np.clip(np.round(meta_predictions), 1, 59)
+        
+        # Process each prediction to ensure uniqueness
+        valid_predictions = []
+        for pred in meta_predictions:
+            # Get unique numbers and sort
+            unique_nums = sorted(list(set(pred)))
+            
+            # Ensure exactly 6 numbers
+            if len(unique_nums) > 6:
+                unique_nums = unique_nums[:6]
+            while len(unique_nums) < 6:
+                available = list(set(range(1, 60)) - set(unique_nums))
+                unique_nums.append(np.random.choice(available))
+                unique_nums.sort()
+            
+            valid_predictions.append(unique_nums)
+        
+        return np.array(valid_predictions)
+        
+    except Exception as e:
+        logging.error(f"Error in meta model prediction: {str(e)}")
+        raise
+
+def predict_meta_model_with_dict(model: Any, X: Dict[str, np.ndarray], max_number: int = 59, n_numbers: int = 6) -> np.ndarray:
+    """
+    Generate meta model prediction from base model predictions.
+    
+    Args:
+        model: Meta model
+        X: Dictionary containing base model predictions
+        max_number: Maximum lottery number
+        n_numbers: Number of numbers to predict
+        
+    Returns:
+        Array of predicted numbers
+    """
+    try:
+        # Handle dict input for compatibility
+        if isinstance(X, dict):
+            if 'feat' in X:
+                X_use = X['feat']
+            elif 'ts' in X:
+                X_use = X['ts']
+            else:
+                raise ValueError("Input dict must contain 'feat' or 'ts' key")
+        else:
+            X_use = X
+        
+        # Generate meta prediction
+        meta_pred = model.predict(X_use)
+        
+        # Ensure valid prediction
+        meta_pred = ensure_valid_prediction(meta_pred, max_number, n_numbers)
+        
+        return meta_pred
+        
+    except Exception as e:
+        logger.error(f"Error generating meta prediction: {str(e)}")
+        # Return a fallback prediction
+        return np.array(sorted(np.random.choice(range(1, max_number+1), size=n_numbers, replace=False)))
+
+def update_models(models: Dict[str, Tuple[Any, Any]], X: np.ndarray, y: np.ndarray) -> Dict[str, Tuple[Any, Any]]:
+    """
+    Update existing models with new data.
+    
+    Args:
+        models: Dictionary of model name to (model, predict_function) tuples
+        X: New training data
+        y: New target values
+        
+    Returns:
+        Dictionary of updated models
+    """
+    try:
+        updated_models = {}
+        for name, (model, predict_fn) in models.items():
+            if hasattr(model, 'fit'):
+                model.fit(X, y)
+            updated_models[name] = (model, predict_fn)
+        return updated_models
+    except Exception as e:
+        logger.error(f"Error updating models: {str(e)}")
+        return models 
+
+class MetaModel:
+    """Meta model that combines predictions from other models."""
+    
+    def __init__(self, name='meta', **kwargs):
+        self.name = name
+        self.model = None
+        self.scaler = StandardScaler()
+        self.base_models = []
+        self.use_simple_averaging = False
+        
+        # Default configuration
+        self.config = {
+            'epochs': 50,
+            'batch_size': 32,
+            'learning_rate': 0.001,
+            'validation_split': 0.2,
+            'early_stopping': {
+                'patience': 10,
+                'restore_best_weights': True
+            },
+            'reduce_lr': {
+                'patience': 5,
+                'factor': 0.5,
+                'min_lr': 1e-6
+            }
+        }
+        self.config.update(kwargs)
+    
+    def add_base_model(self, model):
+        """Add a base model to the ensemble"""
+        self.base_models.append(model)
+    
+    def train(self, X, y, X_val=None, y_val=None):
+        """Train the meta model"""
+        try:
+            if not self.base_models:
+                logger.warning("No base models available for meta-features. Using simple averaging.")
+                self.use_simple_averaging = True
+                return
+            
+            # Generate meta-features from base models
+            meta_features = []
+            for model in self.base_models:
+                if hasattr(model, 'predict'):
+                    preds = model.predict(X)
+                    meta_features.append(preds)
+            
+            if not meta_features:
+                logger.warning("No predictions available from base models. Using simple averaging.")
+                self.use_simple_averaging = True
+                return
+            
+            # Stack meta-features
+            X_meta = np.hstack(meta_features)
+            
+            # Create and train meta model
+            if self.model is None:
+                self.model = Sequential([
+                    Dense(64, activation='relu', input_shape=(X_meta.shape[1],)),
+                    Dropout(0.2),
+                    Dense(32, activation='relu'),
+                    Dropout(0.2),
+                    Dense(1)
+                ])
+                self.model.compile(
+                    optimizer=Adam(learning_rate=self.config['learning_rate']),
+                    loss='mse',
+                    metrics=['mae']
+                )
+            
+            # Train model
+            validation_data = None
+            if X_val is not None and y_val is not None:
+                val_meta_features = []
+                for model in self.base_models:
+                    if hasattr(model, 'predict'):
+                        val_preds = model.predict(X_val)
+                        val_meta_features.append(val_preds)
+                if val_meta_features:
+                    X_val_meta = np.hstack(val_meta_features)
+                    validation_data = (X_val_meta, y_val)
+            
+            history = self.model.fit(
+                X_meta, y,
+                epochs=self.config['epochs'],
+                batch_size=self.config['batch_size'],
+                validation_data=validation_data,
+                callbacks=[
+                    EarlyStopping(
+                        monitor='val_loss',
+                        patience=self.config['early_stopping']['patience'],
+                        restore_best_weights=self.config['early_stopping']['restore_best_weights']
+                    ),
+                    ReduceLROnPlateau(
+                        monitor='val_loss',
+                        factor=self.config['reduce_lr']['factor'],
+                        patience=self.config['reduce_lr']['patience'],
+                        min_lr=self.config['reduce_lr']['min_lr']
+                    )
+                ],
+                verbose=1
+            )
+            
+            return history
+            
+        except Exception as e:
+            logger.error(f"Error fitting meta model: {str(e)}")
+            self.use_simple_averaging = True
+        
+    def predict(self, X):
+        """Generate predictions using meta model"""
+        try:
+            if not self.base_models:
+                raise ValueError("No base models available for predictions")
+            
+            # Get predictions from base models
+            meta_features = []
+            for model in self.base_models:
+                pred = model.predict(X)
+                # Ensure 2D shape
+                if len(pred.shape) > 2:
+                    pred = pred.reshape(pred.shape[0], -1)
+                meta_features.append(pred)
+            
+            # Combine predictions into meta features
+            X_meta = np.hstack(meta_features)
+            
+            # Scale features
+            X_meta = self.scaler.transform(X_meta)
+            
+            # Generate predictions
+            return self.model.predict(X_meta)
+            
+        except Exception as e:
+            logger.error(f"Error generating meta model predictions: {str(e)}")
+            raise
+        
+    def update(self, X: np.ndarray, y: np.ndarray, models: Dict[str, Tuple[Any, Any]]) -> None:
+        """Update model with new data"""
+        self.base_models = update_models(models, X, y)
+        
+    def evaluate(self, X_val, y_val):
+        """Evaluate the meta model"""
+        if self.model is None:
+            raise ValueError("Model not initialized. Call fit() first.")
+        predictions = self.predict(X_val)
+        return np.mean((predictions - y_val) ** 2)  # MSE
+        
+    def save(self, save_dir: str) -> None:
+        """Save the meta model"""
+        if self.model is None:
+            raise ValueError("Model not trained. Nothing to save.")
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+        with open(Path(save_dir) / "meta_model.pkl", 'wb') as f:
+            pickle.dump(self.model, f)
+        with open(Path(save_dir) / "meta_scaler.pkl", 'wb') as f:
+            pickle.dump(self.scaler, f)
+            
+    def load(self, model_dir: str) -> None:
+        """Load the meta model"""
+        model_path = Path(model_dir) / "meta_model.pkl"
+        scaler_path = Path(model_dir) / "meta_scaler.pkl"
+        
+        if not model_path.exists() or not scaler_path.exists():
+            raise FileNotFoundError(f"Model files not found in {model_dir}")
+            
+        with open(model_path, 'rb') as f:
+            self.model = pickle.load(f)
+        with open(scaler_path, 'rb') as f:
+            self.scaler = pickle.load(f) 

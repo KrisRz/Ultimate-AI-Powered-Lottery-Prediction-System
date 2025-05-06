@@ -7,14 +7,15 @@ import json
 from pathlib import Path
 import time
 import traceback
+from scripts.utils import LOG_DIR
 
 # Try to import from utils
 try:
-    from utils import setup_logging
+    from scripts.utils import setup_logging
 except ImportError:
     # Default implementation if imports fail
     def setup_logging():
-        logging.basicConfig(filename='lottery.log', level=logging.INFO,
+        logging.basicConfig(filename=LOG_DIR / 'lottery.log', level=logging.INFO,
                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Configure logging
@@ -223,7 +224,7 @@ def track_model_performance(
             performance_data['metadata'] = metadata
         
         # Save to log file
-        log_file = Path('results/performance_log.json')
+        log_file = Path('outputs/results/performance_log.json')
         log_file.parent.mkdir(exist_ok=True)
         
         # Read existing history
@@ -343,7 +344,7 @@ def get_model_weights(models: Optional[List[str]] = None,
             models = list(default_weights.keys())
         
         # Read performance history
-        log_file = Path('results/performance_log.json')
+        log_file = Path('outputs/results/performance_log.json')
         if not log_file.exists():
             logger.warning(f"No performance log found at {log_file}. Using default weights.")
             # Filter defaults to only include requested models
@@ -477,7 +478,7 @@ def get_model_performance_summary(model_name: Optional[str] = None,
     """
     try:
         # Read performance history
-        log_file = Path('results/performance_log.json')
+        log_file = Path('outputs/results/performance_log.json')
         if not log_file.exists():
             return {'error': 'No performance log found'}
         

@@ -1,0 +1,114 @@
+{
+    "timestamp": "20250427_185213",
+    "predictions": [
+        [
+            8,
+            15,
+            29,
+            39,
+            43,
+            52
+        ],
+        [
+            11,
+            19,
+            21,
+            23,
+            39,
+            58
+        ],
+        [
+            3,
+            11,
+            24,
+            36,
+            40,
+            53
+        ],
+        [
+            2,
+            22,
+            24,
+            30,
+            44,
+            53
+        ],
+        [
+            2,
+            12,
+            21,
+            33,
+            38,
+            58
+        ],
+        [
+            22,
+            25,
+            27,
+            44,
+            49,
+            59
+        ],
+        [
+            15,
+            16,
+            28,
+            42,
+            47,
+            51
+        ],
+        [
+            3,
+            37,
+            44,
+            52,
+            55,
+            57
+        ],
+        [
+            7,
+            9,
+            18,
+            21,
+            39,
+            51
+        ],
+        [
+            4,
+            9,
+            14,
+            25,
+            50,
+            58
+        ]
+    ],
+    "metadata": {
+        "models_used": [],
+        "model_weights": {
+            "lstm": 0.2,
+            "cnn_lstm": 0.2,
+            "xgboost": 0.15,
+            "lightgbm": 0.15,
+            "catboost": 0.15,
+            "autoencoder": 0.1,
+            "meta": 0.05
+        },
+        "feature_config": {
+            "use_historical_stats": true,
+            "sequence_length": 300,
+            "use_date_features": true,
+            "use_frequency_features": true,
+            "use_pattern_features": true
+        },
+        "data_size": 1924,
+        "training_config": {
+            "validation_split": 0.2,
+            "early_stopping_patience": 10,
+            "batch_size": 32,
+            "epochs": 100,
+            "use_gpu": true,
+            "parallel_training": true,
+            "max_workers": null
+        }
+    }
+}

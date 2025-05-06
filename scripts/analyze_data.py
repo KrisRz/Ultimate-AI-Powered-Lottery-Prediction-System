@@ -1,18 +1,22 @@
-from scipy.stats import chisquare
-from collections import Counter
+"""Data analysis utilities for lottery prediction."""
+
 import numpy as np
 import pandas as pd
+from typing import Dict, List, Any, Optional, Union, Tuple
 import logging
-from typing import Dict, List, Tuple, Any
-from scipy import stats
 from pathlib import Path
-import json
 import time
+import traceback
+import json
 from datetime import datetime
+from scipy import stats
+from collections import Counter
+from scipy.stats import chisquare
+
+from scripts.utils import setup_logging, LOG_DIR
 
 # Configure logging
-logging.basicConfig(filename='lottery.log', level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Custom JSON encoder to handle numpy types
@@ -66,7 +70,7 @@ def analyze_lottery_data(df: pd.DataFrame, recent_window: int = 50, cache_result
         
         # Check cache
         if cache_file is None:
-            cache_file = Path('results/analysis_cache.json')
+            cache_file = Path('outputs/results/analysis_cache.json')
         else:
             cache_file = Path(cache_file)
             
@@ -562,7 +566,7 @@ def identify_patterns(winning_numbers: List[List[int]], draw_dates: List[str] = 
         draw_dates: List of draw dates
         
     Returns:
-        Dictionary containing pattern analysis results
+        Dictionary containing pattern analysis outputs/results
     """
     try:
         patterns = {}

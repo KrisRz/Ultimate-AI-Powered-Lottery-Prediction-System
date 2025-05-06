@@ -1,0 +1,112 @@
+{
+  "timestamp": "2025-05-05T18:11:00.461167",
+  "training_duration": 484.7164092063904,
+  "models": [
+    "lstm",
+    "cnn_lstm"
+  ],
+  "data_shape": {
+    "train": [
+      [
+        705,
+        30,
+        15
+      ],
+      [
+        705,
+        6
+      ]
+    ],
+    "val": [
+      [
+        141,
+        30,
+        15
+      ],
+      [
+        141,
+        6
+      ]
+    ],
+    "test": [
+      [
+        94,
+        30,
+        15
+      ],
+      [
+        94,
+        6
+      ]
+    ]
+  },
+  "insights": {
+    "performance": {
+      "status": "No performance log file found"
+    },
+    "interpretation": {
+      "timestamp": "2025-05-05T17:33:04.072565",
+      "feature_importances": {
+        "xgboost": {
+          "feature_28": 0.035784851759672165,
+          "feature_45": 0.028702236711978912,
+          "feature_40": 0.027588985860347748,
+          "feature_57": 0.027032550424337387,
+          "feature_51": 0.026135830208659172,
+          "feature_46": 0.02574838139116764,
+          "feature_17": 0.024457773193717003,
+          "feature_53": 0.023751161992549896,
+          "feature_37": 0.023564675822854042,
+          "feature_58": 0.0229249969124794
+        },
+        "lightgbm": {
+          "feature_37": 45.0,
+          "feature_46": 43.0,
+          "feature_56": 41.0,
+          "feature_28": 39.0,
+          "feature_1": 39.0,
+          "feature_58": 35.0,
+          "feature_12": 34.0,
+          "feature_0": 33.0,
+          "feature_11": 33.0,
+          "feature_44": 33.0
+        }
+      },
+      "data_size": 160
+    },
+    "metrics": {
+      "lstm": {
+        "type": "Sequential"
+      },
+      "cnn_lstm": {
+        "type": "Sequential"
+      }
+    },
+    "validation": {
+      "timestamp": "2025-05-05T18:11:00.384251",
+      "metrics": {
+        "lstm": {
+          "mse": 0.025268205411887307,
+          "mae": 0.13124457378805127,
+          "exact_matches": 0.0,
+          "partial_matches": 0.03723404255319149
+        },
+        "cnn_lstm": {
+          "mse": 0.026474524824899245,
+          "mae": 0.1349204453761825,
+          "exact_matches": 0.0,
+          "partial_matches": 0.04078014184397163
+        }
+      },
+      "data_size": 94
+    },
+    "models": [
+      "lstm",
+      "cnn_lstm"
+    ],
+    "weights": {
+      "lstm": 0.55,
+      "cnn_lstm": 0.45
+    }
+  }
+}

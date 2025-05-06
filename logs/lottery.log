@@ -1,119 +1,555 @@
-2025-04-27 09:53:51,177 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:53:51,177 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:54:29,887 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:54:29,887 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:54:55,631 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:54:55,631 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:54:55,651 - models.optimized_training - INFO - GPU available: 1 device(s)
-2025-04-27 09:54:55,651 - models.optimized_training - INFO - GPU 0: /physical_device:GPU:0
-2025-04-27 09:54:55,652 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:54:55,652 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:55:07,735 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:55:07,735 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:55:07,737 - models.optimized_training - INFO - GPU available: 1 device(s)
-2025-04-27 09:55:07,737 - models.optimized_training - INFO - GPU 0: /physical_device:GPU:0
-2025-04-27 09:55:07,738 - root - INFO - Logging initialized at level INFO
-2025-04-27 09:55:07,738 - root - INFO - Log file: /Users/KrisRz/Desktop/lottery_provide1/logs/lottery.log
-2025-04-27 09:55:07,738 - __main__ - INFO - Loading lottery data...
-2025-04-27 09:55:07,751 - __main__ - INFO - Loaded 1924 lottery draws
-2025-04-27 09:55:07,751 - models.optimized_training - INFO - Preparing data for model training...
-2025-04-27 09:55:08,838 - models.optimized_training - INFO - Data preparation completed in 1.09 seconds
-2025-04-27 09:55:08,839 - __main__ - INFO - Training models with current configuration...
-2025-04-27 09:55:08,840 - models.optimized_training - INFO - Preparing data for model training...
-2025-04-27 09:55:08,840 - models.optimized_training - INFO - Preparing data for model training...
-2025-04-27 09:55:09,944 - models.optimized_training - INFO - Data preparation completed in 1.10 seconds
-2025-04-27 09:55:09,944 - models.optimized_training - INFO - Data preparation complete. Training with 4 workers.
-2025-04-27 09:55:09,989 - models.optimized_training - INFO - Training lstm model...
-2025-04-27 09:55:09,992 - models.optimized_training - INFO - Training xgboost model...
-2025-04-27 09:55:09,992 - models.optimized_training - INFO - Training cnn_lstm model...
-2025-04-27 09:55:09,999 - models.optimized_training - INFO - Training lightgbm model...
-2025-04-27 09:55:10,813 - models.optimized_training - INFO - Saved lightgbm model to cache with key lightgbm_7117932799033131941
-2025-04-27 09:55:10,815 - models.optimized_training - INFO - Training catboost model...
-2025-04-27 09:55:10,815 - models.optimized_training - INFO - Successfully trained lightgbm model
-2025-04-27 09:55:11,112 - models.optimized_training - INFO - train_xgboost_optimized completed in 1.12s, memory delta: 19.24MB
-2025-04-27 09:55:11,134 - models.optimized_training - INFO - Saved xgboost model to cache with key xgboost_7117932799033131941
-2025-04-27 09:55:11,137 - models.optimized_training - INFO - Successfully trained xgboost model
-2025-04-27 09:55:11,137 - models.optimized_training - INFO - Training autoencoder model...
-2025-04-27 09:55:11,169 - models.optimized_training - ERROR - Error in train_model_task for autoencoder: X has 6 features, but MinMaxScaler is expecting 1200 features as input.
-2025-04-27 09:55:11,171 - models.optimized_training - INFO - Training meta model...
-2025-04-27 09:55:11,172 - models.optimized_training - ERROR - Error in train_model_task for meta: Unknown model type: meta
-2025-04-27 09:55:11,172 - models.optimized_training - WARNING - Failed to train autoencoder model
-2025-04-27 09:55:11,175 - models.optimized_training - WARNING - Failed to train meta model
-2025-04-27 09:55:11,521 - models.optimized_training - INFO - Training LSTM model with GPU acceleration
-2025-04-27 09:55:11,559 - models.optimized_training - INFO - Training CNN-LSTM model with GPU acceleration
-2025-04-27 09:55:15,147 - models.optimized_training - INFO - Saved catboost model to cache with key catboost_7117932799033131941
-2025-04-27 09:55:15,150 - models.optimized_training - INFO - Successfully trained catboost model
-2025-04-27 09:57:34,077 - models.optimized_training - INFO - train_cnn_lstm_optimized completed in 144.07s, memory delta: 356.38MB
-2025-04-27 09:57:34,154 - models.optimized_training - INFO - Saved cnn_lstm model to cache with key cnn_lstm_7117932799033131941
-2025-04-27 09:57:34,155 - models.optimized_training - INFO - Successfully trained cnn_lstm model
-2025-04-27 10:00:00,833 - models.optimized_training - INFO - train_lstm_optimized completed in 290.84s, memory delta: 348.98MB
-2025-04-27 10:00:00,858 - models.optimized_training - INFO - Saved lstm model to cache with key lstm_7117932799033131941
-2025-04-27 10:00:00,858 - models.optimized_training - INFO - Successfully trained lstm model
-2025-04-27 10:00:00,859 - models.optimized_training - INFO - Training meta model with 5 base models
-2025-04-27 10:00:00,859 - models.optimized_training - ERROR - Error training meta model: 'list' object has no attribute 'predict'
-2025-04-27 10:00:00,859 - models.optimized_training - INFO - Trained 5 models in 290.87 seconds
-2025-04-27 10:00:00,948 - models.optimized_training - INFO - Saved 5 models to models/trained_models.pkl
-2025-04-27 10:00:00,948 - models.optimized_training - INFO - train_all_models_parallel completed in 292.11s, memory delta: 360.41MB
-2025-04-27 10:00:01,035 - __main__ - INFO - Models saved successfully with timestamp 20250427_095507
-2025-04-27 10:00:01,035 - __main__ - INFO - Generating 10 predictions...
-2025-04-27 10:00:01,035 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,035 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,036 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,036 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,037 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,037 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,038 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,038 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,039 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,039 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,040 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,041 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,041 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,042 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,042 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,043 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,043 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,044 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,044 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,045 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,045 - models.optimized_training - ERROR - Error making prediction with lightgbm: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with xgboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with catboost: 'list' object has no attribute 'predict'
-2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with cnn_lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,046 - models.optimized_training - ERROR - Error making prediction with lstm: Found array with dim 3. MinMaxScaler expected <= 2.
-2025-04-27 10:00:01,046 - models.optimized_training - WARNING - No valid predictions generated
-2025-04-27 10:00:01,049 - __main__ - INFO - Predictions saved successfully with timestamp 20250427_095507
+2025-05-05 17:55:57 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 17:55:57 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 17:55:57 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 17:55:57 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=10
+2025-05-05 17:55:58 - scripts.fetch_data - INFO - Enhanced sequences prepared in 1.03 seconds.
+2025-05-05 17:55:58 - scripts.fetch_data - INFO - Enhanced sequences shape: (960, 10, 15)
+2025-05-05 17:55:58 - scripts.fetch_data - INFO - Targets shape: (960, 6)
+2025-05-05 17:55:58 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 18:02:55 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:02:55 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:02:55 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:02:55 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 18:02:59 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.17 seconds.
+2025-05-05 18:02:59 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 18:02:59 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 18:02:59 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 18:11:00 - root - WARNING - Could not load performance log: [Errno 2] No such file or directory: 'outputs/outputs/results/performance_log.json'
+2025-05-05 18:18:08 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:18:08 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:18:08 - __main__ - INFO - Starting prediction generation with count=30
+2025-05-05 18:18:08 - __main__ - INFO - Loading lottery data...
+2025-05-05 18:18:08 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:18:08 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 18:18:08 - __main__ - INFO - Loading trained models...
+2025-05-05 18:18:10 - root - WARNING - Could not load performance log: [Errno 2] No such file or directory: 'outputs/outputs/results/performance_log.json'
+2025-05-05 18:18:10 - root - INFO - Successfully loaded 2 models from models/checkpoints/trained_models.pkl
+2025-05-05 18:18:10 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 18:18:10 - __main__ - INFO - Available models: lstm, cnn_lstm
+2025-05-05 18:18:10 - __main__ - INFO - Generating 30 diverse lottery predictions...
+2025-05-05 18:18:10 - __main__ - INFO - Hot numbers: [27, 33, 28, 38, 25, 3, 31, 11, 7, 37]
+2025-05-05 18:18:10 - __main__ - INFO - Cold numbers: [50, 52, 57, 59, 58, 53, 54, 51, 56, 55]
+2025-05-05 18:18:10 - __main__ - INFO - Input shape: (1, 30, 6)
+2025-05-05 18:18:10 - __main__ - INFO - Using ensemble model for predictions
+2025-05-05 18:18:10 - __main__ - INFO - Generating model-based predictions...
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - __main__ - INFO - Added model prediction 1: [1, 2, 3, 4, 5, 6]
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:10 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:11 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:12 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - models.ensemble - ERROR - Error in predict_next_draw: 'LotteryEnsemble' object has no attribute 'output_size'
+2025-05-05 18:18:13 - __main__ - INFO - Adding Monte Carlo predictions to reach target count...
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 2: [1, 11, 17, 25, 31, 47]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 3: [2, 7, 11, 29, 32, 38]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 4: [17, 32, 33, 37, 38, 40]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 5: [9, 10, 23, 33, 38, 46]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 6: [8, 10, 13, 16, 38, 45]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 7: [5, 6, 18, 33, 37, 48]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 8: [1, 7, 25, 27, 35, 55]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 9: [9, 12, 19, 31, 37, 42]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 10: [2, 7, 13, 32, 33, 38]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 11: [11, 12, 27, 34, 38, 39]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 12: [7, 20, 33, 35, 37, 38]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 13: [3, 11, 17, 25, 34, 43]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 14: [4, 21, 34, 37, 51, 54]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 15: [4, 24, 25, 47, 49, 56]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 16: [9, 27, 37, 47, 51, 59]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 17: [11, 23, 31, 33, 38, 39]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 18: [2, 19, 20, 27, 33, 52]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 19: [13, 16, 25, 28, 48, 54]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 20: [3, 25, 32, 50, 53, 54]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 21: [7, 12, 28, 29, 42, 47]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 22: [25, 26, 28, 34, 37, 38]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 23: [7, 9, 12, 13, 38, 46]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 24: [9, 14, 23, 25, 37, 39]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 25: [12, 16, 25, 31, 38, 54]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 26: [6, 7, 27, 32, 41, 50]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 27: [3, 8, 28, 34, 38, 44]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 28: [5, 6, 7, 23, 37, 41]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 29: [3, 10, 29, 30, 37, 43]
+2025-05-05 18:18:13 - __main__ - INFO - Added Monte Carlo prediction 30: [3, 8, 13, 14, 31, 48]
+2025-05-05 18:18:13 - __main__ - INFO - Prediction sources: 1 from models, 29 from Monte Carlo, 0 from perturbation
+2025-05-05 18:18:13 - __main__ - ERROR - Error in prediction generation: Object of type int64 is not JSON serializable
+2025-05-05 18:22:31 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:22:31 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:22:31 - __main__ - INFO - Starting prediction generation with count=10
+2025-05-05 18:22:31 - __main__ - INFO - Loading lottery data...
+2025-05-05 18:22:31 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:22:31 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 18:22:31 - __main__ - INFO - Loading trained models...
+2025-05-05 18:22:32 - root - WARNING - Could not load performance log: [Errno 2] No such file or directory: 'outputs/outputs/results/performance_log.json'
+2025-05-05 18:22:32 - root - INFO - Successfully loaded 2 models from models/checkpoints/trained_models.pkl
+2025-05-05 18:22:32 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 18:22:32 - __main__ - INFO - Available models: lstm, cnn_lstm
+2025-05-05 18:22:32 - __main__ - INFO - Added missing output_size attribute to ensemble
+2025-05-05 18:22:32 - __main__ - INFO - Added missing input_shape attribute to ensemble
+2025-05-05 18:22:32 - __main__ - INFO - Hot numbers: []
+2025-05-05 18:22:32 - __main__ - INFO - Cold numbers: [19, 23, 24, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+2025-05-05 18:22:32 - __main__ - INFO - Using cached feature count: 15
+2025-05-05 18:22:32 - __main__ - INFO - Prepared model input with shape (1, 30, 15)
+2025-05-05 18:22:32 - __main__ - INFO - Using ensemble model for predictions
+2025-05-05 18:22:32 - __main__ - INFO - Generating model-based predictions...
+2025-05-05 18:22:33 - __main__ - INFO - Added model prediction 1: [18, 23, 26, 30, 32, 37]
+2025-05-05 18:22:34 - __main__ - INFO - Added model prediction 2: [18, 23, 26, 30, 32, 38]
+2025-05-05 18:22:34 - __main__ - INFO - Added model prediction 3: [18, 23, 26, 29, 32, 38]
+2025-05-05 18:22:35 - __main__ - INFO - Adding Monte Carlo predictions...
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - ERROR - Error generating Monte Carlo prediction: index 59 is out of bounds for axis 0 with size 59
+2025-05-05 18:22:35 - __main__ - INFO - Adding perturbed predictions...
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 4: [2, 18, 23, 26, 30, 38]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 5: [18, 23, 30, 32, 37, 50]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 6: [4, 13, 18, 30, 32, 38]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 7: [14, 18, 23, 26, 32, 38]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 8: [14, 22, 23, 30, 32, 37]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 9: [18, 26, 32, 37, 46, 49]
+2025-05-05 18:22:35 - __main__ - INFO - Added perturbed prediction 10: [15, 18, 26, 29, 32, 38]
+2025-05-05 18:22:35 - __main__ - INFO - Prediction sources: 3 from models, 0 from Monte Carlo, 7 from perturbation
+2025-05-05 18:22:35 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json
+2025-05-05 18:22:35 - __main__ - INFO - Saved predictions to outputs/predictions/latest.json
+2025-05-05 18:22:35 - __main__ - INFO - Saved formatted predictions to outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 18:22:36 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_2025-05-05.png
+2025-05-05 18:22:36 - __main__ - INFO - Prediction generation completed in 5.54 seconds
+2025-05-05 18:32:10 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:32:10 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:32:10 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:32:10 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 18:32:14 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.29 seconds.
+2025-05-05 18:32:14 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 18:32:14 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 18:32:14 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 18:33:42 - __main__ - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 18:33:42 - __main__ - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 18:34:40 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:34:40 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:34:40 - __main__ - INFO - Starting prediction generation with count=20
+2025-05-05 18:34:40 - __main__ - INFO - Loading lottery data...
+2025-05-05 18:34:40 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:34:40 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 18:34:40 - __main__ - INFO - Loading trained models...
+2025-05-05 18:34:40 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 18:34:40 - __main__ - ERROR - Failed to load trained models
+2025-05-05 18:36:23 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:36:23 - __main__ - INFO - Loading trained models...
+2025-05-05 18:36:23 - __main__ - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 18:36:23 - __main__ - ERROR - No models available. Please run improved_training.py first.
+2025-05-05 18:38:44 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:38:44 - __main__ - INFO - Using fallback mode with Monte Carlo predictions
+2025-05-05 18:38:44 - __main__ - INFO - Generating 20 Monte Carlo predictions as fallback
+2025-05-05 18:38:44 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 18:38:46 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_183844.png
+2025-05-05 18:43:15 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:43:15 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:43:15 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:43:15 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 18:43:19 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.16 seconds.
+2025-05-05 18:43:19 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 18:43:19 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 18:43:19 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 18:44:29 - __main__ - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 18:44:29 - __main__ - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 18:46:05 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 18:46:05 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 18:46:05 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 18:46:05 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 18:46:10 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.43 seconds.
+2025-05-05 18:46:10 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 18:46:10 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 18:46:10 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 18:47:29 - __main__ - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 18:47:29 - __main__ - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 19:00:05 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:00:05 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:00:06 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:00:06 - __main__ - INFO - Loaded 970 records from data file
+2025-05-05 19:00:06 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:00:06 - __main__ - ERROR - Failed to load trained models
+2025-05-05 19:00:20 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:00:20 - __main__ - INFO - Loading trained models...
+2025-05-05 19:00:20 - __main__ - INFO - Loading LSTM model from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:00:20 - __main__ - INFO - Loading CNN-LSTM model from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:00:21 - __main__ - INFO - Loaded 2 models directly from checkpoints
+2025-05-05 19:00:21 - __main__ - INFO - Loaded 2 models: lstm, cnn_lstm
+2025-05-05 19:00:21 - __main__ - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:00:21 - __main__ - INFO - Loading lottery data...
+2025-05-05 19:00:21 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:00:21 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 19:00:21 - __main__ - INFO - Generating 20 diverse predictions...
+2025-05-05 19:00:21 - __main__ - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:00:22 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:00:22 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:00:25 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_190022.png
+2025-05-05 19:08:28 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:08:28 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:09:29 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:09:29 - __main__ - INFO - Loading trained models...
+2025-05-05 19:09:29 - __main__ - INFO - Loading LSTM model from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:09:29 - __main__ - INFO - Loading CNN-LSTM model from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:09:30 - __main__ - INFO - Loaded 2 models directly from checkpoints
+2025-05-05 19:09:30 - __main__ - INFO - Loaded 2 models: lstm, cnn_lstm
+2025-05-05 19:09:30 - __main__ - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:09:30 - __main__ - INFO - Loading lottery data...
+2025-05-05 19:09:30 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:09:30 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 19:09:30 - __main__ - INFO - Generating 10 diverse predictions...
+2025-05-05 19:09:30 - __main__ - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:09:32 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:09:32 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:09:33 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_190932.png
+2025-05-05 19:17:45,508 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:17:45 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:17:45 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:18:38,946 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:18:38 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:18:38 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:18:39 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:18:39 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:18:39 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:18:40 - __main__ - INFO - Attempting to load lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:18:41 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:18:41 - __main__ - INFO - Attempting to load lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:18:42 - __main__ - INFO - Attempting to load lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:18:42 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-05-05 19:18:42 - __main__ - INFO - Successfully loaded 1 models directly from checkpoints
+2025-05-05 19:18:42 - __main__ - INFO - Successfully loaded 1 models
+2025-05-05 19:18:42 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:18:42 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-05-05 19:18:42 - __main__ - INFO - Generating 8 diverse predictions...
+2025-05-05 19:18:42 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:18:43 - __main__ - INFO - Base prediction: [13, 21, 31, 37, 46, 52]
+2025-05-05 19:18:43 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:18:45 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_191843.png
+2025-05-05 19:20:18,876 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:20:18 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:20:18 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:20:19 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:20:19 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:20:19 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:20:19 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:20:20 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:20:20 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:20:20 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:20:20 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:20:21 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:20:21 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:20:21 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:20:21 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:20:22 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:20:22 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:20:22 - __main__ - INFO - Successfully loaded 2 models directly from checkpoints
+2025-05-05 19:20:22 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 19:20:22 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:20:22 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:20:22 - __main__ - INFO - Generating 8 diverse predictions...
+2025-05-05 19:20:22 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:20:23 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:20:23 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:20:25 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_192023.png
+2025-05-05 19:20:38,717 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:20:38 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:20:38 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:20:38 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:20:38 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 19:20:43 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.60 seconds.
+2025-05-05 19:20:43 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 19:20:43 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 19:20:43 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 19:21:50 - scripts.improved_training - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 19:21:50 - scripts.improved_training - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 19:22:29 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:22:29 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:22:29 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:22:29 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_192151.h5
+2025-05-05 19:22:30 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:22:30 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:22:30 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:22:30 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_192043.h5
+2025-05-05 19:22:31 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:22:31 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:22:31 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:22:31 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:22:32 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:22:32 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:22:32 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:22:32 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:22:32 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:22:32 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:22:32 - __main__ - INFO - Successfully loaded 2 models directly from checkpoints
+2025-05-05 19:22:32 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 19:22:32 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:22:32 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:22:32 - __main__ - INFO - Generating 5 diverse predictions...
+2025-05-05 19:22:32 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:22:34 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:22:34 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:28:45,325 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:28:45 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:28:45 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:28:45 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:28:45 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:28:46 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:28:46 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_192151.h5
+2025-05-05 19:28:47 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:28:47 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:28:47 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:28:47 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_192043.h5
+2025-05-05 19:28:48 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:28:48 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:28:48 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:28:48 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:28:49 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:28:49 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:28:49 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:28:49 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:28:50 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:28:50 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:28:50 - __main__ - INFO - Successfully loaded 2 models directly from checkpoints
+2025-05-05 19:28:50 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 19:28:50 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:28:50 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:28:50 - __main__ - INFO - Generating 10 diverse predictions...
+2025-05-05 19:28:50 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:28:51 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:28:51 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:29:20,257 - scripts.utils - WARNING - cross_validation module not available
+2025-05-05 19:29:20 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 19:29:20 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:29:20 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:29:20 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:29:21 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:29:21 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_192151.h5
+2025-05-05 19:29:21 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:29:21 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:29:22 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:29:22 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_192043.h5
+2025-05-05 19:29:22 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:29:22 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:29:23 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:29:23 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:29:23 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:29:23 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:29:24 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:29:24 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:29:24 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:29:24 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:29:24 - __main__ - INFO - Successfully loaded 2 models directly from checkpoints
+2025-05-05 19:29:24 - __main__ - INFO - Successfully loaded 2 models
+2025-05-05 19:29:24 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:29:24 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:29:24 - __main__ - INFO - Generating 10 diverse predictions...
+2025-05-05 19:29:24 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:29:25 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:29:25 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 19:29:27 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_192926.png
+cross_validation module not available
+2025-05-05 19:40:53,551 - scripts.utils - WARNING - cross_validation module not available
+Found 1 GPU(s), enabled memory growth
+2025-05-05 19:40:53 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+Successfully imported model compatibility functions
+2025-05-05 19:40:53 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 19:40:53 - __main__ - ERROR - Error during model training: download_fresh_data() got an unexpected keyword argument 'progress_callback'
+cross_validation module not available
+2025-05-05 19:41:21,416 - scripts.utils - WARNING - cross_validation module not available
+Found 1 GPU(s), enabled memory growth
+2025-05-05 19:41:21 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+Successfully imported model compatibility functions
+2025-05-05 19:41:21 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+Attempting to download fresh lottery data...
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 52 records from data/lotto-draw-history.csv
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Loaded 52 records from data/lotto-draw-history.csv
+New data date range: 2025-05-03 to 2025-05-03
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - New data date range: 2025-05-03 to 2025-05-03
+Loaded 970 records from data/merged_lottery_data.csv
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Loaded 970 records from data/merged_lottery_data.csv
+Combined 52 new records with 970 existing records
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Combined 52 new records with 970 existing records
+Combined data contains 970 unique records (52 duplicates removed)
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Combined data contains 970 unique records (52 duplicates removed)
+Prioritized 52 records from new data
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Prioritized 52 records from new data
+Date range: 1995-01-07 to 2025-05-03
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Date range: 1995-01-07 to 2025-05-03
+Saved merged data to data/merged_lottery_data.csv
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Cache exists but is outdated or for a different file
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+Loading data from data/merged_lottery_data.csv
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [2, 7, 6, 4, 1]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_1: [2, 7, 6, 4, 1]
+Number_2: [5, 17, 16, 16, 7]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_2: [5, 17, 16, 16, 7]
+Number_3: [21, 23, 20, 25, 37]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_3: [21, 23, 20, 25, 37]
+Number_4: [22, 32, 30, 26, 38]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_4: [22, 32, 30, 26, 38]
+Number_5: [25, 38, 31, 31, 42]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_5: [25, 38, 31, 31, 42]
+Number_6: [32, 42, 47, 43, 46]
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Number_6: [32, 42, 47, 43, 46]
+Checking for rows with non-integer values in Number columns...
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.16 seconds
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Added 32 features in 0.16 seconds
+Saved processed data to cache: outputs/outputs/results/data_cache.pkl
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/outputs/results/data_cache.pkl
+Processed 970 records with 51 columns in 0.21 seconds
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Processed 970 records with 51 columns in 0.21 seconds
+Preparing sequence data with sequence_length=30
+2025-05-05 19:41:21 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+Enhanced sequences prepared in 4.05 seconds.
+2025-05-05 19:41:25 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.05 seconds.
+Enhanced sequences shape: (940, 30, 15)
+2025-05-05 19:41:25 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+Targets shape: (940, 6)
+2025-05-05 19:41:25 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 19:41:25 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 19:42:51 - scripts.improved_training - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 19:42:51 - scripts.improved_training - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 19:43:29 - root - ERROR - Error loading models: Unknown metric function: 'function'. Please ensure you are using a `keras.utils.custom_object_scope` and that this object is included in the scope. See https://www.tensorflow.org/guide/keras/save_and_serialize#registering_the_custom_object for details.
+2025-05-05 19:43:29 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184610.h5
+2025-05-05 19:43:30 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:43:30 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_192151.h5
+2025-05-05 19:43:30 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:43:30 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_184319.h5
+2025-05-05 19:43:31 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:43:31 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_194126.h5
+2025-05-05 19:43:31 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:43:31 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_192043.h5
+2025-05-05 19:43:32 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:43:32 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184429.h5
+2025-05-05 19:43:32 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:43:32 - __main__ - INFO - Attempting to load lstm from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 19:43:33 - __main__ - INFO - Successfully loaded lstm model
+2025-05-05 19:43:33 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_194251.h5
+2025-05-05 19:43:33 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:43:33 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 19:43:33 - __main__ - INFO - Successfully loaded cnn_lstm model
+2025-05-05 19:43:33 - __main__ - INFO - Attempting to load cnn_lstm from outputs/training/cnn_lstm_checkpoint_20250505_184730.h5
+2025-05-05 19:43:34 - __main__ - INFO - Successfully loaded cnn_lstm model
+Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:43:34 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:43:34 - __main__ - INFO - Successfully loaded 2 models directly from checkpoints
+2025-05-05 19:43:34 - __main__ - INFO - Successfully loaded 2 models
+Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 19:43:34 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:43:34 - scripts.new_predict - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 19:43:34 - __main__ - INFO - Generating 10 diverse predictions...
+Prepared input with shape (1, 30, 15)
+2025-05-05 19:43:34 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 19:43:35 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 19:43:35 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250505_194336.png
+2025-05-05 19:43:38 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_194336.png
+cross_validation module not available
+2025-05-05 19:55:55,169 - scripts.utils - WARNING - cross_validation module not available
+Found 1 GPU(s), enabled memory growth
+2025-05-05 19:55:55 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+Successfully imported model compatibility functions
+2025-05-05 19:55:55 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 21:12:19 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 21:12:19 - scripts.model_bridge - INFO - Successfully imported model compatibility functions
+2025-05-05 21:12:19 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 21:12:19 - scripts.fetch_data - INFO - Preparing sequence data with sequence_length=30
+2025-05-05 21:12:23 - scripts.fetch_data - INFO - Enhanced sequences prepared in 4.32 seconds.
+2025-05-05 21:12:23 - scripts.fetch_data - INFO - Enhanced sequences shape: (940, 30, 15)
+2025-05-05 21:12:23 - scripts.fetch_data - INFO - Targets shape: (940, 6)
+2025-05-05 21:12:23 - scripts.fetch_data - INFO - Saved enhanced features to cache: outputs/outputs/results/enhanced_features_cache.pkl
+2025-05-05 21:13:42 - __main__ - ERROR - Error training XGBoost model: XGBModel.fit() got an unexpected keyword argument 'eval_metric'
+2025-05-05 21:13:42 - __main__ - ERROR - Error training LightGBM model: Wrong type(ndarray) for label.
+It should be list, numpy 1-D array or pandas Series
+2025-05-05 21:25:24 - models.lstm_model - INFO - Found 1 GPU(s), enabled memory growth
+2025-05-05 21:25:24 - __main__ - INFO - Loading trained models...
+2025-05-05 21:25:24 - __main__ - INFO - Loading LSTM model from outputs/training/lstm_checkpoint_20250505_183215.h5
+2025-05-05 21:25:25 - __main__ - INFO - Loading CNN-LSTM model from outputs/training/cnn_lstm_checkpoint_20250505_183342.h5
+2025-05-05 21:25:25 - __main__ - INFO - Loaded 2 models directly from checkpoints
+2025-05-05 21:25:25 - __main__ - INFO - Loaded 2 models: lstm, cnn_lstm
+2025-05-05 21:25:25 - __main__ - INFO - Using weights: {'lstm': 0.5, 'cnn_lstm': 0.5}
+2025-05-05 21:25:25 - __main__ - INFO - Loading lottery data...
+2025-05-05 21:25:25 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/outputs/results/data_cache.pkl
+2025-05-05 21:25:25 - __main__ - INFO - Loaded 970 lottery records
+2025-05-05 21:25:25 - __main__ - INFO - Generating 20 diverse predictions...
+2025-05-05 21:25:25 - __main__ - INFO - Prepared input with shape (1, 30, 15)
+2025-05-05 21:25:27 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
+2025-05-05 21:25:27 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
+2025-05-05 21:25:29 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_212527.png

@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-05-05T17:18:37.184275",
+  "metrics": {
+    "lstm": {
+      "mse": 0.023172462158363317,
+      "mae": 0.12461045707173456,
+      "exact_matches": 0.0,
+      "partial_matches": 0.057291666666666664
+    },
+    "xgboost": {
+      "mse": 0.20589886373601857,
+      "mae": 0.3727036728442116,
+      "exact_matches": 0.0,
+      "partial_matches": 0.020833333333333332
+    },
+    "lightgbm": {
+      "mse": 0.20389822062091048,
+      "mae": 0.36948463174387597,
+      "exact_matches": 0.0,
+      "partial_matches": 0.020833333333333332
+    },
+    "cnn_lstm": {
+      "mse": 0.03832468571928875,
+      "mae": 0.15793077231169084,
+      "exact_matches": 0.0,
+      "partial_matches": 0.034375
+    },
+    "ensemble": {
+      "mse": 0.32975527865555876,
+      "mae": 0.498146186440678,
+      "exact_matches": 0.0,
+      "partial_matches": 0.0
+    }
+  },
+  "data_size": 160
+}

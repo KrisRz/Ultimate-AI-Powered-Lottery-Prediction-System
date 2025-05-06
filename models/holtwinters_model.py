@@ -4,7 +4,11 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.stattools import adfuller
 import pandas as pd
 from typing import List, Tuple, Union
-from .utils import log_training_errors, ensure_valid_prediction
+from scripts.utils.model_utils import ensure_valid_prediction, log_training_errors
+from sklearn.preprocessing import StandardScaler
+from numpy import ndarray as NDArray
+import pickle
+from pathlib import Path
 
 def check_stationarity(series: np.ndarray, significance_level: float = 0.05) -> Tuple[bool, float]:
     """
@@ -39,7 +43,7 @@ def difference_series(series: np.ndarray, order: int = 1) -> np.ndarray:
         order: Differencing order
         
     Returns:
-        Differenced series
+        Differenced series with original values stored
     """
     # Store original values needed for later forecasting
     original_values = series[-order:].copy()
@@ -47,12 +51,14 @@ def difference_series(series: np.ndarray, order: int = 1) -> np.ndarray:
     # Apply differencing
     diffed_series = np.diff(series, n=order)
     
-    # Attach original values for reconstruction during forecasting
-    # This is stored as an attribute of the numpy array
-    diffed_series.original_values = original_values
-    diffed_series.diff_order = order
-    
-    return diffed_series
+    # Create a custom class to store both series and original values
+    class DiffedSeries(np.ndarray):
+        def __new__(cls, input_array, original_values):
+            obj = np.asarray(input_array).view(cls)
+            obj.original_values = original_values
+            return obj
+            
+    return DiffedSeries(diffed_series, original_values)
 
 def inverse_difference(forecast: np.ndarray, original_values: np.ndarray, order: int = 1) -> np.ndarray:
     """
@@ -90,133 +96,177 @@ def inverse_difference(forecast: np.ndarray, original_values: np.ndarray, order:
         return forecast
 
 @log_training_errors
-def train_holtwinters_model(X_train, y_train, check_for_stationarity=True):
+def train_holtwinters_model(X_train: np.ndarray, y_train: np.ndarray, check_for_stationarity: bool = True) -> List[ExponentialSmoothing]:
     """
-    Train Holt-Winters Exponential Smoothing models for lottery prediction
+    Train Holt-Winters model for lottery prediction.
     
     Args:
         X_train: Feature matrix (not used, but kept for API consistency)
         y_train: Target matrix with shape [n_samples, 6]
-        check_for_stationarity: Whether to check and apply differencing for non-stationary series
+        check_for_stationarity: Whether to check for stationarity
         
     Returns:
-        List of trained models and their configuration
+        List of trained models
     """
-    # Validate input
-    if y_train is None or (isinstance(y_train, np.ndarray) and y_train.size == 0):
-        raise ValueError("y_train cannot be None or empty")
-    
+    # Input validation
     if not isinstance(y_train, np.ndarray):
-        try:
-            y_train = np.array(y_train)
-        except Exception as e:
-            raise ValueError(f"Cannot convert y_train to numpy array: {str(e)}")
-    
-    # Handle case where y_train might be a 3D array from LSTM models
-    if len(y_train.shape) == 3:
-        logging.warning(f"Received 3D y_train with shape {y_train.shape}, using the last time step")
-        y_train = y_train[:, -1, :]
-    
-    # Check shape
+        raise ValueError("y_train must be a numpy array")
+        
+    if y_train.size == 0:
+        raise ValueError("Empty input array")
+        
+    if not np.issubdtype(y_train.dtype, np.number):
+        raise ValueError("Input array must contain numeric values")
+        
     if len(y_train.shape) != 2 or y_train.shape[1] != 6:
-        raise ValueError(f"y_train must have shape [n_samples, 6], got {y_train.shape}")
+        raise ValueError(f"Expected y_train shape [n_samples, 6], got {y_train.shape}")
+        
+    if len(y_train) < 2:
+        raise ValueError("Need at least 2 samples for training")
     
     models = []
-    diff_orders = []  # Store differencing order for each model
     
     for i in range(6):
         series = y_train[:, i]
-        diff_order = 0
         
-        # Check stationarity and apply differencing if needed
+        # Check stationarity
         if check_for_stationarity:
-            is_stationary, p_value = check_stationarity(series)
-            logging.info(f"Number position {i+1}: Stationarity p-value = {p_value:.4f}")
-            
+            is_stationary, _ = check_stationarity(series)
             if not is_stationary:
-                logging.info(f"Number position {i+1} is non-stationary, applying differencing")
-                series = difference_series(series, order=1)
-                diff_order = 1
+                # Apply first difference
+                series = np.diff(series)
                 
-                # Check if first-order differencing was enough
-                is_stationary_diff1, p_value_diff1 = check_stationarity(series)
-                logging.info(f"After 1st-order diff: Stationarity p-value = {p_value_diff1:.4f}")
-                
-                # Apply second-order differencing if needed
-                if not is_stationary_diff1:
-                    logging.info(f"Number position {i+1} still non-stationary, applying 2nd-order differencing")
-                    original_values = series.original_values  # Store for later reconstruction
-                    series = difference_series(series, order=1)
-                    # Update for 2nd-order differencing
-                    series.original_values = np.concatenate([original_values, [original_values[-1] + series[0]]])
-                    series.diff_order = 2
-                    diff_order = 2
+                # Check if still non-stationary
+                if not check_stationarity(series)[0]:
+                    # Apply second difference
+                    series = np.diff(series)
         
-        try:
-            # Fit Holt-Winters model
-            model = ExponentialSmoothing(
-                series, 
-                trend="add",
-                seasonal="add" if len(series) > 12 else None,  # Add seasonality if enough data
-                seasonal_periods=12 if len(series) > 12 else None
-            ).fit(optimized=True)
-            
-            # Store model and its differencing order
-            models.append((model, diff_order, series.original_values if diff_order > 0 else None))
-            diff_orders.append(diff_order)
-            
-            logging.info(f"Holt-Winters model for position {i+1} trained successfully")
-            
-        except Exception as e:
-            logging.error(f"Error training Holt-Winters model for position {i+1}: {str(e)}")
-            # Fallback to simpler model
-            try:
-                model = ExponentialSmoothing(series, trend="add").fit()
-                models.append((model, diff_order, series.original_values if diff_order > 0 else None))
-                diff_orders.append(diff_order)
-            except Exception as e2:
-                logging.error(f"Fallback model failed too: {str(e2)}")
-                raise
+        # Train model
+        model = ExponentialSmoothing(
+            series,
+            seasonal_periods=12,
+            trend='add',
+            seasonal='add'
+        ).fit()
+        
+        models.append(model)
     
-    logging.info(f"Differencing orders applied: {diff_orders}")
     return models
 
-def predict_holtwinters_model(models, X=None, n_predictions=1):
+def predict_holtwinters_model(models: List[ExponentialSmoothing], X: np.ndarray) -> np.ndarray:
     """
-    Generate predictions using trained Holt-Winters models
+    Make predictions using trained Holt-Winters models
     
     Args:
-        models: List of trained models with their differencing configuration
-        X: Input features (not used but kept for API consistency)
-        n_predictions: Number of time steps to forecast
+        models: List of trained Holt-Winters models
+        X: Input features (used only for determining prediction length)
         
     Returns:
-        Array of predicted numbers with shape [n_predictions, 6]
+        Array of predicted numbers with shape [n_samples, 6]
     """
     try:
-        predictions = np.zeros((n_predictions, 6))
+        n_samples = 1 if len(X.shape) == 1 else X.shape[0]
+        predictions = np.zeros((n_samples, 6))
         
-        for i, (model, diff_order, original_values) in enumerate(models):
-            # Generate forecasts
-            forecast = model.forecast(n_predictions)
-            
-            # Invert differencing if applied during training
-            if diff_order > 0:
-                forecast = inverse_difference(forecast, original_values, order=diff_order)
-            
+        for i, model in enumerate(models):
+            # Get forecast for each model
+            forecast = model.forecast(n_samples)
             predictions[:, i] = forecast
-        
-        # Ensure valid predictions
-        if n_predictions == 1:
-            return ensure_valid_prediction(predictions[0])
-        else:
-            # For multiple predictions, ensure each row is valid
-            valid_predictions = []
-            for i in range(n_predictions):
-                valid_predictions.append(ensure_valid_prediction(predictions[i]))
-            return np.array(valid_predictions)
             
+        return ensure_valid_prediction(predictions)
+        
     except Exception as e:
-        logging.error(f"Error in Holt-Winters prediction: {str(e)}")
-        # Return random valid prediction as fallback
-        return ensure_valid_prediction(np.random.randint(1, 60, size=6))
+        logging.error(f"Error in Holt-Winters model prediction: {str(e)}")
+        raise
+
+logger = logging.getLogger(__name__)
+
+class HoltWintersModel:
+    def __init__(self, name='holtwinters', **kwargs):
+        self.name = name
+        self.models = []  # One model per output dimension
+        self.config = {
+            'seasonal_periods': 6,
+            'trend': 'add',
+            'seasonal': 'add',
+            'damped_trend': True,
+            'initialization_method': 'estimated'
+        }
+        self.config.update(kwargs)
+        
+    def train(self, X_train, y_train, X_val=None, y_val=None):
+        """Train Holt-Winters model for each output dimension"""
+        try:
+            # Handle multivariate output
+            if len(y_train.shape) > 1:
+                n_outputs = y_train.shape[1]
+            else:
+                n_outputs = 1
+                y_train = y_train.reshape(-1, 1)
+            
+            # Train a model for each output
+            self.models = []
+            for i in range(n_outputs):
+                model = ExponentialSmoothing(
+                    y_train[:, i],
+                    seasonal_periods=self.config['seasonal_periods'],
+                    trend=self.config['trend'],
+                    seasonal=self.config['seasonal'],
+                    damped_trend=self.config['damped_trend'],
+                    initialization_method=self.config['initialization_method']
+                )
+                
+                fitted = model.fit()
+                self.models.append(fitted)
+                
+            logger.info(f"Trained {len(self.models)} Holt-Winters models")
+            
+        except Exception as e:
+            logger.error(f"Error training Holt-Winters model: {str(e)}")
+            raise
+            
+    def predict(self, X):
+        """Generate predictions for each output dimension"""
+        if not self.models:
+            raise ValueError("Model not trained yet")
+            
+        try:
+            predictions = []
+            for model in self.models:
+                pred = model.forecast(steps=len(X))
+                predictions.append(pred)
+                
+            return np.column_stack(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error predicting with Holt-Winters: {str(e)}")
+            raise
+            
+    def evaluate(self, X_val, y_val):
+        """Evaluate model on validation data"""
+        try:
+            y_pred = self.predict(X_val)
+            return np.mean(np.abs(y_pred - y_val))
+        except Exception as e:
+            logger.error(f"Error evaluating Holt-Winters: {str(e)}")
+            return float('inf')
+            
+    def save(self, path):
+        """Save trained models"""
+        if not self.models:
+            raise ValueError("No trained models to save")
+        try:
+            with open(path, 'wb') as f:
+                pickle.dump(self.models, f)
+        except Exception as e:
+            logger.error(f"Error saving Holt-Winters model: {str(e)}")
+            raise
+            
+    def load(self, path):
+        """Load trained models"""
+        try:
+            with open(path, 'rb') as f:
+                self.models = pickle.load(f)
+        except Exception as e:
+            logger.error(f"Error loading Holt-Winters model: {str(e)}")
+            raise
