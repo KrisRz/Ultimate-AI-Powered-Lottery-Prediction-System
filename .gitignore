@@ -92,3 +92,4 @@ models/monitoring/
 
 # Backup files
 _backup/test_env/
+test_env/
