@@ -20,6 +20,9 @@ elif command -v conda >/dev/null && conda env list | grep -q "lotto-predict"; th
   conda activate lotto-predict
 fi
 
+# Sync data committed by the cloud collector (GitHub Actions) first
+git pull --rebase --autostash origin main || echo "[post-draw] git pull failed - continuing with local data"
+
 echo "[post-draw] $(date '+%Y-%m-%d %H:%M') fetching latest result..."
 PYTHONPATH=. python -c "from scripts.fetch_data import download_fresh_data; download_fresh_data()"
 

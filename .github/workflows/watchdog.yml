@@ -1,0 +1,27 @@
+name: Collection watchdog
+
+# The morning-after check: is yesterday's draw actually in the data?
+# A failed job = loud alarm (GitHub failure notification + optional SMTP
+# email) while the data is still recoverable from the official feed.
+on:
+  schedule:
+    - cron: "0 12 * * 0,4"   # Thu/Sun noon UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install pandas numpy requests
+      - name: Verify latest draw was collected
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: PYTHONPATH=. python scripts/monitoring/collection_watchdog.py
