@@ -172,7 +172,7 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 - [x] GitHub Actions: pytest na push (`.github/workflows/ci.yml`, Faza 3). Lint ruff: opcjonalny, odpuszczony świadomie.
 - [x] Nowy README: uczciwy opis (EV-toolkit z wprost napisanym „nie przewiduje liczb"), quick start, struktura repo, oczekiwania finansowe.
 - [x] `OPTIMIZATION_PLAN.md` zredukowany do notki „superseded by plan.md" (stare statusy „Completed" były sprzeczne z logami).
-- [ ] Push na GitHub (gałąź `cleanup/phase-1` → PR/merge do `main`).
+- [x] Push na GitHub: gałąź `cleanup/phase-1` wypchnięta (CI uruchomi się automatycznie). Merge do `main`: decyzja użytkownika (PR: https://github.com/KrisRz/Ultimate-AI-Powered-Lottery-Prediction-System/pull/new/cleanup/phase-1).
 
 ---
 
