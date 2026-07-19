@@ -22,7 +22,12 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lottery.ev import DrawConditions, DEFAULT_TICKETS_SOLD, should_play  # noqa: E402
+from lottery.ev import (  # noqa: E402
+    DrawConditions,
+    DEFAULT_TICKETS_SOLD,
+    estimate_tickets_sold,
+    should_play,
+)
 from lottery.portfolio import build_portfolio  # noqa: E402
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
@@ -38,6 +43,9 @@ def next_draw_conditions() -> DrawConditions:
         if pd.notna(last.get("next_jackpot_estimate")):
             cond.jackpot = float(last["next_jackpot_estimate"])
         cond.roll_down = bool(last.get("next_jackpot_roll_down", False))
+        estimated = estimate_tickets_sold(tiers)
+        if estimated:
+            cond.tickets_sold = estimated
     return cond
 
 
@@ -46,8 +54,9 @@ def main() -> None:
     parser.add_argument("--lines", type=int, default=5, help="Portfolio size")
     parser.add_argument("--jackpot", type=float, default=None, help="Override jackpot (per round)")
     parser.add_argument("--roll-down", action="store_true", help="Force Must-Be-Won roll-down")
-    parser.add_argument("--tickets", type=int, default=DEFAULT_TICKETS_SOLD,
-                        help="Assumed lines sold per draw")
+    parser.add_argument("--tickets", type=int, default=None,
+                        help=f"Assumed lines sold per draw (default: estimated from "
+                             f"prize_tiers.csv, else {DEFAULT_TICKETS_SOLD:,})")
     parser.add_argument("--threshold", type=float, default=0.0,
                         help="Minimum EV (GBP) per line to recommend playing")
     parser.add_argument("--seed", type=int, default=None)
@@ -60,7 +69,8 @@ def main() -> None:
         cond.jackpot = args.jackpot
     if args.roll_down:
         cond.roll_down = True
-    cond.tickets_sold = args.tickets
+    if args.tickets is not None:
+        cond.tickets_sold = args.tickets
 
     verdict = should_play(cond, threshold=args.threshold)
 
