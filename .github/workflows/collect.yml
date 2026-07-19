@@ -8,6 +8,11 @@ on:
     - cron: "45 21 * * 3,6"   # Wed/Sat 21:45 UTC - after the ~19:00 UTC draw
     - cron: "0 6 * * 0,4"     # Thu/Sun 06:00 UTC - retry
   workflow_dispatch:
+    inputs:
+      test_email:
+        description: "Send a test email (verifies SMTP secrets)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -49,4 +54,5 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EV_ALERT_TEST: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
         run: PYTHONPATH=. python scripts/monitoring/ev_alert.py
