@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd job: run the post-draw routine every Wednesday and Saturday at 22:30
+  (UK Lotto draws happen around 20:00 UK time; results are final well before).
+
+  Install (from the repo root):
+    make install-cron
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.lotto.postdraw.plist
+    rm ~/Library/LaunchAgents/com.lotto.postdraw.plist
+
+  NOTE: __REPO__ is replaced with the absolute repo path by `make install-cron`.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lotto.postdraw</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/monitoring/post_draw.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+  </array>
+  <key>StandardOutPath</key>
+  <string>__REPO__/logs/post_draw.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/logs/post_draw.log</string>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+</dict>
+</plist>

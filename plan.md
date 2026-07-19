@@ -156,22 +156,23 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 - [x] **4.4 Optymalizator portfela** (`lottery/portfolio.py`): sampling ważony ku niepopularnym liczbom, constrainty (overlap par ≤2, ≥2 liczby >31, pasmo sum 100–260, zakaz potrójnych sekwencji), greedy po EV. `make play`. OR-Tools CP-SAT: opcja na później, greedy wystarcza przy różnicach EV zdominowanych przez popularność.
 - [x] **4.5 Degradacja ML:** wykonana de facto w Fazie 1 (wszystkie modele poza LSTM usunięte); stara ścieżka częstościowa (`predict_tonight.sh` → `new_predict.py`) zostaje jako legacy/sanity-check z uczciwym backtestem (p=0.195 → brak przewagi). Nowa główna ścieżka: **`make play`** (EV advisor). Ewentualna klasyfikacja BCE 59 prawdopodobieństw: świadomie odpuszczona — backtest potwierdził brak sygnału.
 
-### FAZA 5 — Frontend / dashboard (2–3 dni) 🖥️
-*Dziś frontendu nie ma. Nie budujemy „predykcji", budujemy panel decyzyjny.*
+### FAZA 5 — Frontend / dashboard (2–3 dni) 🖥️ ✅
+*Wybrany wariant: statyczny, samowystarczalny HTML (zero nowych zależności).*
 
-- [ ] Prosty dashboard (Streamlit — najmniej kodu, Python-only; alternatywnie statyczny HTML generowany do `outputs/`):
-  - **Dziś gramy?** — EV najbliższego losowania (jackpot, rollover, próg),
-  - wygenerowany portfel kuponów z EV-score i score „niepopularności",
-  - ROI ledger: skumulowany koszt vs wygrane, wykres w czasie,
-  - wyniki backtestów: metoda vs random z przedziałami ufności,
-  - świeżość danych i status pipeline'u (ostatni fetch, liczba losowań).
-- [ ] `make dashboard` w Makefile.
+- [x] `scripts/dashboard.py` → `outputs/dashboard.html` (`make dashboard`):
+  - [x] **Dziś gramy?** — kafel werdyktu PLAY/SKIP + EV najlepszego kuponu (jackpot, roll-down z realnych danych),
+  - [x] portfel z EV **przeliczanym na bieżące warunki** (nie zapisane z what-if) i score popularności,
+  - [x] kafel ROI ledgera (wydane/wygrane/net/ROI%),
+  - [x] backtest vs random: wykres skumulowanej średniej z hover-tooltipem, linia odniesienia no-skill 0.61, tabela z CI95 i p-value,
+  - [x] świeżość danych (liczba losowań, ostrzeżenie gdy > 4 dni).
+  - Zweryfikowany wizualnie w przeglądarce (light/dark, kolizje etykiet poprawione).
 
-### FAZA 6 — Automatyzacja i higiena (1–2 dni) 🤖
-- [ ] Cron/launchd: fetch po każdym losowaniu (śr./sob. wieczorem UK), auto-ewaluacja ostatniego portfela → aktualizacja ledgera, alert (mail — masz zalążek w `nightly_backtest.py`) gdy EV najbliższego losowania przekracza próg.
-- [ ] GitHub Actions: pytest + lint (ruff) na push.
-- [ ] Nowy README: uczciwy opis (EV-maximizer, nie „AI przewiduje wyniki"), aktualna struktura, jeden sposób instalacji. Wypchnij lokalne zmiany na GitHub (po Fazie 1, żeby nie pushować 115 MB instalatora).
-- [ ] Zaktualizuj/usuń `OPTIMIZATION_PLAN.md` (statusy „Completed" są sprzeczne z logami — np. „shape-safe inference" a crash 10×6 vs 30×15).
+### FAZA 6 — Automatyzacja i higiena (1–2 dni) 🤖 ✅
+- [x] Cron/launchd: `scripts/monitoring/post_draw.sh` (fetch → settle ledgera → dashboard → werdykt EV na następne losowanie) + szablon `ops/com.lotto.postdraw.plist`; instalacja jedną komendą `make install-cron` (śr./sob. 22:30, log w `logs/post_draw.log`). Alert mailowy przy +EV: do dodania w `post_draw.sh` (zalążek SMTP jest w `nightly_backtest.py`).
+- [x] GitHub Actions: pytest na push (`.github/workflows/ci.yml`, Faza 3). Lint ruff: opcjonalny, odpuszczony świadomie.
+- [x] Nowy README: uczciwy opis (EV-toolkit z wprost napisanym „nie przewiduje liczb"), quick start, struktura repo, oczekiwania finansowe.
+- [x] `OPTIMIZATION_PLAN.md` zredukowany do notki „superseded by plan.md" (stare statusy „Completed" były sprzeczne z logami).
+- [ ] Push na GitHub (gałąź `cleanup/phase-1` → PR/merge do `main`).
 
 ---
 
