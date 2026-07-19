@@ -11,10 +11,11 @@ import traceback
 from scripts.utils import LOG_DIR
 import logging.config
 
-# Setup logging
+# Setup logging. NOTE: import the function from the package, never the
+# scripts.utils.setup_logging SUBMODULE - importing the submodule shadows
+# the same-named function on the package (import-order-dependent bug)
 try:
-    # Import setup_logging function if available
-    from scripts.utils.setup_logging import setup_logging
+    from scripts.utils import setup_logging
     setup_logging()
 except ImportError:
     # Basic logging configuration if import fails

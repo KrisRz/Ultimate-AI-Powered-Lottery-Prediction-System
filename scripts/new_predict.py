@@ -16,13 +16,20 @@ import random
 import argparse
 import logging
 import traceback
-import tensorflow as tf
-from tensorflow.keras.models import load_model
+try:
+    import tensorflow as tf
+    from tensorflow.keras.models import load_model
+    TF_AVAILABLE = True
+except Exception:
+    tf = None
+    load_model = None
+    TF_AVAILABLE = False
 
 # Add the parent directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.fetch_data import load_data, DATA_DIR, prepare_sequence_data
+MODEL_CONFIG_PATH = Path("models/checkpoints/model_config.json")
 
 # Configure logging
 logging.basicConfig(
@@ -49,25 +56,21 @@ FEATURE_COUNT = 15
 # Custom metrics for model loading
 def exact_match_metric(y_true, y_pred):
     """Custom metric: Count exact matches between predictions and actual values."""
-    # Round predictions to nearest integer
+    if not TF_AVAILABLE:
+        raise RuntimeError("TensorFlow not available for metric evaluation")
     y_pred_rounded = tf.round(y_pred * 59)
     y_true_scaled = y_true * 59
-    
-    # Check if all numbers match
     matches = tf.reduce_all(tf.equal(y_pred_rounded, y_true_scaled), axis=1)
     return tf.reduce_mean(tf.cast(matches, tf.float32))
 
 def partial_match_metric(y_true, y_pred):
     """Custom metric: Count partial matches (at least 3 correct numbers)."""
-    # Round predictions to nearest integer
+    if not TF_AVAILABLE:
+        raise RuntimeError("TensorFlow not available for metric evaluation")
     y_pred_rounded = tf.round(y_pred * 59)
     y_true_scaled = y_true * 59
-    
-    # Count matching numbers for each prediction
     matches = tf.cast(tf.equal(y_pred_rounded, y_true_scaled), tf.float32)
     match_counts = tf.reduce_sum(matches, axis=1)
-    
-    # Consider a partial match if at least 3 numbers match
     partial_matches = tf.greater_equal(match_counts, 3)
     return tf.reduce_mean(tf.cast(partial_matches, tf.float32))
 
@@ -82,20 +85,33 @@ def load_directly():
     }
     
     try:
-        # Try to load LSTM model
+        if not TF_AVAILABLE:
+            return {}
+        # Try to load LSTM model from outputs/training (dated checkpoints)
         lstm_path = "outputs/training/lstm_checkpoint_20250505_183215.h5"
         if os.path.exists(lstm_path):
             logger.info(f"Loading LSTM model from {lstm_path}")
             models['lstm'] = load_model(lstm_path, custom_objects=custom_objects)
         
-        # Try to load CNN-LSTM model
+        # Try to load CNN-LSTM model from outputs/training
         cnn_lstm_path = "outputs/training/cnn_lstm_checkpoint_20250505_183342.h5"
         if os.path.exists(cnn_lstm_path):
             logger.info(f"Loading CNN-LSTM model from {cnn_lstm_path}")
             models['cnn_lstm'] = load_model(cnn_lstm_path, custom_objects=custom_objects)
+
+        # Also scan models/checkpoints for any SavedModels/H5 (e.g., standalone_lstm_model.h5)
+        ckpt_dir = Path('models/checkpoints')
+        if ckpt_dir.exists():
+            for h5 in ckpt_dir.glob('*.h5'):
+                try:
+                    model_name = 'lstm' if 'lstm' in h5.stem.lower() else h5.stem
+                    logger.info(f"Loading model '{model_name}' from {h5}")
+                    models[model_name] = load_model(h5, custom_objects=custom_objects)
+                except Exception as e:
+                    logger.warning(f"Failed to load model from {h5}: {e}")
         
         if not models:
-            logger.warning("No models found in the outputs/training directory")
+            logger.warning("No models found in known checkpoint locations")
         
         return models
     
@@ -139,9 +155,10 @@ def load_models():
         # Return loaded models
         return models_dict
     except Exception as e:
-        logger.error(f"Error loading models: {str(e)}")
+        logger.error(f"Error loading models from pickle: {str(e)}")
         traceback.print_exc()
-        return None
+        # Return empty to allow caller to handle
+        return {}
 
 def create_ensemble(models):
     """Create a simple ensemble from the loaded models."""
@@ -175,62 +192,85 @@ def create_ensemble(models):
         'weights': weights
     }
 
-def prepare_input_data(df):
-    """Prepare the latest data for prediction."""
+def _load_model_config() -> dict:
     try:
+        if MODEL_CONFIG_PATH.exists():
+            with open(MODEL_CONFIG_PATH, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to read model_config.json: {e}")
+    return {}
+
+
+def prepare_input_data(df, model_key: str = 'lstm'):
+    """Prepare the latest data for prediction (shape-safe)."""
+    try:
+        cfg = _load_model_config()
+        mcfg = cfg.get('models', {}).get(model_key, {})
+        exp_t = mcfg.get('expected_timesteps', SEQUENCE_LENGTH)
+        exp_f = mcfg.get('expected_features', 6)
+        norm_by = mcfg.get('normalize_by', 59)
+
         # Get the most recent sequence of draws
-        recent_records = min(SEQUENCE_LENGTH, len(df))
+        recent_records = min(exp_t, len(df))
         recent_data = df.tail(recent_records)
         
         # Extract features
         basic_features = []
         for idx, row in recent_data.iterrows():
             numbers = []
-            for col in [col for col in row.index if col.startswith('number')]:
-                if pd.notna(row[col]):
-                    numbers.append(row[col])
+            # Preferred explicit numbered columns if present
+            numbered_cols = [f"Number_{i}" for i in range(1, 7)]
+            if all(col in row.index for col in numbered_cols):
+                numbers = [int(row[col]) for col in numbered_cols if pd.notna(row[col])]
+            elif 'Main_Numbers' in row.index and isinstance(row['Main_Numbers'], (list, tuple)):
+                numbers = [int(n) for n in row['Main_Numbers']]
+            else:
+                # Fallback: case-insensitive scan for number_* columns
+                lower_map = {c.lower(): c for c in row.index}
+                candidates = [lower_map.get(f'number_{i}'.lower()) for i in range(1, 7)]
+                candidates = [c for c in candidates if c is not None]
+                for col in candidates:
+                    if pd.notna(row[col]):
+                        numbers.append(int(row[col]))
             basic_features.append(numbers)
         
         # If we don't have enough data, pad with the first entry
-        while len(basic_features) < SEQUENCE_LENGTH:
+        while len(basic_features) < exp_t:
             basic_features.insert(0, basic_features[0])
         
         # Normalize and create feature matrix
-        X = np.zeros((1, SEQUENCE_LENGTH, FEATURE_COUNT))
+        X = np.zeros((1, exp_t, max(exp_f, 6)))
         
         # Fill basic features (lottery numbers)
-        for i, nums in enumerate(basic_features[-SEQUENCE_LENGTH:]):
-            # Normalize by dividing by 59 (max lottery number)
-            normalized = [n/59.0 for n in nums]
+        for i, nums in enumerate(basic_features[-exp_t:]):
+            # Normalize by dividing by configured max
+            normalized = [n/float(norm_by) for n in nums]
             
             # Fill the basic 6 numbers
             for j, num in enumerate(normalized[:6]):
                 X[0, i, j] = num
                 
-            # Add derived features
-            if len(nums) >= 6:
-                # Sum
-                X[0, i, 6] = sum(nums) / 354.0  # max sum would be 59*6
-                # Mean
-                X[0, i, 7] = sum(nums) / len(nums) / 59.0
-                # Min
-                X[0, i, 8] = min(nums) / 59.0
-                # Max
-                X[0, i, 9] = max(nums) / 59.0
-                
-                # Calculate differences between consecutive numbers
+            # Add derived features only if model expects >6 features
+            if exp_f > 6 and len(nums) >= 6:
+                # Sum, mean, min, max
+                X[0, i, 6] = sum(nums) / float(norm_by * 6)
+                X[0, i, 7] = sum(nums) / len(nums) / float(norm_by)
+                X[0, i, 8] = min(nums) / float(norm_by)
+                X[0, i, 9] = max(nums) / float(norm_by)
+
+                # Differences
                 diffs = [abs(nums[j+1] - nums[j]) for j in range(len(nums)-1)]
-                if diffs:
-                    # Sum of differences
-                    X[0, i, 10] = sum(diffs) / (58 * 5)  # max diff sum
-                    # Min diff
-                    X[0, i, 11] = min(diffs) / 58.0
-                    # Max diff
-                    X[0, i, 12] = max(diffs) / 58.0
-                    # Range
-                    X[0, i, 13] = (max(nums) - min(nums)) / 58.0
-                    # Standard deviation
-                    X[0, i, 14] = np.std(nums) / 30.0  # approximate max std
+                if diffs and exp_f > 10:
+                    X[0, i, 10] = sum(diffs) / (58.0 * 5)
+                    if exp_f > 11:
+                        X[0, i, 11] = min(diffs) / 58.0
+                    if exp_f > 12:
+                        X[0, i, 12] = max(diffs) / 58.0
+                    if exp_f > 13:
+                        X[0, i, 13] = (max(nums) - min(nums)) / 58.0
+                    if exp_f > 14:
+                        X[0, i, 14] = np.std(nums) / 30.0
         
         logger.info(f"Prepared input with shape {X.shape}")
         return X
@@ -245,7 +285,27 @@ def predict_with_model(model, X, model_type='lstm'):
     try:
         # Different handling based on model type
         if model_type.lower() in ['lstm', 'cnn_lstm']:
-            # Use 3D input directly
+            # Ensure 3D input and match expected (timesteps, features)
+            if hasattr(model, 'input_shape') and model.input_shape is not None:
+                # model.input_shape: (None, timesteps, features)
+                _, exp_t, exp_f = model.input_shape
+                cur_t = X.shape[1]
+                cur_f = X.shape[2] if len(X.shape) > 2 else 1
+                # Adjust timesteps: use last exp_t
+                if exp_t and cur_t != exp_t:
+                    if cur_t > exp_t:
+                        X = X[:, -exp_t:, :]
+                    else:
+                        # pad at the front by repeating first frame
+                        pad = np.repeat(X[:, :1, :], exp_t - cur_t, axis=1)
+                        X = np.concatenate([pad, X], axis=1)
+                # Adjust features: keep first exp_f (first 6 slots are basic numbers)
+                if exp_f and cur_f != exp_f:
+                    if cur_f > exp_f:
+                        X = X[:, :, :exp_f]
+                    else:
+                        pad_f = np.zeros((X.shape[0], X.shape[1], exp_f - cur_f))
+                        X = np.concatenate([X, pad_f], axis=2)
             pred = model.predict(X, verbose=0)
         else:
             # Flatten for tree-based models
@@ -292,8 +352,14 @@ def ensure_valid_numbers(numbers, min_val=1, max_val=59, count=6):
     # Sort the numbers
     return sorted(valid_numbers)
 
-def predict_with_ensemble(ensemble, X):
-    """Make a prediction using the ensemble of models."""
+def predict_with_ensemble(ensemble, X, combination_method: str = "frequency"):
+    """Make a prediction using the ensemble of models.
+
+    Args:
+        ensemble: dict with 'models' and 'weights'
+        X: input array (3D for LSTM)
+        combination_method: 'frequency' | 'weighted' | 'consensus'
+    """
     if not ensemble or 'models' not in ensemble or not ensemble['models']:
         logger.warning("No ensemble models available")
         return None
@@ -317,9 +383,7 @@ def predict_with_ensemble(ensemble, X):
         return None
     
     # Different ways to combine predictions
-    combination_method = "frequency"  # Options: weighted_mean, frequency, consensus
-    
-    if combination_method == "weighted_mean":
+    if combination_method == "weighted":
         # Weighted mean of predictions (normalize by dividing by max number)
         weighted_sum = np.zeros(6)
         for pred, weight in all_predictions:
@@ -369,6 +433,21 @@ def predict_with_ensemble(ensemble, X):
         
         return sorted(consensus[:6])
     
+    elif combination_method == "probmap":
+        # Build a probability map over 1..59 by accumulating weighted occurrences
+        scores = {n: 0.0 for n in range(1, 60)}
+        for pred, weight in all_predictions:
+            for n in pred:
+                scores[n] += float(weight)
+        # Pick top-6 with a simple spacing heuristic
+        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+        chosen = []
+        for n, _ in ranked:
+            if all(abs(n - m) >= 1 for m in chosen):  # minimal spacing 1 (can be tuned)
+                chosen.append(n)
+            if len(chosen) == 6:
+                break
+        return sorted(chosen)
     else:
         # Default: Just return the prediction from the highest-weighted model
         best_prediction = max(all_predictions, key=lambda x: x[1])[0]
@@ -383,19 +462,27 @@ def perturb_prediction(prediction, intensity=0.3):
     num_changes = max(1, min(3, int(round(intensity * 4))))
     positions = random.sample(range(len(perturbed)), num_changes)
     
-    # Change selected positions
+    # Change selected positions with basic constraints on sum and gaps
     for pos in positions:
         while True:
             # Generate a new number that's not already in the perturbed list
             new_num = random.randint(1, 59)
             if new_num not in perturbed:
-                perturbed[pos] = new_num
-                break
+                trial = perturbed.copy()
+                trial[pos] = new_num
+                # Enforce simple bands around sum and gap distribution
+                s = sum(trial)
+                if 80 <= s <= 300:  # permissive band
+                    gaps = [abs(trial[j+1] - trial[j]) for j in range(len(trial)-1)]
+                    if gaps:
+                        if 0 <= min(gaps) <= 20 and 0 <= max(gaps) <= 58:
+                            perturbed[pos] = new_num
+                            break
     
     # Sort the resulting numbers
     return sorted(perturbed)
 
-def generate_predictions(ensemble, df, count=20, diversity=0.3):
+def generate_predictions(ensemble, df, count=20, diversity=0.3, combination_method: str = "frequency"):
     """Generate diverse lottery predictions using the ensemble and perturbation."""
     logger.info(f"Generating {count} diverse predictions...")
     
@@ -403,7 +490,7 @@ def generate_predictions(ensemble, df, count=20, diversity=0.3):
     X = prepare_input_data(df)
     
     # Get the base prediction from the ensemble
-    base_prediction = predict_with_ensemble(ensemble, X)
+    base_prediction = predict_with_ensemble(ensemble, X, combination_method=combination_method)
     
     if base_prediction is None:
         logger.warning("Ensemble prediction failed, using individual models")
@@ -450,6 +537,96 @@ def generate_predictions(ensemble, df, count=20, diversity=0.3):
     
     return all_predictions
 
+
+def optimize_portfolio(
+    predictions: list[list[int]],
+    target_size: int = 10,
+    cap_number_usage: int = 0,
+    require_high_per_line: bool = False,
+    decade_balance: bool = False,
+    wildcards: int = 0,
+) -> list[list[int]]:
+    """Greedy portfolio optimizer to reduce overlap and increase coverage.
+
+    - Penalize repeated pairs across lines
+    - Encourage decade coverage and include at least one high number (>=50)
+    - Cap dominance of any single number
+    """
+    if not predictions:
+        return predictions
+
+    # Parameters
+    max_occ_per_number = cap_number_usage or max(2, target_size // 3)
+    required_high_numbers = 3  # across portfolio
+
+    chosen: list[list[int]] = []
+    pair_counts: dict[tuple[int, int], int] = {}
+    num_counts: dict[int, int] = {}
+    high_count = 0
+
+    # Score function
+    def score(line: list[int]) -> float:
+        line_sorted = sorted(line)
+        # Penalize repeated pairs
+        pairs = [(line_sorted[i], line_sorted[j]) for i in range(6) for j in range(i+1, 6)]
+        pair_penalty = sum(pair_counts.get(p, 0) for p in pairs)
+        # Encourage decade coverage
+        decades = {n // 10 for n in line_sorted}
+        decade_bonus = (len(decades) / 6.0) if decade_balance else 0.0
+        # Encourage high numbers inclusion (>=50)
+        high_bonus = 0.3 if require_high_per_line and any(n >= 50 for n in line_sorted) else 0.0
+        # Penalize number overuse
+        overuse_penalty = sum(max(0, num_counts.get(n, 0) - 1) for n in line_sorted)
+        return decade_bonus + high_bonus - 0.2 * pair_penalty - 0.1 * overuse_penalty
+
+    pool = [sorted(p) for p in predictions]
+    # Greedy selection
+    # Wildcard selection: pick a few lines that are farthest from current stats
+    wildcard_selected = 0
+    while pool and len(chosen) < target_size:
+        if wildcards and wildcard_selected < wildcards:
+            # select by maximum novelty: fewest overlaps with current counts
+            def novelty(line: list[int]) -> float:
+                return -sum(num_counts.get(n, 0) for n in line)  # fewer overlaps is better
+            best = max(pool, key=novelty)
+            wildcard_selected += 1
+        else:
+            best = max(pool, key=score)
+        chosen.append(best)
+        # Update stats
+        for i in range(6):
+            num_counts[best[i]] = num_counts.get(best[i], 0) + 1
+            if best[i] >= 50:
+                high_count += 1
+            for j in range(i+1, 6):
+                pair = (best[i], best[j])
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+        pool.remove(best)
+
+    # Post-adjustment: reduce dominance and ensure high-number presence
+    # If dominance of any number is too high, try replacing last lines with alternates
+    dominant = {n for n, c in num_counts.items() if c > max_occ_per_number}
+    if dominant or high_count < required_high_numbers:
+        # Try to replace last half with lines that relieve dominance and add highs
+        replace_pool = [p for p in predictions if p not in chosen]
+        for idx in range(len(chosen)//2, len(chosen)):
+            cand_best = chosen[idx]
+            if any(n in dominant for n in cand_best) or (high_count < required_high_numbers and not any(n >= 50 for n in cand_best)):
+                # find a better candidate
+                def repl_score(line: list[int]) -> float:
+                    s = score(line)
+                    if any(n in dominant for n in line):
+                        s -= 0.5
+                    if require_high_per_line and any(n >= 50 for n in line):
+                        s += 0.2
+                    return s
+                if replace_pool:
+                    alt = max(replace_pool, key=repl_score)
+                    if repl_score(alt) > repl_score(cand_best):
+                        chosen[idx] = alt
+                        replace_pool.remove(alt)
+    return [sorted(p) for p in chosen[:target_size]]
+
 def save_predictions(predictions, method="ensemble"):
     """Save predictions to both JSON and formatted text files."""
     # Create timestamps
@@ -493,6 +670,47 @@ def save_predictions(predictions, method="ensemble"):
     
     logger.info(f"Saved predictions to {json_path} and {text_path}")
     return json_path, text_path
+
+
+def analyze_portfolio(predictions: list[list[int]]) -> dict:
+    # Frequency of numbers
+    freq: dict[int, int] = {}
+    for line in predictions:
+        for n in line:
+            freq[n] = freq.get(n, 0) + 1
+
+    # Top repeats
+    top = sorted(freq.items(), key=lambda kv: kv[1], reverse=True)
+    # Range
+    flat = [n for line in predictions for n in line]
+    spread = (min(flat), max(flat)) if flat else (None, None)
+
+    # Pair counts
+    pair_counts: dict[tuple[int, int], int] = {}
+    for line in predictions:
+        s = sorted(line)
+        for i in range(6):
+            for j in range(i+1, 6):
+                pair = (s[i], s[j])
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+    top_pairs = sorted(pair_counts.items(), key=lambda kv: kv[1], reverse=True)[:5]
+
+    # Decade distribution
+    decades = {}
+    for n in flat:
+        d = (n // 10) * 10
+        decades[d] = decades.get(d, 0) + 1
+
+    # High-number coverage
+    high_count = sum(1 for n in flat if n >= 50)
+
+    return {
+        'top_numbers': top[:10],
+        'spread': spread,
+        'top_pairs': [(list(p), c) for p, c in top_pairs],
+        'decades': decades,
+        'high_numbers_count': high_count,
+    }
 
 def visualize_predictions(predictions):
     """Create visualizations of the predictions."""
@@ -581,11 +799,39 @@ def main():
     parser = argparse.ArgumentParser(description='Generate lottery predictions')
     parser.add_argument('--count', type=int, default=20, help='Number of predictions to generate')
     parser.add_argument('--diversity', type=float, default=0.3, help='Diversity level (0-1)')
+    parser.add_argument('--ensemble', choices=['frequency', 'weighted', 'consensus', 'probmap'], default='frequency',
+                        help='Ensemble combination method')
     parser.add_argument('--no-viz', action='store_true', help='Skip visualization')
-    parser.add_argument('--fallback', action='store_true', help='Use fallback Monte Carlo predictions')
+    parser.add_argument('--fallback', action='store_true', help='Use fallback Monte Carlo predictions (explicit only)')
+    parser.add_argument('--optimize-coverage', action='store_true', help='Apply portfolio diversity/coverage optimizer')
+    parser.add_argument('--no-analyze', action='store_true', help='Skip portfolio analytics summary')
+    parser.add_argument('--cap-number-usage', type=int, default=0, help='Cap usage of any single number across the portfolio (0=off)')
+    parser.add_argument('--require-high-per-line', action='store_true', help='Ensure each line has at least one number >= 50')
+    parser.add_argument('--decade-balance', action='store_true', help='Favor balancing decades across the portfolio')
+    parser.add_argument('--wildcards', type=int, default=0, help='Number of wildcard lines to force away from core clusters (0=off)')
     args = parser.parse_args()
     
     try:
+        # Always attempt to update data before prediction
+        try:
+            from scripts.fetch_data import download_fresh_data
+            _ = download_fresh_data()
+        except Exception as _upd_err:
+            logger.warning(f"Could not update data before predictions: {_upd_err}")
+
+        # Apply sensible defaults for coverage optimization if enabled but unspecified
+        if args.optimize_coverage and not any([
+            args.cap_number_usage > 0,
+            args.require_high_per_line,
+            args.decade_balance,
+            args.wildcards > 0,
+        ]):
+            # Defaults tuned for 10 lines
+            args.cap_number_usage = max(4, int(round(args.count * 0.6)))
+            args.require_high_per_line = True
+            args.decade_balance = True
+            args.wildcards = max(2, args.count // 5)
+
         # Check if fallback mode is enabled
         if args.fallback:
             logger.info("Using fallback mode with Monte Carlo predictions")
@@ -595,33 +841,52 @@ def main():
             # Load models
             logger.info("Loading trained models...")
             models = load_models()
-            
             if models is None or len(models) == 0:
-                logger.warning("No models available. Using Monte Carlo fallback.")
-                predictions = generate_monte_carlo_predictions(count=args.count)
-                method = "monte_carlo"
-            else:
-                logger.info(f"Loaded {len(models)} models: {', '.join(models.keys())}")
-                
-                # Create ensemble
-                ensemble = create_ensemble(models)
-                
-                # Load lottery data
-                logger.info("Loading lottery data...")
-                df = load_data(DATA_DIR / "merged_lottery_data.csv")
-                logger.info(f"Loaded {len(df)} lottery records")
-                
-                # Generate predictions
-                predictions = generate_predictions(
-                    ensemble, 
-                    df, 
-                    count=args.count,
-                    diversity=args.diversity
+                raise RuntimeError(
+                    "No trained models found. Run `python scripts/main.py --retrain yes --force` to train before predicting."
                 )
-                method = "ensemble"
+
+            logger.info(f"Loaded {len(models)} models: {', '.join(models.keys())}")
+            
+            # Create ensemble
+            ensemble = create_ensemble(models)
+            
+            # Load lottery data
+            logger.info("Loading lottery data...")
+            df = load_data(DATA_DIR / "merged_lottery_data.csv")
+            logger.info(f"Loaded {len(df)} lottery records")
+            
+            # Generate predictions
+            predictions = generate_predictions(
+                ensemble,
+                df,
+                count=args.count,
+                diversity=args.diversity,
+                combination_method=args.ensemble,
+            )
+            if args.optimize_coverage:
+                predictions = optimize_portfolio(
+                    predictions,
+                    target_size=args.count,
+                    cap_number_usage=args.cap_number_usage,
+                    require_high_per_line=args.require_high_per_line,
+                    decade_balance=args.decade_balance,
+                    wildcards=args.wildcards,
+                )
+            method = "ensemble"
         
         # Save predictions
         json_path, text_path = save_predictions(predictions, method=method)
+
+        # Portfolio analytics summary
+        if not args.no_analyze:
+            summary = analyze_portfolio(predictions)
+            print("\nPORTFOLIO ANALYSIS")
+            print(f"Top numbers: {summary['top_numbers']}")
+            print(f"Range: {summary['spread'][0]} → {summary['spread'][1]}")
+            print(f"Top pairs: {summary['top_pairs']}")
+            print(f"Decades: {summary['decades']}")
+            print(f"High numbers (>=50) count across portfolio: {summary['high_numbers_count']}")
         
         # Create visualization
         if not args.no_viz:

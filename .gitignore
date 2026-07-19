@@ -77,6 +77,9 @@ logs/
 env/
 venv/
 ENV/
+conda-py311/
+miniconda/
+Miniconda3-*.sh
 
 # Test coverage
 .coverage

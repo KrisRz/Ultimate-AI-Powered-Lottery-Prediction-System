@@ -28,6 +28,21 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 # Create logger
 logger = logging.getLogger(__name__)
 
+# Defined BEFORE any intra-package imports below: modules imported from this
+# __init__ (e.g. validations.data_validator) import setup_logging back from
+# this package mid-initialization, and it must already exist by then -
+# otherwise Python silently resolves the name to the setup_logging SUBMODULE
+def setup_logging(log_level=logging.INFO):
+    """Set up logging configuration."""
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(LOG_DIR / 'lottery.log'),
+            logging.StreamHandler()
+        ]
+    )
+
 # Make cross-validation functions available at package level
 try:
     from .cross_validation import (
@@ -80,27 +95,11 @@ try:
 except ImportError:
     logger.warning("model_utils module not available")
 
-# Import validations, trying the newer path first
+# Import validations
 try:
-    from ..validations import DataValidator, validate_dataframe, validate_prediction, LotteryValidator
+    from ..validations import DataValidator, validate_dataframe, validate_prediction
 except ImportError:
-    try:
-        # Fallback to old path if needed
-        from ..validations import DataValidator, validate_dataframe, validate_prediction
-        from ..validations import LotteryValidator
-    except ImportError:
-        logging.warning("Failed to import validation utilities")
-
-def setup_logging(log_level=logging.INFO):
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(LOG_DIR / 'lottery.log'),
-            logging.StreamHandler()
-        ]
-    )
+    logging.warning("Failed to import validation utilities")
 
 # Define public API
 __all__ = [
