@@ -45,6 +45,7 @@ def maybe_send_email(subject: str, body: str) -> None:
     to_addr = os.environ.get('EMAIL_TO')
     from_addr = os.environ.get('EMAIL_FROM', user)
     if not (server and user and password and to_addr and from_addr):
+        print("[email] SMTP env not configured (SMTP_SERVER/SMTP_USER/SMTP_PASS/EMAIL_TO) - not sending")
         return
     try:
         msg = EmailMessage()
@@ -55,9 +56,10 @@ def maybe_send_email(subject: str, body: str) -> None:
         with smtplib.SMTP_SSL(server, 465) as s:
             s.login(user, password)
             s.send_message(msg)
-    except Exception:
-        # Silent email failure
-        pass
+        print(f"[email] SENT to {to_addr}: {subject}")
+    except Exception as e:
+        # Loud failure - an alert that silently fails is worse than none
+        print(f"[email] FAILED to send ({type(e).__name__}): {e}")
 
 
 def main() -> int:
