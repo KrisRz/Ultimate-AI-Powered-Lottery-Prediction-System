@@ -126,11 +126,14 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
   ```
 
 ### FAZA 2 — Napraw dane (1 dzień) 📊
-- [ ] **Backfill pełnej historii UK Lotto** — oficjalny CSV daje ~180 losowań; pełną historię (1994→dziś) pobierz z archiwów (np. lottery.merseyworld.com lub inne archiwum wyników). UWAGA: gra zmieniała format (49 kul → 59 kul w październiku 2015) — **do analizy częstości używaj tylko ery 59 kul** (~1100 losowań).
-- [ ] Odśwież dane (ostatnie lokalne losowanie: 2025-08-09 — rok w plecy).
-- [ ] Usuń fabrykowanie liczb w `parse_balls()` — zły rekord = odrzucenie + log błędu, nigdy generacja.
-- [ ] Usuń referencje do nieistniejącego `lottery_data_1995_2025.csv` albo stwórz go z backfillu.
-- [ ] **Nowe dane do zbierania (kluczowe dla EV!):** kwoty wygranych per tier i liczba zwycięzców per tier z każdego losowania (dostępne na stronie wyników) — to podstawa modelu popularności kombinacji.
+- [x] **Backfill pełnej historii UK Lotto** — nowy `scripts/backfill_history.py` pobiera archiwum Merseyworld: `data/lotto_full_history.csv` = **3202 losowania 1994-11-19 → dziś** (z jackpotami i liczbą wygranych); `data/merged_lottery_data.csv` = **1125 losowań ery 59 kul** (od 2015-10-10) w formacie pipeline'u.
+- [x] Odświeżone dane do najnowszego losowania (nr 3190, 2026-07-18). Z 60 → 1125 losowań (~19×).
+- [x] Fabrykowanie liczb w `parse_balls()` usunięte — zły rekord = `ValueError`, nigdy generacja.
+- [x] Widmowy `lottery_data_1995_2025.csv` usunięty z kodu; `__main__` w `fetch_data.py` używa merged CSV.
+- [x] **Dane per tier:** oficjalny endpoint zwraca teraz **XML** (nie CSV) z pełnym rozbiciem nagród — `fetch_data.py` parsuje nowy format i akumuluje `data/prize_tiers.csv` (zwycięzcy + wypłaty per tier, rollover, szacowany następny jackpot, roll-down) przy każdym fetchu. Historyczne tiery: do douzupełnienia w Fazie 4 (beatlottery.co.uk ma per-draw breakdowny; wymaga scrapera z nagłówkami przeglądarki).
+- [x] Pierwszy wiarygodny backtest: 185 losowań testowych, frequency 0.600 vs random 0.578 śr. trafień (oczekiwane losowe: 0.610) — **potwierdzony brak przewagi**, zgodnie z sekcją 0.
+
+**⚠️ ZMIANA ZASAD GRY (odkryta przy backfillu):** od **7 czerwca 2026** każdy kupon Lotto gra w **DWÓCH rundach tej samej nocy** (dwie maszyny, dwa zestawy kul; wygrywasz w rundzie 1, 2 lub obu). Szansa na jakąkolwiek wygraną wzrosła z ~1:9,3 do ~1:4,9 przy tej samej cenie £2. Konsekwencje: (a) `lotto_full_history.csv` ma kolumnę `Round` (1/2), pipeline używa rundy 1, pełne dane są dostępne dla analiz; (b) silnik EV w Fazie 4 MUSI liczyć EV kuponu jako sumę po obu rundach; (c) stare tabele prawdopodobieństw tierów wymagają aktualizacji do nowej struktury nagród.
 
 ### FAZA 3 — Uczciwa ewaluacja (1–2 dni) ⚖️
 *Zanim cokolwiek „ulepszysz", musisz umieć zmierzyć, czy to działa.*

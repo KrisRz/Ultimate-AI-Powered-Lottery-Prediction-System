@@ -1917,3 +1917,301 @@ Saved visualization to outputs/visualizations/prediction_viz_20250813_133345.png
 2026-07-19 16:16:52 - __main__ - INFO - Prepared input with shape (1, 10, 6)
 2026-07-19 16:16:53 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
 2026-07-19 16:16:53 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2026-07-19.json and outputs/predictions/formatted_predictions_2026-07-19.txt
+2026-07-19 16:31:09 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:31:09 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2026-07-19 16:31:09 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2026-07-19 16:31:09 - scripts.fetch_data - INFO - Loaded 0 records from data/lotto-draw-history.csv
+2026-07-19 16:31:09 - scripts.fetch_data - ERROR - Error merging data files: 'Draw Date'
+2026-07-19 16:31:09 - scripts.fetch_data - ERROR - Error downloading fresh data: 'Draw Date'
+2026-07-19 16:31:09 - scripts.fetch_data - INFO - Using existing data as a substitute after error
+2026-07-19 16:38:04 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Loaded 1 records from data/lotto-draw-history.csv
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - New data date range: 2026-07-18 to 2026-07-18
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Loaded 1125 records from data/merged_lottery_data.csv
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Combined 1 new records with 1125 existing records
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Combined data contains 1125 unique records (1 duplicates removed)
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Prioritized 1 records from new data
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Date range: 2015-10-10 to 2026-07-18
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Recorded 12 prize-tier rows for draw 3190 in data/prize_tiers.csv
+2026-07-19 16:38:04 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data
+2026-07-19 16:38:18 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Loaded 1 records from data/lotto-draw-history.csv
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - New data date range: 2026-07-18 to 2026-07-18
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Loaded 1125 records from data/merged_lottery_data.csv
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Combined 1 new records with 1125 existing records
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Combined data contains 1125 unique records (1 duplicates removed)
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Prioritized 1 records from new data
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Date range: 2015-10-10 to 2026-07-18
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Recorded 12 prize-tier rows for draw 3190 in data/prize_tiers.csv
+2026-07-19 16:38:18 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data
+2026-07-19 16:38:18 - __main__ - INFO - Loading trained models...
+2026-07-19 16:38:18 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2026-07-19 16:38:19 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2026-07-19 16:38:19 - __main__ - INFO - Loaded 1 models: lstm
+2026-07-19 16:38:19 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2026-07-19 16:38:19 - __main__ - INFO - Loading lottery data...
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Draw Date: object
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_1: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_2: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_3: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_4: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_5: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Number_6: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Bonus: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Ball Set: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column Machine: object
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_1: [2, 7, 8, 13, 29]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_2: [3, 13, 30, 14, 31]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_3: [16, 20, 37, 21, 43]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_4: [32, 27, 40, 25, 55]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_5: [53, 39, 46, 51, 58]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Number_6: [54, 52, 50, 53, 59]
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Added 32 features in 0.04 seconds
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Processed 1125 records with 51 columns in 0.06 seconds
+2026-07-19 16:38:19 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2026-07-19 16:38:19 - __main__ - INFO - Loaded 1125 lottery records
+2026-07-19 16:38:19 - __main__ - INFO - Generating 3 diverse predictions...
+2026-07-19 16:38:19 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:19 - __main__ - INFO - Base prediction: [17, 21, 26, 27, 28, 36]
+2026-07-19 16:38:19 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2026-07-19.json and outputs/predictions/formatted_predictions_2026-07-19.txt
+2026-07-19 16:38:27 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:38:27 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Loaded 1 records from data/lotto-draw-history.csv
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - New data date range: 2026-07-18 to 2026-07-18
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Loaded 1125 records from data/merged_lottery_data.csv
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Combined 1 new records with 1125 existing records
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Combined data contains 1125 unique records (1 duplicates removed)
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Prioritized 1 records from new data
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Date range: 2015-10-10 to 2026-07-18
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Recorded 12 prize-tier rows for draw 3190 in data/prize_tiers.csv
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Draw Date: object
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_1: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_2: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_3: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_4: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_5: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Number_6: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Bonus: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Ball Set: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column Machine: object
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_1: [2, 7, 8, 13, 29]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_2: [3, 13, 30, 14, 31]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_3: [16, 20, 37, 21, 43]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_4: [32, 27, 40, 25, 55]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_5: [53, 39, 46, 51, 58]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Number_6: [54, 52, 50, 53, 59]
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Added 32 features in 0.04 seconds
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Processed 1125 records with 51 columns in 0.06 seconds
+2026-07-19 16:38:28 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:28 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:29 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:30 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:38:32 - __main__ - INFO - Saved backtest results to outputs/validation/validation_frequency_20260719_163832.json
+2026-07-19 16:38:33 - __main__ - INFO - Saved backtest plot to outputs/validation/validation_plot_frequency_20260719_163832.png

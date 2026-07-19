@@ -32,8 +32,10 @@ logger = logging.getLogger(__name__)
 # Add these constant definitions or update them if they already exist
 DATA_DIR = Path("data")
 DOWNLOADED_FILE = DATA_DIR / "lotto-draw-history.csv"
-EXISTING_FILE = DATA_DIR / "lottery_data_1995_2025.csv"
+FULL_HISTORY_FILE = DATA_DIR / "lotto_full_history.csv"  # built by scripts/backfill_history.py
 MERGED_FILE = DATA_DIR / "merged_lottery_data.csv"
+LATEST_XML_FILE = DATA_DIR / "lotto-latest.xml"
+PRIZE_TIERS_FILE = DATA_DIR / "prize_tiers.csv"
 
 def parse_balls(balls_str: str) -> Tuple[List[int], int]:
     """
@@ -59,18 +61,11 @@ def parse_balls(balls_str: str) -> Tuple[List[int], int]:
         # Remove any quotes if present
         balls_str = balls_str.strip('"').strip("'")
         
-        # Check if it's a simple numeric value with no BONUS separator
+        # A bare numeric value cannot be a valid draw - reject it instead of
+        # fabricating numbers (real draw data must never be synthesized)
         if balls_str.isdigit() or (balls_str.replace('.','')).isdigit():
-            # For simple numeric values, we generate a synthetic set of numbers
-            # This is a fallback for rows with invalid data
-            seed = int(float(balls_str)) if balls_str else 0
-            np.random.seed(seed)
-            main_numbers = sorted(np.random.choice(range(1, 60), 6, replace=False).tolist())
-            bonus = np.random.choice([n for n in range(1, 60) if n not in main_numbers])
-            
-            logger.warning(f"Created synthetic numbers for invalid input '{balls_str}': {main_numbers}, BONUS {bonus}")
-            return main_numbers, bonus
-            
+            raise ValueError(f"Invalid balls string (bare numeric value): '{balls_str}'")
+
         # Try regular format with BONUS separator
         if ' BONUS ' in balls_str:
             parts = balls_str.split(' BONUS ')
@@ -1126,6 +1121,114 @@ def merge_data_files() -> None:
         traceback.print_exc()
         raise
 
+def _ingest_official_xml(xml_bytes: bytes) -> None:
+    """Ingest the official draw-results XML (format since ~2026).
+
+    The endpoint that used to serve a CSV of ~180 draws now returns an XML
+    document with only the latest draw event. Since 2026-06-10 each event has
+    two rounds (two machines / ball sets) and 12 prize tiers (6 per round).
+
+    Updates:
+      - DOWNLOADED_FILE with the Round 1 row in the legacy CSV layout, then
+        merges it into MERGED_FILE (one row per draw date, Round 1 only)
+      - FULL_HISTORY_FILE with both rounds, if present
+      - PRIZE_TIERS_FILE with winners/prize amounts per tier plus rollover and
+        next-jackpot info (the raw material for EV modelling)
+    """
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(xml_bytes)
+    game = root.find("game")
+    if game is None:
+        raise ValueError("Official XML: no <game> element - format changed?")
+
+    draw = game.find("draw")
+    draw_number = int(draw.findtext("draw-number"))
+    draw_date = draw.findtext("draw-date")  # YYYY-MM-DD
+    machines = [m.text for m in draw.findall("draw-machine")]
+
+    rounds = []
+    for i, balls_el in enumerate(game.findall("balls")):
+        numbers = sorted(int(b.text) for b in balls_el.findall("ball"))
+        bonus = int(balls_el.findtext("bonus-ball"))
+        ball_set = balls_el.findtext("set") or ""
+        if len(set(numbers)) != 6 or not all(1 <= n <= 59 for n in numbers) or not 1 <= bonus <= 59:
+            raise ValueError(f"Official XML: invalid numbers in round {i + 1}: {numbers} bonus {bonus}")
+        rounds.append({
+            "round": i + 1,
+            "numbers": numbers,
+            "bonus": bonus,
+            "ball_set": ball_set.lstrip("L"),
+            "machine": machines[i] if i < len(machines) else (machines[0] if machines else ""),
+        })
+    if not rounds:
+        raise ValueError("Official XML: no <balls> sets - format changed?")
+
+    # Round 1 row in the legacy download layout so merge_data_files() can do
+    # the date-keyed merge into MERGED_FILE
+    r1 = rounds[0]
+    legacy = pd.DataFrame([{
+        "DrawDate": draw_date,
+        **{f"Ball {i+1}": n for i, n in enumerate(r1["numbers"])},
+        "Bonus Ball": r1["bonus"],
+        "Ball Set": r1["ball_set"],
+        "Machine": r1["machine"],
+        "DrawNumber": draw_number,
+    }])
+    legacy.to_csv(DOWNLOADED_FILE, index=False)
+    merge_data_files()
+
+    # Keep the full-history file (both rounds) up to date if it exists
+    if FULL_HISTORY_FILE.exists():
+        full = pd.read_csv(FULL_HISTORY_FILE)
+        if draw_number not in set(full["DrawNumber"].astype(int)):
+            jackpot_raw = (game.findtext("next-estimated-jackpot") or "").replace(",", "")
+            new_rows = pd.DataFrame([{
+                "Draw Date": draw_date,
+                **{f"Number_{i+1}": n for i, n in enumerate(r["numbers"])},
+                "Bonus": r["bonus"],
+                "Jackpot": 0,
+                "JackpotWins": 0,
+                "Machine": r["machine"],
+                "Ball Set": r["ball_set"],
+                "DrawNumber": draw_number,
+                "Round": r["round"],
+            } for r in rounds])
+            pd.concat([full, new_rows], ignore_index=True).to_csv(FULL_HISTORY_FILE, index=False)
+            logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
+
+    # Prize tiers: levels 1-6 belong to Round 1, 7-12 to Round 2
+    winners_el = game.find("winners")
+    tier_rows = []
+    if winners_el is not None:
+        rollover = (game.findtext("rollover") or "N") == "Y"
+        rollover_count = int(game.findtext("rollover-count") or 0)
+        next_jackpot = (game.findtext("next-estimated-jackpot") or "").replace(",", "")
+        roll_down = (game.findtext("next-estimated-jackpot-roll-down") or "N") == "Y"
+        for tier in winners_el.iter("prize-tier"):
+            level = int(tier.get("level"))
+            tier_rows.append({
+                "draw_number": draw_number,
+                "draw_date": draw_date,
+                "round": 1 if level <= 6 else 2,
+                "tier": level if level <= 6 else level - 6,
+                "winners": int(tier.findtext("number-of-winners") or 0),
+                "prize_total": float(tier.findtext("win-value") or 0),
+                "rollover": rollover,
+                "rollover_count": rollover_count,
+                "next_jackpot_estimate": float(next_jackpot) if next_jackpot else None,
+                "next_jackpot_roll_down": roll_down,
+            })
+    if tier_rows:
+        tiers_df = pd.DataFrame(tier_rows)
+        if PRIZE_TIERS_FILE.exists():
+            old = pd.read_csv(PRIZE_TIERS_FILE)
+            tiers_df = pd.concat([old, tiers_df], ignore_index=True)
+            tiers_df = tiers_df.drop_duplicates(subset=["draw_number", "round", "tier"], keep="last")
+        tiers_df.sort_values(["draw_number", "round", "tier"]).to_csv(PRIZE_TIERS_FILE, index=False)
+        logger.info(f"Recorded {len(tier_rows)} prize-tier rows for draw {draw_number} in {PRIZE_TIERS_FILE}")
+
+
 def download_fresh_data() -> bool:
     """
     Download fresh lottery data from the official source.
@@ -1182,9 +1285,20 @@ def download_fresh_data() -> bool:
                     continue
                 resp.raise_for_status()
 
-                # Save CSV
-                with open(DOWNLOADED_FILE, 'wb') as f:
-                    f.write(resp.content)
+                content = resp.content
+                is_xml = content.lstrip().startswith(b"<?xml") or "xml" in (
+                    resp.headers.get("Content-Type") or ""
+                )
+                if is_xml:
+                    # New official format (since ~2026): XML with the latest
+                    # draw event only, incl. prize tiers and rollover info
+                    with open(LATEST_XML_FILE, 'wb') as f:
+                        f.write(content)
+                    _ingest_official_xml(content)
+                else:
+                    # Legacy CSV of recent draw history
+                    with open(DOWNLOADED_FILE, 'wb') as f:
+                        f.write(content)
 
                 # Persist ETag/Last-Modified
                 try:
@@ -1198,10 +1312,11 @@ def download_fresh_data() -> bool:
                 except Exception as _werr:
                     logger.warning(f"Could not write download state: {_werr}")
 
-                logger.info(f"Successfully downloaded fresh lottery data to {DOWNLOADED_FILE}")
+                logger.info("Successfully downloaded fresh lottery data")
 
-                # Merge
-                merge_data_files()
+                # XML ingestion already merged; legacy CSV still needs it
+                if not is_xml:
+                    merge_data_files()
                 return True
 
             except requests.exceptions.RequestException as req_e:
@@ -1215,38 +1330,29 @@ def download_fresh_data() -> bool:
                     return False
             
     except Exception as e:
-        logger.error(f"Error downloading fresh data: {str(e)}")
-        
-        # Fallback to existing data if available
+        logger.error(f"Error downloading/ingesting fresh data: {str(e)}")
+        traceback.print_exc()
+
+        # Continue with existing local data, but make the degradation loud
         if MERGED_FILE.exists():
-            logger.info("Using existing data as a substitute after error")
+            logger.warning(
+                "FALLBACK: download failed - predictions will use the existing "
+                f"local data in {MERGED_FILE}, which may be stale"
+            )
             return True
-        
+
         return False
 
 if __name__ == "__main__":
     # Example usage when running the script directly
     try:
-        default_path = "data/lottery_data_1995_2025.csv"
-        
-        # Check if the file exists, try different paths if not
-        data_path = Path(default_path)
+        data_path = MERGED_FILE
         if not data_path.exists():
-            alt_paths = [
-                "./lottery_data_1995_2025.csv",
-                "../data/lottery_data_1995_2025.csv"
-            ]
-            for path in alt_paths:
-                if Path(path).exists():
-                    data_path = Path(path)
-                    break
-        
-        if not data_path.exists():
-            logger.error(f"Data file not found at {default_path} or alternative locations")
-            print(f"Data file not found. Please provide a valid path to the lottery data CSV file.")
+            logger.error(f"Data file not found: {data_path}")
+            print("Data file not found. Run scripts/backfill_history.py first.")
             import sys
             sys.exit(1)
-        
+
         print(f"Loading data from {data_path}...")
         df = load_data(data_path)
         
