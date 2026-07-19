@@ -13,6 +13,7 @@ sourced by post_draw.sh - never commit credentials):
   EMAIL_FROM    optional, defaults to SMTP_USER
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,16 @@ from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
 
 
 def main() -> None:
+    if os.environ.get("EV_ALERT_TEST") == "1":
+        maybe_send_email(
+            "LOTTO: test alertu",
+            "Dziala! Alerty mailowe sa skonfigurowane poprawnie.\n"
+            "Prawdziwy mail przyjdzie tylko przy werdykcie PLAY (+EV) "
+            "albo przy awarii zbierania danych.",
+        )
+        print("[ev-alert] TEST email attempted (sent only if SMTP env is configured)")
+        return
+
     cond = next_draw_conditions()
     verdict = should_play(cond, threshold=0.0)
     if not verdict["play"]:
