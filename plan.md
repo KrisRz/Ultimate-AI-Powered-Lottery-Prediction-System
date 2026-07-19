@@ -110,14 +110,14 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 ### FAZA 1 — Wielkie sprzątanie (1–2 dni) 🧹
 *Cel: z ~15 000 linii zostawić ~3 000, które faktycznie działają.*
 
-- [ ] **Usuń z repo:** `Miniconda3-*.sh`, `conda-py311/`, `miniconda/`, `.venv/` → do `.gitignore`. (Odchudzenie o ~0.5+ GB.)
-- [ ] **Usuń martwe entry pointy:** `scripts/main.py`, `tensorflow_compatible_main.py`, `standalone_tensorflow_predictor.py`, `standalone_data_fetcher.py`, `simple_runner.py` LUB `run_predictions.py` (zostaw jeden), `simple_lottery.py`, `_backup/`.
-- [ ] **Usuń martwy ML:** wszystkie 12 klas wrapperów w `models/` (nic ich nie używa), `models/base.py`, `meta_model.py`, `autoencoder_model.py`, `arima_model.py`, `holtwinters_model.py`, `models/ensemble.py` (zepsuty), większość `models/utils/` (monitoring/versioning/deployment/interpretation — 0 referencji z pipeline'u).
-- [ ] **Usuń martwe configi:** 10 z 11 plików w `config/`; usuń `scripts/feature_engineering/` (martwy tsfresh).
-- [ ] **Ujednolić utils:** jedno drzewo `lottery/utils/`, jedna definicja `ensure_valid_prediction`.
-- [ ] **Jeden manifest zależności:** zostaw `environment.yml` (albo przejdź na `requirements.txt` + venv — jedno, nie cztery). Zsynchronizuj `predict_tonight.sh` z `make setup` (ten sam env!).
-- [ ] Napraw/usuń `setup.py` + `pyproject.toml` (broken entry point, placeholder autora).
-- [ ] Docelowa struktura:
+- [x] **Usuń z repo:** `Miniconda3-*.sh` i `.venv/` skasowane; `conda-py311/` i `miniconda/` w `.gitignore` (zostają na dysku — to działający runtime). `__pycache__` i `outputs/` wyrzucone z indeksu gita.
+- [x] **Usuń martwe entry pointy:** skasowane `scripts/main.py`, `tensorflow_compatible_main.py`, `standalone_tensorflow_predictor.py`, `standalone_data_fetcher.py`, `run_predictions.py`, `simple_lottery.py`, `_backup/` (został `scripts/simple_runner.py` jako zapasowy runner bez TF). Skasowany też klaster treningowy: `improved_training.py`, `train_models.py`, `model_bridge.py`, `analyze_data.py`, `performance_tracking.py`.
+- [x] **Usuń martwy ML:** skasowane wszystkie pliki modeli poza `training_config.py` (używany przez `fetch_data`), `models/utils/`, `models/deployment/`; `models/__init__.py` wyczyszczony. Zostały artefakty w `models/checkpoints/`.
+- [x] **Usuń martwe configi:** cały `config/` + `scripts/feature_engineering/` skasowane. Skasowany też zepsuty `tests/benchmark_test.py` i leaky `prediction_validator.py`; `pytest.ini` odchudzony.
+- [ ] **Ujednolić utils:** przełożone na Fazę 4 (przy budowie pakietu `lottery/`); w `scripts/utils` zostały opcjonalne moduły z try/except fallbackami.
+- [x] **Jeden manifest zależności:** został tylko `environment.yml`; `predict_tonight.sh` używa `./conda-py311`, z fallbackiem na env `lotto-predict` z `make setup`. Bonus: naprawiony bug połykania argumentów przez `source activate`.
+- [x] Usunięte `setup.py` + `pyproject.toml` (broken entry point, placeholder autora) + `requirements.txt`, `requirements_fixed.txt`, `installed.txt`.
+- [ ] Docelowa struktura (do zrobienia w Fazie 4):
   ```
   lottery/            # pakiet: data.py, features.py, ev.py, portfolio.py, backtest.py
   scripts/            # cienkie CLI: fetch, predict, backtest, nightly
