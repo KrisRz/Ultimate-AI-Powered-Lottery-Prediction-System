@@ -3,6 +3,10 @@
 play:
 	PYTHONPATH=. python scripts/ev_play.py
 
+dashboard:
+	PYTHONPATH=. python scripts/dashboard.py
+	open outputs/dashboard.html 2>/dev/null || true
+
 setup:
 	conda env create -f environment.yml || conda env update -f environment.yml
 	@echo "Run: conda activate lotto-predict"
