@@ -1,4 +1,7 @@
-.PHONY: setup setup-update predict backtest backfill nightly test roi roi-settle
+.PHONY: setup setup-update predict play backtest backfill nightly test roi roi-settle
+
+play:
+	PYTHONPATH=. python scripts/ev_play.py
 
 setup:
 	conda env create -f environment.yml || conda env update -f environment.yml
