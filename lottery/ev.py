@@ -188,6 +188,34 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
     }
 
 
+def estimate_tickets_sold(tiers_df, last_n_draws: int = 20) -> int | None:
+    """Estimate lines sold per draw from observed winner counts.
+
+    For fixed-prize tiers the expected winner count is N x P(tier), so each
+    observation gives N ~= winners / P. Uses the high-count tiers (match 4/3/2,
+    least distorted by jackpot-sharing) over recent draws, both rounds, and
+    takes the median to damp popularity-of-drawn-numbers noise.
+
+    This is the first model parameter that becomes measurable from collected
+    data - it directly sharpens jackpot-sharing and roll-down EV.
+    """
+    if tiers_df is None or len(tiers_df) == 0:
+        return None
+    tier_probs = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
+    recent_draws = sorted(tiers_df["draw_number"].unique())[-last_n_draws:]
+    sample = tiers_df[
+        tiers_df["draw_number"].isin(recent_draws)
+        & tiers_df["tier"].isin(tier_probs)
+        & (tiers_df["winners"] > 0)
+    ]
+    if len(sample) == 0:
+        return None
+    estimates = sorted(
+        row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
+    )
+    return int(estimates[len(estimates) // 2])
+
+
 def best_unpopular_reference_line() -> List[int]:
     """A deterministic line from the least-played numbers (no patterns)."""
     candidates = sorted(range(1, N_BALLS + 1), key=number_weight)

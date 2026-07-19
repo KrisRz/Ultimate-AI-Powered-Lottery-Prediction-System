@@ -33,4 +33,12 @@ PYTHONPATH=. python scripts/dashboard.py
 echo "[post-draw] EV verdict for the next draw:"
 PYTHONPATH=. python scripts/ev_play.py --lines 5 || true
 
+# Optional email alert on +EV draws; SMTP credentials live in ~/.lotto_env
+# (never in the repo)
+if [[ -f "$HOME/.lotto_env" ]]; then
+  # shellcheck source=/dev/null
+  source "$HOME/.lotto_env"
+fi
+PYTHONPATH=. python scripts/monitoring/ev_alert.py || true
+
 echo "[post-draw] done."

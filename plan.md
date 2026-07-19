@@ -176,6 +176,22 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 
 ---
 
+### FAZA 7 — Pętla danych i tuning (następne 2–3 miesiące) 🔄
+*Uruchomiona 2026-07-19. Cel: za 2–3 miesiące skalibrowany model EV i dyscyplina grania wyłącznie przy PLAY.*
+
+**Co się zbiera automatycznie** (launchd `com.lotto.postdraw`, śr./sob. 22:30): każde losowanie dodaje 12 wierszy do `data/prize_tiers.csv` (zwycięzcy + wypłaty per tier × 2 rundy, rollover, następny jackpot), aktualizuje historię, rozlicza ledger, odświeża dashboard i wysyła mail przy werdykcie PLAY. Uwaga: Mac musi być włączony/uśpiony (launchd nadrabia po wybudzeniu, nie po wyłączeniu).
+
+**Co już skalibrowane z danych (2026-07-19):**
+- [x] Liczba sprzedanych kuponów: **~8,4 mln/losowanie** estymowane z liczby zwycięzców tierów match-2/3/4 (`estimate_tickets_sold`) zamiast założonych 15 mln — EV advisor używa tego automatycznie.
+
+**Kamienie milowe:**
+- [ ] **+1 miesiąc** (~9 losowań, 100+ wierszy tierów): sprawdzić stabilność estymatora N (rozrzut median tydzień do tygodnia); pierwszy zaobserwowany zwycięzca 5+bonus → wpisać realną nagrodę w `PRIZE_MATCH_5_BONUS` (dziś placeholder £250k); zweryfikować, że tiery 1–6/7–12 faktycznie mapują się na rundy 1/2.
+- [ ] **+2–3 miesiące** (25+ losowań, 50+ rund): **kalibracja wag popularności** — nowy `scripts/calibrate_popularity.py`: dla każdej rundy policz `popularity_ratio` wylosowanej szóstki i dopasuj wagi (boost dat, dyskonto >31, lucky numbers) regresją `observed_winners / (N × P_tier)` ~ popularity score. Walidacja: istotna dodatnia korelacja score↔zwycięzcy; bez niej zostają wagi z literatury.
+- [ ] **Roll-down watch:** pierwsze losowanie Must-Be-Won → porównać realny podział jackpotu z naszym modelem roll-downu i poprawić go.
+- [ ] **Ledger ≥ 20 zagranych kuponów** (tylko przy PLAY!) → pierwszy raport ROI z sensowną próbką.
+
+**Kryterium „zaczynamy grać":** to nie „wystarczająco danych", tylko werdykt advisora — graj wyłącznie gdy `make play` mówi **PLAY** (duży rollover / Must-Be-Won), skalibrowanym modelem, z budżetem (np. max £10/losowanie) i każdym kuponem w ledgerze. Uczciwie: „ztiuningowany model" w tym projekcie znaczy *dokładniejsze EV*, nigdy przewidywanie liczb — tego nie umożliwią żadne dane.
+
 ## 3. Kolejność wykonania i szacunek czasu
 
 | Faza | Czas | Efekt |

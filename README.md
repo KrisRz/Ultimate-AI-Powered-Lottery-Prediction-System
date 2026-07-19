@@ -79,6 +79,21 @@ tests/              pytest suite (fast, no network)
 ops/                launchd template for the post-draw cron
 ```
 
+## Email alerts (+EV draws)
+
+The post-draw routine emails you only when the next draw clears the EV
+threshold. Put SMTP credentials in `~/.lotto_env` (outside the repo, never
+committed):
+
+```bash
+export SMTP_SERVER=smtp.gmail.com      # SSL port 465; Gmail needs an App Password
+export SMTP_USER=you@gmail.com
+export SMTP_PASS=your-app-password
+export EMAIL_TO=you@gmail.com
+```
+
+Test it: `make post-draw` (sends only on a PLAY verdict).
+
 ## Honest expectations
 
 UK Lotto returns roughly half of ticket sales as prizes. The EV strategy

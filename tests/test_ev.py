@@ -18,6 +18,7 @@ from lottery.ev import (
     popularity_ratio,
     should_play,
 )
+from lottery.ev import estimate_tickets_sold
 from lottery.portfolio import MAX_PAIRWISE_OVERLAP, build_portfolio
 
 BIRTHDAY_LINE = [3, 7, 11, 14, 21, 27]
@@ -99,6 +100,26 @@ class TestShouldPlay:
     def test_lenient_threshold_allows_play(self):
         verdict = should_play(DrawConditions(jackpot=2_000_000), threshold=-2.0)
         assert verdict["play"] is True
+
+
+class TestEstimateTicketsSold:
+    def _tiers_df(self, n_true: int):
+        import pandas as pd
+        rows = []
+        for tier, p in ((4, P_MATCH_4), (5, P_MATCH_3), (6, P_MATCH_2)):
+            rows.append({"draw_number": 3190, "round": 1, "tier": tier,
+                         "winners": int(n_true * p), "prize_total": 0.0})
+        return pd.DataFrame(rows)
+
+    def test_recovers_true_ticket_count(self):
+        est = estimate_tickets_sold(self._tiers_df(8_000_000))
+        assert est == pytest.approx(8_000_000, rel=0.02)
+
+    def test_none_without_data(self):
+        import pandas as pd
+        assert estimate_tickets_sold(None) is None
+        assert estimate_tickets_sold(pd.DataFrame(
+            columns=["draw_number", "round", "tier", "winners"])) is None
 
 
 class TestPortfolio:
