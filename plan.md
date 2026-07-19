@@ -5,6 +5,19 @@
 
 ---
 
+## STATUS: PRODUKCJA — działa samodzielnie (aktualizacja 2026-07-19)
+
+Fazy 1–6 wdrożone i zmergowane do `main` (PR #1–#5). Faza 7 (pętla danych) **uruchomiona i pracuje**:
+- 🟢 Kolektor chmurowy (GitHub Actions) zbiera dane po każdym losowaniu (śr./sob. 21:45 UTC) + retry (czw./niedz. 6:00) + commit danych do repo.
+- 🟢 Watchdog (czw./niedz. 12:00) alarmuje mailem, gdy losowanie nie zostało zebrane (dane z oficjalnego XML są nieodwracalne po ~72 h).
+- 🟢 Maile przez SMTP potwierdzone na **obu** torach (chmura + lokalny Mac); alert tylko przy werdykcie PLAY lub awarii.
+- 🟢 Tor lokalny launchd (`post_draw.sh`): pull danych z chmury → settle ledgera (prywatny, poza repo) → dashboard.
+- 🟢 55 testów, CI zielone. Koszt: £0/mies. Pierwsza automatyczna zbiórka: środa 2026-07-22 22:45 czasu PL.
+
+**➡️ NASTĘPNA SESJA (~2026-08, po ~9 losowaniach):** sprawdzić stabilność estymatora sprzedaży (~8,4 mln), wpisać realną nagrodę 5+bonus (dziś placeholder £250k w `lottery/ev.py`), zweryfikować mapowanie tierów→rund. Kalibracja wag popularności: ~2026-09/10 (25+ losowań). Szczegóły w Fazie 7 niżej. Do tego czasu appka pracuje sama — użytkownik czeka na mail „PLAY".
+
+---
+
 ## 0. Najważniejszy wniosek — przeczytaj to najpierw
 
 **Aplikacja dziś NIE ma żadnej przewagi nad losowym typowaniem — i żaden model ML jej nie da.**
@@ -179,7 +192,11 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 ### FAZA 7 — Pętla danych i tuning (następne 2–3 miesiące) 🔄
 *Uruchomiona 2026-07-19. Cel: za 2–3 miesiące skalibrowany model EV i dyscyplina grania wyłącznie przy PLAY.*
 
-**Co się zbiera automatycznie** (launchd `com.lotto.postdraw`, śr./sob. 22:30): każde losowanie dodaje 12 wierszy do `data/prize_tiers.csv` (zwycięzcy + wypłaty per tier × 2 rundy, rollover, następny jackpot), aktualizuje historię, rozlicza ledger, odświeża dashboard i wysyła mail przy werdykcie PLAY. Uwaga: Mac musi być włączony/uśpiony (launchd nadrabia po wybudzeniu, nie po wyłączeniu).
+**Architektura zbierania (£0/mies., dwa niezależne tory dla niezawodności):**
+- **Chmura — główny** (`.github/workflows/collect.yml`): fetch po każdym losowaniu + retry następnego ranka, idempotentny zapis (dedupe `draw_number+round+tier`), **commit danych do repo** (dane publiczne = wersjonowanie + backup w gicie), werdykt EV, mail przy PLAY. Watchdog (`watchdog.yml` + `collection_watchdog.py`): poranek po losowaniu sprawdza, czy dane weszły — brak = czerwony run + mail alarmowy, póki dane z XML jeszcze do uratowania.
+- **Lokalny — zapasowy** (launchd `com.lotto.postdraw`, śr./sob. 22:30): `git pull` danych z chmury → settle ledgera (prywatny, poza repo) → dashboard. Mac musi być włączony/uśpiony; jeśli leżał offline, po `git pull` i tak ma komplet z chmury.
+- Świadomie **bez bazy danych**: ~110 wierszy/mies., cała historia 170 KB — CSV w gicie jest dla tej skali niezawodniejszy niż hostowany Postgres (analiza w rozmowie 2026-07-19). Ewentualny SQLite dopiero gdy zapytania kalibracyjne urosną.
+- Każde losowanie dodaje 12 wierszy do `data/prize_tiers.csv` (zwycięzcy + wypłaty per tier × 2 rundy, rollover, następny jackpot).
 
 **Co już skalibrowane z danych (2026-07-19):**
 - [x] Liczba sprzedanych kuponów: **~8,4 mln/losowanie** estymowane z liczby zwycięzców tierów match-2/3/4 (`estimate_tickets_sold`) zamiast założonych 15 mln — EV advisor używa tego automatycznie.
