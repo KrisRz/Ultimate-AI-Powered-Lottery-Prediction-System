@@ -1,4 +1,0 @@
-{
-    "models": "{'lstm': None, 'cnn_lstm': None, 'autoencoder': None, 'holtwinters': None, 'linear': None, 'xgboost': None, 'lightgbm': None, 'knn': None, 'gradient_boosting': None, 'catboost': None, 'meta': None}",
-    "current": "lstm"
-}

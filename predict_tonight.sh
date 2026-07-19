@@ -6,19 +6,23 @@ cd "$ROOT_DIR"
 
 echo "[predict] Starting UK Lotto predictions (10 lines, 6 numbers each)"
 
-# Activate conda environment
+# Save script args before sourcing conda's activate (it would swallow them)
+EXTRA_ARGS=("$@")
+set --
+
+# Activate conda environment: prefer in-repo conda-py311, else the
+# `lotto-predict` env from environment.yml (make setup)
 if [[ -d "$ROOT_DIR/miniconda" ]]; then
   # shellcheck source=/dev/null
   source "$ROOT_DIR/miniconda/bin/activate"
-else
-  echo "[predict] miniconda not found at $ROOT_DIR/miniconda. Install or adjust this script." >&2
-  exit 1
 fi
 
-if conda env list | grep -q "conda-py311"; then
+if [[ -d "$ROOT_DIR/conda-py311" ]] && command -v conda >/dev/null; then
   conda activate "$ROOT_DIR/conda-py311"
+elif command -v conda >/dev/null && conda env list | grep -q "lotto-predict"; then
+  conda activate lotto-predict
 else
-  echo "[predict] conda-py311 env not found. Create with: conda create -y -p ./conda-py311 python=3.11" >&2
+  echo "[predict] No conda env found. Run: make setup && conda activate lotto-predict" >&2
   exit 1
 fi
 
@@ -41,15 +45,7 @@ PY
 
 echo "[predict] Using ensemble method: $ENSEMBLE"
 
-# Allow extra args to override defaults
-EXTRA_ARGS=()
-if [[ $# -gt 0 ]]; then
-  EXTRA_ARGS=("$@")
-fi
-
-# Run prediction
-if [[ ${#EXTRA_ARGS[@]} -eq 0 ]]; then EXTRA_ARGS=( ); fi
-
+# Run prediction (EXTRA_ARGS captured at the top of the script)
 set +u
 PYTHONPATH=. python scripts/new_predict.py \
   --count 10 \

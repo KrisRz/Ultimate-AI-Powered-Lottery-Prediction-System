@@ -1897,3 +1897,23 @@ Saved visualization to outputs/visualizations/prediction_viz_20250813_133345.png
 2025-08-13 14:55:13 - __main__ - INFO - Prepared input with shape (1, 10, 6)
 2025-08-13 14:55:13 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
 2025-08-13 14:55:13 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2026-07-19 16:16:08 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:16:51 - root - WARNING - Failed to import validation utilities
+2026-07-19 16:16:51 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2026-07-19 16:16:52 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2026-07-19 16:16:52 - scripts.fetch_data - INFO - Loaded 0 records from data/lotto-draw-history.csv
+2026-07-19 16:16:52 - scripts.fetch_data - ERROR - Error merging data files: 'Draw Date'
+2026-07-19 16:16:52 - scripts.fetch_data - ERROR - Error downloading fresh data: 'Draw Date'
+2026-07-19 16:16:52 - scripts.fetch_data - INFO - Using existing data as a substitute after error
+2026-07-19 16:16:52 - __main__ - INFO - Loading trained models...
+2026-07-19 16:16:52 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2026-07-19 16:16:52 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2026-07-19 16:16:52 - __main__ - INFO - Loaded 1 models: lstm
+2026-07-19 16:16:52 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2026-07-19 16:16:52 - __main__ - INFO - Loading lottery data...
+2026-07-19 16:16:52 - scripts.fetch_data - INFO - Using cached preprocessed data from outputs/results/data_cache.pkl
+2026-07-19 16:16:52 - __main__ - INFO - Loaded 60 lottery records
+2026-07-19 16:16:52 - __main__ - INFO - Generating 3 diverse predictions...
+2026-07-19 16:16:52 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2026-07-19 16:16:53 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2026-07-19 16:16:53 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2026-07-19.json and outputs/predictions/formatted_predictions_2026-07-19.txt
