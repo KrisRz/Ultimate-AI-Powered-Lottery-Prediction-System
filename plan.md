@@ -135,16 +135,17 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 
 **⚠️ ZMIANA ZASAD GRY (odkryta przy backfillu):** od **7 czerwca 2026** każdy kupon Lotto gra w **DWÓCH rundach tej samej nocy** (dwie maszyny, dwa zestawy kul; wygrywasz w rundzie 1, 2 lub obu). Szansa na jakąkolwiek wygraną wzrosła z ~1:9,3 do ~1:4,9 przy tej samej cenie £2. Konsekwencje: (a) `lotto_full_history.csv` ma kolumnę `Round` (1/2), pipeline używa rundy 1, pełne dane są dostępne dla analiz; (b) silnik EV w Fazie 4 MUSI liczyć EV kuponu jako sumę po obu rundach; (c) stare tabele prawdopodobieństw tierów wymagają aktualizacji do nowej struktury nagród.
 
-### FAZA 3 — Uczciwa ewaluacja (1–2 dni) ⚖️
+### FAZA 3 — Uczciwa ewaluacja (1–2 dni) ⚖️ ✅
 *Zanim cokolwiek „ulepszysz", musisz umieć zmierzyć, czy to działa.*
 
-- [ ] Rozbuduj `backtest.py` (dobry szkielet!):
-  - [ ] minimum 200–500 losowań testowych po backfillu; **twardy błąd** gdy `steps < 30` zamiast cichego shrinka,
-  - [ ] test istotności: porównanie avg trafień metody vs random przez test permutacyjny / bootstrap CI; raportuj p-value,
-  - [ ] flaga `--offline` (bez `download_fresh_data()`) + seed → reprodukowalność.
-- [ ] **Usuń mylące walidatory:** `prediction_validator.py` (leaky), RMSE/MAE z `performance_tracking.py`, `simulate_accuracy_test` z `analyze_predictions.py`.
-- [ ] **Tracking ROI w realu:** `outputs/ledger.csv` — każdy zagrany kupon: data, liczby, koszt, trafienia, wygrana. `make roi` pokazuje skumulowany wynik. *To jedyna metryka, która mówi prawdę o „wygrywaniu pieniędzy".*
-- [ ] Napisz prawdziwe testy pytest (usuń `benchmark_test.py`): schemat danych, walidacja kuponu, merge/dedup, metryki backtestu, EV-scoring. Cel: `pytest` zielony w CI (GitHub Actions).
+- [x] Rozbudowany `backtest.py`:
+  - [x] **twardy błąd** gdy kroków testowych < 30 (`--min-steps`) zamiast cichego shrinka do 1 losowania,
+  - [x] test istotności: Monte Carlo vs dokładny rozkład hipergeometryczny (null = brak skilla), p-value dla avg trafień i 3+, bootstrap CI95, czytelny werdykt w konsoli („no edge over random…"),
+  - [x] `--offline` + `--seed` → w pełni reprodukowalne runy; seed/offline zapisywane w JSON-ie wyników.
+- [x] **Mylące walidatory usunięte:** `prediction_validator.py` i `performance_tracking.py` (Faza 1), `simulate_accuracy_test` wycięty z `analyze_predictions.py` (Faza 3).
+- [x] **Tracking ROI:** nowy `scripts/roi_ledger.py` (`add` / `settle` / `report`) → `data/ledger.csv`; rozliczanie po **obu rundach** (format 2026), wypłaty per tier z realnych danych `prize_tiers.csv` (fallback: tabela szacunkowa); `make roi`. *Jedyna metryka, która mówi prawdę o „wygrywaniu pieniędzy".*
+- [x] **31 testów pytest** (parser archiwum, `parse_balls`, ingestia XML, istotność backtestu, cykl ledgera) — zielone w ~2 s; workflow GitHub Actions (`.github/workflows/ci.yml`) gotowy na push. Bonus: naprawiony import-order bug (`setup_logging` funkcja vs submoduł — cykliczny import w `scripts/utils`).
+- Wynik pierwszego pełnego pomiaru: frequency avg 0.692 (CI95 0.508–0.877) vs oczekiwane losowe 0.610, **p=0.195 → brak przewagi** (65 draws, seed 42, offline). System raportuje to wprost zamiast udawać skuteczność.
 
 ### FAZA 4 — Przebuduj „mózg": z przewidywania liczb na maksymalizację EV (3–5 dni) 💰
 *Serce planu. Jedyna strategia z matematycznym uzasadnieniem.*

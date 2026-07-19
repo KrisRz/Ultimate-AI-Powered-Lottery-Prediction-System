@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict backtest nightly
+.PHONY: setup setup-update predict backtest backfill nightly test roi roi-settle
 
 setup:
 	conda env create -f environment.yml || conda env update -f environment.yml
@@ -10,10 +10,22 @@ setup-update:
 predict:
 	./predict_tonight.sh
 
+backfill:
+	PYTHONPATH=. python scripts/backfill_history.py
+
 backtest:
-	PYTHONPATH=. python scripts/validations/backtest.py --lookback 50 --method frequency --compare random,probmap
+	PYTHONPATH=. python scripts/validations/backtest.py --lookback 200 --step 5 --method frequency --compare random,probmap --seed 42
 
 nightly:
 	PYTHONPATH=. python scripts/monitoring/nightly_backtest.py
+
+test:
+	PYTHONPATH=. python -m pytest -q
+
+roi-settle:
+	PYTHONPATH=. python scripts/roi_ledger.py settle
+
+roi: roi-settle
+	PYTHONPATH=. python scripts/roi_ledger.py report
 
 

@@ -135,28 +135,6 @@ def analyze_uniqueness(predictions):
         'uniqueness_ratio': len(unique_predictions) / len(predictions)
     }
 
-def simulate_accuracy_test(predictions, num_simulations=1000):
-    """Simulate accuracy by testing against random 'actual' draws."""
-    match_results = defaultdict(int)
-    
-    for _ in range(num_simulations):
-        # Generate a random "actual" draw
-        actual_draw = sorted(np.random.choice(range(1, 60), 6, replace=False))
-        
-        # Test each prediction against this actual draw
-        for pred in predictions:
-            matches = len(set(pred) & set(actual_draw))
-            match_results[matches] += 1
-    
-    # Calculate probabilities
-    total_tests = len(predictions) * num_simulations
-    match_probabilities = {
-        matches: count / total_tests 
-        for matches, count in match_results.items()
-    }
-    
-    return match_probabilities
-
 def create_visualizations(frequency_df, sum_stats, distribution_stats, output_dir="outputs/visualizations"):
     """Create comprehensive visualizations."""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -245,7 +223,6 @@ def generate_report(predictions, metadata):
     sum_stats = analyze_sum_patterns(predictions)
     distribution_stats = analyze_distribution_patterns(predictions)
     uniqueness_stats = analyze_uniqueness(predictions)
-    accuracy_simulation = simulate_accuracy_test(predictions[:50])  # Test subset for speed
     
     # Report sections
     print("📊 FREQUENCY ANALYSIS:")
@@ -280,13 +257,10 @@ def generate_report(predictions, metadata):
     print(f"  Duplicates: {uniqueness_stats['duplicate_count']}")
     print(f"  Uniqueness Ratio: {uniqueness_stats['uniqueness_ratio']:.1%}")
     
-    print(f"\n🎲 SIMULATED ACCURACY TEST:")
-    print("-" * 30)
-    print("Expected match probabilities vs random draws:")
-    for matches in sorted(accuracy_simulation.keys()):
-        prob = accuracy_simulation[matches]
-        print(f"  {matches} matches: {prob:.1%}")
-    
+    # Note: accuracy against real draws is measured by
+    # scripts/validations/backtest.py - never by simulation against
+    # randomly generated "actual" draws, which measures nothing.
+
     # Create visualizations
     create_visualizations(frequency_df, sum_stats, distribution_stats)
     
