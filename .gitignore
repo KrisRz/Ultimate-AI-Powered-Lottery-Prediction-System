@@ -45,6 +45,12 @@ wheels/
 data/output/
 outputs/
 *.csv
+# Public lottery data IS tracked (versioning + backup + the cloud collector
+# commits it); the ledger with real money stays local-only
+!data/prize_tiers.csv
+!data/merged_lottery_data.csv
+!data/lotto_full_history.csv
+data/ledger.csv
 
 # Build artifacts
 *.egg-info/
