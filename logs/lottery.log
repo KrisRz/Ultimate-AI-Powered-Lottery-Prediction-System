@@ -553,3 +553,1347 @@ It should be list, numpy 1-D array or pandas Series
 2025-05-05 21:25:27 - __main__ - INFO - Base prediction: [9, 10, 26, 42, 46, 56]
 2025-05-05 21:25:27 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-05-05.json and outputs/predictions/formatted_predictions_2025-05-05.txt
 2025-05-05 21:25:29 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250505_212527.png
+cross_validation module not available
+2025-08-13 13:12:59,710 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:12:59,712 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:12:59,713 - scripts.utils - WARNING - model_utils module not available
+No models found in the outputs/training directory
+2025-08-13 13:12:59 - scripts.new_predict - WARNING - No models found in the outputs/training directory
+Error loading models: No module named 'keras.saving.pickle_utils'
+2025-08-13 13:12:59 - scripts.new_predict - ERROR - Error loading models: No module named 'keras.saving.pickle_utils'
+cross_validation module not available
+2025-08-13 13:13:49,317 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:13:49,317 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:13:49,318 - scripts.utils - WARNING - model_utils module not available
+Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:13:49 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+Loaded 1 models directly from checkpoints
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+Using weights: {'lstm': 1.0}
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+Attempting to download fresh lottery data...
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+Loaded 51 records from data/merged_lottery_data.csv
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Loaded 51 records from data/merged_lottery_data.csv
+Combined 51 new records with 51 existing records
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Combined 51 new records with 51 existing records
+Combined data contains 60 unique records (42 duplicates removed)
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Combined data contains 60 unique records (42 duplicates removed)
+Prioritized 51 records from new data
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Loading data from data/merged_lottery_data.csv
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+Checking for rows with non-integer values in Number columns...
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.01 seconds
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:13:50 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+Unable to write QA report: name 'json' is not defined
+2025-08-13 13:13:50 - scripts.fetch_data - WARNING - Unable to write QA report: name 'json' is not defined
+Generating 20 diverse predictions...
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Generating 20 diverse predictions...
+Prepared input with shape (1, 30, 15)
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+Error predicting with lstm model: in user code:
+
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2341, in predict_function  *
+        return step_function(self, iterator)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2327, in step_function  **
+        outputs = model.distribute_strategy.run(run_step, args=(data,))
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2315, in run_step  **
+        outputs = model.predict_step(data)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2283, in predict_step
+        return self(x, training=False)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 70, in error_handler
+        raise e.with_traceback(filtered_tb) from None
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/input_spec.py", line 298, in assert_input_compatibility
+        raise ValueError(
+
+    ValueError: Input 0 of layer "sequential" is incompatible with the layer: expected shape=(None, 10, 6), found shape=(None, 30, 15)
+
+2025-08-13 13:13:50 - scripts.new_predict - ERROR - Error predicting with lstm model: in user code:
+
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2341, in predict_function  *
+        return step_function(self, iterator)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2327, in step_function  **
+        outputs = model.distribute_strategy.run(run_step, args=(data,))
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2315, in run_step  **
+        outputs = model.predict_step(data)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2283, in predict_step
+        return self(x, training=False)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 70, in error_handler
+        raise e.with_traceback(filtered_tb) from None
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/input_spec.py", line 298, in assert_input_compatibility
+        raise ValueError(
+
+    ValueError: Input 0 of layer "sequential" is incompatible with the layer: expected shape=(None, 10, 6), found shape=(None, 30, 15)
+
+No valid predictions from any model
+2025-08-13 13:13:50 - scripts.new_predict - WARNING - No valid predictions from any model
+Ensemble prediction failed, using individual models
+2025-08-13 13:13:50 - scripts.new_predict - WARNING - Ensemble prediction failed, using individual models
+Error predicting with lstm model: in user code:
+
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2341, in predict_function  *
+        return step_function(self, iterator)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2327, in step_function  **
+        outputs = model.distribute_strategy.run(run_step, args=(data,))
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2315, in run_step  **
+        outputs = model.predict_step(data)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2283, in predict_step
+        return self(x, training=False)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 70, in error_handler
+        raise e.with_traceback(filtered_tb) from None
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/input_spec.py", line 298, in assert_input_compatibility
+        raise ValueError(
+
+    ValueError: Input 0 of layer "sequential" is incompatible with the layer: expected shape=(None, 10, 6), found shape=(None, 30, 15)
+
+2025-08-13 13:13:50 - scripts.new_predict - ERROR - Error predicting with lstm model: in user code:
+
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2341, in predict_function  *
+        return step_function(self, iterator)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2327, in step_function  **
+        outputs = model.distribute_strategy.run(run_step, args=(data,))
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2315, in run_step  **
+        outputs = model.predict_step(data)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/training.py", line 2283, in predict_step
+        return self(x, training=False)
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 70, in error_handler
+        raise e.with_traceback(filtered_tb) from None
+    File "/Applications/Projects/Ultimate-AI-Powered-Lottery-Prediction-System/conda-py311/lib/python3.11/site-packages/keras/src/engine/input_spec.py", line 298, in assert_input_compatibility
+        raise ValueError(
+
+    ValueError: Input 0 of layer "sequential" is incompatible with the layer: expected shape=(None, 10, 6), found shape=(None, 30, 15)
+
+All model predictions failed, using random numbers
+2025-08-13 13:13:50 - scripts.new_predict - WARNING - All model predictions failed, using random numbers
+Base prediction: [2, 6, 29, 33, 42, 48]
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Base prediction: [2, 6, 29, 33, 42, 48]
+2025-08-13 13:13:50 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250813_131350.png
+2025-08-13 13:13:50 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_131350.png
+cross_validation module not available
+2025-08-13 13:14:32,216 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:14:32,217 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:14:32,217 - scripts.utils - WARNING - model_utils module not available
+Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:14:32 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+Loaded 1 models directly from checkpoints
+2025-08-13 13:14:32 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+Using weights: {'lstm': 1.0}
+2025-08-13 13:14:32 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+Attempting to download fresh lottery data...
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+Combined 51 new records with 60 existing records
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+Prioritized 51 records from new data
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Cache exists but is outdated or for a different file
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+Loading data from data/merged_lottery_data.csv
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+Checking for rows with non-integer values in Number columns...
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.02 seconds
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Added 32 features in 0.02 seconds
+Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+Processed 60 records with 51 columns in 0.03 seconds
+2025-08-13 13:14:32 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.03 seconds
+Unable to write QA report: name 'json' is not defined
+2025-08-13 13:14:32 - scripts.fetch_data - WARNING - Unable to write QA report: name 'json' is not defined
+Generating 20 diverse predictions...
+2025-08-13 13:14:32 - scripts.new_predict - INFO - Generating 20 diverse predictions...
+Prepared input with shape (1, 30, 15)
+2025-08-13 13:14:32 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:14:33 - scripts.new_predict - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:14:33 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250813_131433.png
+2025-08-13 13:14:34 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_131433.png
+cross_validation module not available
+2025-08-13 13:27:03,796 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:27:03,796 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:27:03,796 - scripts.utils - WARNING - model_utils module not available
+Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:27:03 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+Loaded 1 models directly from checkpoints
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+Using weights: {'lstm': 1.0}
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+Attempting to download fresh lottery data...
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+Combined 51 new records with 60 existing records
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+Prioritized 51 records from new data
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Cache exists but is outdated or for a different file
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+Loading data from data/merged_lottery_data.csv
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+Checking for rows with non-integer values in Number columns...
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.01 seconds
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 13:27:04 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+Generating 10 diverse predictions...
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Generating 10 diverse predictions...
+Prepared input with shape (1, 30, 15)
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:27:04 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250813_132704.png
+2025-08-13 13:27:04 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_132704.png
+cross_validation module not available
+2025-08-13 13:31:00,849 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:31:00,849 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:31:00,850 - scripts.utils - WARNING - model_utils module not available
+Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:31:00 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+Loaded 1 models directly from checkpoints
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+Using weights: {'lstm': 1.0}
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+Attempting to download fresh lottery data...
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+Combined 51 new records with 60 existing records
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+Prioritized 51 records from new data
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Cache exists but is outdated or for a different file
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+Loading data from data/merged_lottery_data.csv
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+Checking for rows with non-integer values in Number columns...
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.01 seconds
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 13:31:01 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+Generating 5 diverse predictions...
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Generating 5 diverse predictions...
+Prepared input with shape (1, 30, 15)
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Prepared input with shape (1, 30, 15)
+Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:31:01 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250813_133101.png
+2025-08-13 13:31:01 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_133101.png
+cross_validation module not available
+2025-08-13 13:33:45,190 - scripts.utils - WARNING - cross_validation module not available
+memory_monitor module not available
+2025-08-13 13:33:45,191 - scripts.utils - WARNING - memory_monitor module not available
+model_utils module not available
+2025-08-13 13:33:45,191 - scripts.utils - WARNING - model_utils module not available
+Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+Loaded 1 models directly from checkpoints
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+Using weights: {'lstm': 1.0}
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+Attempting to download fresh lottery data...
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+Combined 51 new records with 60 existing records
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+Prioritized 51 records from new data
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+Cache exists but is outdated or for a different file
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+Loading data from data/merged_lottery_data.csv
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+DataFrame columns and their data types:
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+Column Draw Date: object
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Draw Date: object
+Column Number_1: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_1: int64
+Column Number_2: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_2: int64
+Column Number_3: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_3: int64
+Column Number_4: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_4: int64
+Column Number_5: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_5: int64
+Column Number_6: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Number_6: int64
+Column Bonus: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Bonus: int64
+Column Ball Set: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Ball Set: int64
+Column Machine: object
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column Machine: object
+Column DrawNumber: int64
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Column DrawNumber: int64
+Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+Checking for rows with non-integer values in Number columns...
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+Added 32 features in 0.01 seconds
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 13:33:45 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+Generating 5 diverse predictions...
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Generating 5 diverse predictions...
+Prepared input with shape (1, 10, 6)
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:33:45 - scripts.new_predict - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:33:45 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+Saved visualization to outputs/visualizations/prediction_viz_20250813_133345.png
+2025-08-13 13:33:46 - scripts.new_predict - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_133345.png
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:36:40 - __main__ - INFO - Loading trained models...
+2025-08-13 13:36:40 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:36:40 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 13:36:40 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 13:36:40 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 13:36:40 - __main__ - INFO - Loading lottery data...
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.01 seconds
+2025-08-13 13:36:40 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 13:36:40 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 13:36:40 - __main__ - INFO - Generating 8 diverse predictions...
+2025-08-13 13:36:40 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:36:40 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 13:36:40 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 13:36:41 - __main__ - INFO - Saved visualization to outputs/visualizations/prediction_viz_20250813_133640.png
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:49:19 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 13:49:19 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 13:49:20 - __main__ - INFO - Saved backtest results to outputs/validation/validation_frequency_20250813_134920.json
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 13:56:59 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:02:30 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:02:30 - scripts.validations.backtest - INFO - Adjusting lookback from 200 to 59 due to limited data (have 60)
+2025-08-13 14:02:30 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:02:31 - scripts.validations.backtest - INFO - Saved backtest results to outputs/validation/validation_frequency_20250813_140231.json
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:02:31 - scripts.validations.backtest - INFO - Adjusting lookback from 200 to 59 due to limited data (have 60)
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:02:31 - scripts.validations.backtest - INFO - Saved backtest results to outputs/validation/validation_weighted_20250813_140231.json
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:02:31 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:02:31 - scripts.validations.backtest - INFO - Adjusting lookback from 200 to 59 due to limited data (have 60)
+2025-08-13 14:02:31 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:02:32 - scripts.validations.backtest - INFO - Saved backtest results to outputs/validation/validation_consensus_20250813_140232.json
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:02:32 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:02:32 - scripts.validations.backtest - INFO - Adjusting lookback from 200 to 59 due to limited data (have 60)
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:02:32 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:02:32 - scripts.validations.backtest - INFO - Saved backtest results to outputs/validation/validation_probmap_20250813_140232.json
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:10:13 - __main__ - INFO - Loading trained models...
+2025-08-13 14:10:13 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:10:13 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:10:13 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:10:13 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:10:13 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.01 seconds
+2025-08-13 14:10:13 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:10:13 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:10:13 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:10:13 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:10:14 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:10:14 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:13:58 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:13:58 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:13:58 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:13:58 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:13:58 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:13:59 - __main__ - INFO - Saved backtest results to outputs/validation/validation_frequency_20250813_141359.json
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Added 32 features in 0.02 seconds
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.03 seconds
+2025-08-13 14:22:05 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:22:05 - scripts.new_predict - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:22:06 - scripts.new_predict - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:22:06 - scripts.new_predict - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:22:06 - scripts.new_predict - INFO - Generating 10 diverse predictions...
+2025-08-13 14:22:06 - scripts.new_predict - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:22:06 - scripts.new_predict - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:26:41 - __main__ - INFO - Loading trained models...
+2025-08-13 14:26:41 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:26:41 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:26:41 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:26:41 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:26:41 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:26:41 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:26:41 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:26:41 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:26:41 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:26:41 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:26:41 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:36:22 - __main__ - INFO - Loading trained models...
+2025-08-13 14:36:22 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:36:22 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:36:22 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:36:22 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:36:22 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.01 seconds
+2025-08-13 14:36:22 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:36:22 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:36:22 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:36:22 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:36:23 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:36:23 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:41:53 - __main__ - INFO - Loading trained models...
+2025-08-13 14:41:53 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:41:53 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:41:53 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:41:53 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:41:53 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:41:53 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:41:53 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:41:53 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:41:53 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:41:54 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:41:54 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:46:10 - __main__ - INFO - Loading trained models...
+2025-08-13 14:46:10 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:46:10 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:46:10 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:46:10 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:46:10 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:46:10 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:46:10 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:46:10 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:46:10 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:46:11 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:46:11 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:47:54 - __main__ - INFO - Loading trained models...
+2025-08-13 14:47:54 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:47:54 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:47:54 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:47:54 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:47:54 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:47:54 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:47:54 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:47:54 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:47:54 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:47:55 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:47:55 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:51:24 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:51:25 - __main__ - INFO - Loading trained models...
+2025-08-13 14:51:25 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:51:25 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:51:25 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:51:25 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:51:25 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:51:25 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:51:25 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:51:25 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:51:25 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:51:25 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:51:25 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Attempting to download fresh lottery data...
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Successfully downloaded fresh lottery data to data/lotto-draw-history.csv
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Loaded 51 records from data/lotto-draw-history.csv
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - New data date range: 2025-02-15 to 2025-08-09
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Loaded 60 records from data/merged_lottery_data.csv
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Combined 51 new records with 60 existing records
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Combined data contains 60 unique records (51 duplicates removed)
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Prioritized 51 records from new data
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Date range: 2025-01-15 to 2025-08-09
+2025-08-13 14:55:12 - scripts.fetch_data - INFO - Saved merged data to data/merged_lottery_data.csv
+2025-08-13 14:55:12 - __main__ - INFO - Loading trained models...
+2025-08-13 14:55:12 - __main__ - INFO - Loading model 'lstm' from models/checkpoints/standalone_lstm_model.h5
+2025-08-13 14:55:13 - __main__ - INFO - Loaded 1 models directly from checkpoints
+2025-08-13 14:55:13 - __main__ - INFO - Loaded 1 models: lstm
+2025-08-13 14:55:13 - __main__ - INFO - Using weights: {'lstm': 1.0}
+2025-08-13 14:55:13 - __main__ - INFO - Loading lottery data...
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Cache exists but is outdated or for a different file
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Loading data from data/merged_lottery_data.csv
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - DataFrame columns and their data types:
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Draw Date: object
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_1: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_2: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_3: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_4: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_5: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Number_6: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Bonus: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Ball Set: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column Machine: object
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Column DrawNumber: int64
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Printing first 5 rows of Number columns for debugging:
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_1: [33, 39, 2, 24, 29]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_2: [55, 29, 20, 38, 39]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_3: [34, 2, 12, 23, 38]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_4: [57, 13, 47, 14, 31]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_5: [38, 24, 57, 54, 14]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Number_6: [11, 32, 5, 32, 7]
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Checking for rows with non-integer values in Number columns...
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Creating Main_Numbers from Number_1 through Number_6 columns
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Added 32 features in 0.01 seconds
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Saved processed data to cache: outputs/results/data_cache.pkl
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Processed 60 records with 51 columns in 0.02 seconds
+2025-08-13 14:55:13 - scripts.fetch_data - INFO - Wrote data QA report to outputs/results/data_quality.json
+2025-08-13 14:55:13 - __main__ - INFO - Loaded 60 lottery records
+2025-08-13 14:55:13 - __main__ - INFO - Generating 10 diverse predictions...
+2025-08-13 14:55:13 - __main__ - INFO - Prepared input with shape (1, 10, 6)
+2025-08-13 14:55:13 - __main__ - INFO - Base prediction: [18, 22, 26, 28, 29, 33]
+2025-08-13 14:55:13 - __main__ - INFO - Saved predictions to outputs/predictions/predictions_2025-08-13.json and outputs/predictions/formatted_predictions_2025-08-13.txt

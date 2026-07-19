@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 import numpy as np
 from pathlib import Path
 import logging
@@ -104,26 +105,12 @@ def parse_balls(balls_str: str) -> Tuple[List[int], int]:
                 # Return sorted main numbers and bonus
                 return sorted(main_numbers), bonus
         
-        # If we get here, we couldn't parse the ball string in the expected format
-        # Generate synthetic data based on the input string to maintain determinism
-        seed = sum(ord(c) for c in balls_str) % 10000
-        np.random.seed(seed)
-        main_numbers = sorted(np.random.choice(range(1, 60), 6, replace=False).tolist())
-        bonus = np.random.choice([n for n in range(1, 60) if n not in main_numbers])
-        
-        logger.warning(f"Created synthetic numbers for malformed input '{balls_str}': {main_numbers}, BONUS {bonus}")
-        return main_numbers, bonus
+        # If we get here, we couldn't parse the string; signal invalid
+        raise ValueError(f"Malformed Balls field: '{balls_str}'")
         
     except Exception as e:
         logger.error(f"Error parsing balls string '{balls_str}': {str(e)}")
-        # Instead of raising an error, return synthetic data
-        seed = sum(ord(c) for c in str(balls_str)) % 10000 if balls_str else 0
-        np.random.seed(seed)
-        main_numbers = sorted(np.random.choice(range(1, 60), 6, replace=False).tolist())
-        bonus = np.random.choice([n for n in range(1, 60) if n not in main_numbers])
-        
-        logger.warning(f"Created synthetic numbers after error: {main_numbers}, BONUS {bonus}")
-        return main_numbers, bonus
+        raise
 
 def is_prime(n: int) -> bool:
     """Check if a number is prime."""
@@ -331,7 +318,7 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
         if not data_path.exists():
             raise FileNotFoundError(f"Data file not found: {data_path}")
         
-        cache_file = Path('outputs/outputs/results/data_cache.pkl')
+        cache_file = Path('outputs/results/data_cache.pkl')
         
         # Check cache if enabled
         if use_cache and cache_file.exists():
@@ -489,26 +476,49 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
                 bonus_numbers = []
                 
                 for idx, ball_str in enumerate(df['Balls']):
-                    try:
-                        if pd.isna(ball_str) or ball_str == 'nan' or ball_str.strip() == '':
-                            logger.warning(f"Invalid Balls value at row {idx}: {ball_str}")
-                            main_numbers_list.append([1, 2, 3, 4, 5, 6])
-                            bonus_numbers.append(7)
-                            continue
-                            
-                        main, bonus = parse_balls(ball_str)
-                        main_numbers_list.append(main)
-                        bonus_numbers.append(bonus)
-                    except Exception as e:
-                        logger.error(f"Error parsing row {idx}, Balls: '{ball_str}': {str(e)}")
-                        main_numbers_list.append([1, 2, 3, 4, 5, 6])
-                        bonus_numbers.append(7)
+                    if pd.isna(ball_str) or ball_str == 'nan' or str(ball_str).strip() == '':
+                        logger.warning(f"Invalid Balls value at row {idx}: {ball_str}")
+                        # Skip invalid row entirely
+                        main_numbers_list.append(None)
+                        bonus_numbers.append(None)
+                        continue
+
+                    main, bonus = parse_balls(ball_str)
+                    main_numbers_list.append(main)
+                    bonus_numbers.append(bonus)
                 
                 df['Main_Numbers'] = main_numbers_list
                 df['Bonus'] = bonus_numbers
+                # Drop rows that failed parsing
+                before = len(df)
+                df = df.dropna(subset=['Main_Numbers', 'Bonus']).reset_index(drop=True)
+                after = len(df)
+                if after < before:
+                    logger.warning(f"Dropped {before - after} rows with invalid Balls parsing")
             else:
                 # No known format found, raise error
                 raise ValueError("Could not find columns to create Main_Numbers. Expected 'Number_1' through 'Number_6', 'Ball 1' through 'Ball 6', 'Ball1' through 'Ball6', or 'Balls' column.")
+
+        # Enforce schema integrity: ensure each row has exactly 6 ints in range and unique
+        if 'Main_Numbers' in df.columns:
+            def _valid_numbers(lst):
+                try:
+                    nums = [int(float(x)) for x in lst]
+                except Exception:
+                    return False
+                if len(nums) != 6:
+                    return False
+                if not all(1 <= n <= 59 for n in nums):
+                    return False
+                if len(set(nums)) != 6:
+                    return False
+                return True
+
+            before = len(df)
+            df = df[df['Main_Numbers'].apply(_valid_numbers)].reset_index(drop=True)
+            after = len(df)
+            if after < before:
+                logger.warning(f"Dropped {before - after} rows failing schema constraints for Main_Numbers")
         
         # 3. Process Jackpot if present
         if 'Jackpot' in df.columns and df['Jackpot'].dtype == 'object':
@@ -543,9 +553,25 @@ def load_data(data_path: Union[str, Path], use_cache: bool = True, validate: boo
             except Exception as e:
                 logger.warning(f"Error saving to cache: {str(e)}")
         
-        # Report metrics
+        # Report metrics and write a lightweight QA report
         duration = time.time() - start_time
         logger.info(f"Processed {len(df)} records with {len(df.columns)} columns in {duration:.2f} seconds")
+
+        try:
+            qa = {
+                'records': int(len(df)),
+                'columns': int(len(df.columns)),
+                'date_min': df['Draw Date'].min().strftime('%Y-%m-%d') if 'Draw Date' in df.columns and pd.notnull(df['Draw Date']).any() else None,
+                'date_max': df['Draw Date'].max().strftime('%Y-%m-%d') if 'Draw Date' in df.columns and pd.notnull(df['Draw Date']).any() else None,
+                'schema_ok': True,
+            }
+            qa_path = Path('outputs/results/data_quality.json')
+            qa_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(qa_path, 'w') as f:
+                json.dump(qa, f, indent=2)
+            logger.info(f"Wrote data QA report to {qa_path}")
+        except Exception as _qa_err:
+            logger.warning(f"Unable to write QA report: {_qa_err}")
         
         return df
         
@@ -793,7 +819,7 @@ def prepare_sequence_data(df: pd.DataFrame, sequence_length: int = 10, with_enha
             logger.info(f"Targets shape: {y.shape}")
             
             # Create cache directory if it doesn't exist
-            cache_path = Path("outputs/outputs/results/enhanced_features_cache.pkl")
+            cache_path = Path("outputs/results/enhanced_features_cache.pkl")
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             
             # Save to cache
@@ -956,27 +982,12 @@ def download_new_data() -> None:
         # with open(DOWNLOADED_FILE, 'wb') as f:
         #     f.write(response.content)
         
-        # If the file already exists and we're in a demo/test environment
-        if not DOWNLOADED_FILE.exists() or os.environ.get("LOTTERY_TEST_ENV") == "True":
-            # Create a simple test file with some sample data
-            with open(DOWNLOADED_FILE, 'w') as f:
-                f.write("Draw Date,Number_1,Number_2,Number_3,Number_4,Number_5,Number_6,Bonus,Balls\n")
-                # Add a few recent draws (sample data)
-                from datetime import datetime, timedelta
-                import random
-                
-                # Generate some random draws for demonstration
-                today = datetime.now()
-                for i in range(10):
-                    draw_date = (today - timedelta(days=i*7)).strftime("%Y-%m-%d")
-                    numbers = sorted(random.sample(range(1, 60), 6))
-                    bonus = random.randint(1, 59)
-                    while bonus in numbers:
-                        bonus = random.randint(1, 59)
-                    
-                    balls_str = " ".join(map(str, numbers)) + f" BONUS {bonus}"
-                    line = f"{draw_date},{','.join(map(str, numbers))},{bonus},{balls_str}\n"
-                    f.write(line)
+        # Do not generate sample data; require the official CSV
+        if not DOWNLOADED_FILE.exists():
+            raise FileNotFoundError(
+                f"Download failed and no existing file found at {DOWNLOADED_FILE}. "
+                "Real data is required."
+            )
         
         logger.info(f"Downloaded lottery data saved to {DOWNLOADED_FILE}")
         return
@@ -1125,6 +1136,7 @@ def download_fresh_data() -> bool:
     try:
         import requests
         from datetime import datetime
+        import time as _time
         
         # Ensure data directory exists
         DATA_DIR.mkdir(exist_ok=True, parents=True)
@@ -1136,32 +1148,71 @@ def download_fresh_data() -> bool:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-        
+        # Conditional request headers using saved state
+        state_path = DATA_DIR / ".download_state.json"
         try:
-            response = requests.get(url, headers=headers, timeout=15)
-            response.raise_for_status()  # Raises an exception for 4XX/5XX responses
-            
-            # Save the data
-            with open(DOWNLOADED_FILE, 'wb') as f:
-                f.write(response.content)
-                
-            logger.info(f"Successfully downloaded fresh lottery data to {DOWNLOADED_FILE}")
-            
-            # Now merge with existing data
-            merge_data_files()
-            
-            return True
-            
-        except requests.exceptions.RequestException as req_e:
-            logger.error(f"Failed to download data: {str(req_e)}")
-            
-            # Fallback to existing data if available
-            if MERGED_FILE.exists():
-                logger.info("Using existing data as a substitute for fresh download")
+            if state_path.exists():
+                state = json.load(open(state_path, 'r'))
+                etag = state.get('etag')
+                last_modified = state.get('last_modified')
+                if etag:
+                    headers["If-None-Match"] = etag
+                if last_modified:
+                    headers["If-Modified-Since"] = last_modified
+        except Exception as _state_err:
+            logger.warning(f"Could not read download state: {_state_err}")
+        
+        session = requests.Session()
+        backoff = [0, 2, 5]
+        for attempt, delay in enumerate(backoff, start=1):
+            try:
+                if delay:
+                    _time.sleep(delay)
+                resp = session.get(url, headers=headers, timeout=20)
+                if resp.status_code == 304:
+                    logger.info("Remote data not modified since last download; using existing local file")
+                    # Merge anyway to ensure consistency
+                    if MERGED_FILE.exists() or DOWNLOADED_FILE.exists():
+                        merge_data_files()
+                        return True
+                    logger.warning("No local files found despite 304; retrying a full fetch without conditionals")
+                    # Clear conditional headers and continue
+                    headers.pop("If-None-Match", None)
+                    headers.pop("If-Modified-Since", None)
+                    continue
+                resp.raise_for_status()
+
+                # Save CSV
+                with open(DOWNLOADED_FILE, 'wb') as f:
+                    f.write(resp.content)
+
+                # Persist ETag/Last-Modified
+                try:
+                    new_state = {
+                        'url': url,
+                        'downloaded_at': datetime.now().isoformat(),
+                        'etag': resp.headers.get('ETag'),
+                        'last_modified': resp.headers.get('Last-Modified'),
+                    }
+                    json.dump(new_state, open(state_path, 'w'), indent=2)
+                except Exception as _werr:
+                    logger.warning(f"Could not write download state: {_werr}")
+
+                logger.info(f"Successfully downloaded fresh lottery data to {DOWNLOADED_FILE}")
+
+                # Merge
+                merge_data_files()
                 return True
-            else:
-                logger.error("No existing data found to use as fallback")
-                return False
+
+            except requests.exceptions.RequestException as req_e:
+                logger.error(f"Attempt {attempt} failed to download data: {req_e}")
+                if attempt == len(backoff):
+                    # Final fallback to existing data
+                    if MERGED_FILE.exists():
+                        logger.info("Using existing merged data as fallback")
+                        return True
+                    logger.error("No existing data found to use as fallback")
+                    return False
             
     except Exception as e:
         logger.error(f"Error downloading fresh data: {str(e)}")

@@ -20,7 +20,12 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+try:
+    import tensorflow as tf
+    TF_AVAILABLE = True
+except Exception:
+    tf = None
+    TF_AVAILABLE = False
 import argparse
 import logging
 import json
@@ -63,13 +68,12 @@ for name in ['tensorflow', 'scripts', 'models', 'utils']:
     module_logger.addHandler(logging.StreamHandler(sys.stdout))
     module_logger.setLevel(logging.INFO)
 
-# Import custom modules
-from scripts.train_models import EnsembleTrainer
+# Import custom modules (train modules will be imported lazily only if retraining)
 from scripts.fetch_data import load_data, prepare_sequence_data, DATA_DIR, download_fresh_data
 from scripts.new_predict import visualize_predictions
 
 # Define custom metrics for loading models (needed for TensorFlow models)
-@tf.keras.utils.register_keras_serializable(package='custom_metrics')
+@tf.keras.utils.register_keras_serializable(package='custom_metrics') if TF_AVAILABLE else (lambda f: f)
 def exact_match_metric(y_true, y_pred):
     """Custom metric: Count exact matches between predictions and actual values."""
     # Round predictions to nearest integer
@@ -80,7 +84,7 @@ def exact_match_metric(y_true, y_pred):
     matches = tf.reduce_all(tf.equal(y_pred_rounded, y_true_scaled), axis=1)
     return tf.reduce_mean(tf.cast(matches, tf.float32))
 
-@tf.keras.utils.register_keras_serializable(package='custom_metrics')
+@tf.keras.utils.register_keras_serializable(package='custom_metrics') if TF_AVAILABLE else (lambda f: f)
 def partial_match_metric(y_true, y_pred):
     """Custom metric: Count partial matches (at least 3 correct numbers)."""
     # Round predictions to nearest integer
@@ -98,6 +102,7 @@ def partial_match_metric(y_true, y_pred):
 # Define paths and directories
 OUTPUT_DIR = Path("outputs")
 TRAINING_DIR = OUTPUT_DIR / "training"
+RESULTS_DIR = OUTPUT_DIR / "results"
 VALIDATION_DIR = OUTPUT_DIR / "validation"
 MONITORING_DIR = OUTPUT_DIR / "monitoring"
 INTERPRETATIONS_DIR = OUTPUT_DIR / "interpretations"
@@ -107,7 +112,7 @@ MODELS_DIR = Path("models/checkpoints")
 LOGS_DIR = Path("logs")
 
 # Create all directories
-for directory in [OUTPUT_DIR, TRAINING_DIR, VALIDATION_DIR, MONITORING_DIR, 
+for directory in [OUTPUT_DIR, TRAINING_DIR, RESULTS_DIR, VALIDATION_DIR, MONITORING_DIR, 
                   INTERPRETATIONS_DIR, VISUALIZATIONS_DIR, PREDICTIONS_DIR, 
                   MODELS_DIR, LOGS_DIR, DATA_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
@@ -123,12 +128,14 @@ def parse_args():
                        help='Number of predictions to generate')
     parser.add_argument('--diversity', type=float, default=0.5,
                        help='Diversity level for predictions (0-1)')
+    parser.add_argument('--ensemble', choices=['frequency', 'weighted', 'consensus'], default='frequency',
+                       help='Ensemble combination method')
     parser.add_argument('--sequence-length', type=int, default=30,
                        help='Sequence length for model training')
     parser.add_argument('--seed', type=int, help='Random seed for reproducibility')
     return parser.parse_args()
 
-def generate_predictions(trainer, df, count=10, diversity=0.5):
+def generate_predictions(trainer, df, count=10, diversity=0.5, combination_method: str = 'frequency'):
     """Generate diverse lottery predictions using the ensemble model."""
     # Import prediction functions from new_predict.py
     from scripts.new_predict import (
@@ -152,7 +159,7 @@ def generate_predictions(trainer, df, count=10, diversity=0.5):
         X = prepare_input_data(df)
         
         # Get the base prediction from the ensemble
-        base_prediction = predict_with_ensemble(ensemble, X)
+        base_prediction = predict_with_ensemble(ensemble, X, combination_method=combination_method)
         
         if base_prediction is None:
             logger.warning("Ensemble prediction failed, using individual models")
@@ -453,48 +460,60 @@ def main():
         print(f"Random seed set to {args.seed}")
     
     # Configure GPU memory growth
-    try:
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            for gpu in gpus:
-                tf.config.experimental.set_memory_growth(gpu, True)
-            print(f"Found {len(gpus)} GPU(s), enabled memory growth")
-    except Exception as e:
-        print(f"Error configuring GPU: {e}")
+    if TF_AVAILABLE:
+        try:
+            gpus = tf.config.experimental.list_physical_devices('GPU')
+            if gpus:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                print(f"Found {len(gpus)} GPU(s), enabled memory growth")
+        except Exception as e:
+            print(f"Error configuring GPU: {e}")
     
     # Check if we need to (re)train models
     if args.retrain == 'yes':
         print("\nRetrain option selected. Training models from scratch...")
+        # Lazy import training stack to avoid heavy deps in predict-only mode
+        from scripts.train_models import EnsembleTrainer  # noqa: F401
         success = train_models(force_download=args.force, sequence_length=args.sequence_length)
         if not success:
             print("Model training failed. Check logs for details.")
             sys.exit(1)
     
-    # Load trained models
+    # Load trained models (predict-only path uses lightweight loader)
     print("\nLoading trained models...")
-    trainer = load_models()
-    
-    if trainer is None or not trainer.models:
+    from scripts.new_predict import load_models as np_load_models, create_ensemble, generate_predictions as np_generate_predictions
+    models = np_load_models()
+    if models is None or len(models) == 0:
         print("\nNo trained models available. Please run with --retrain yes first.")
-        print("Alternatively, use --retrain yes to train models from scratch.")
         sys.exit(1)
+    ensemble = create_ensemble(models)
     
-    # Load lottery data
+    # Update and load lottery data (always attempt fresh download + merge)
+    print("\nUpdating lottery data...")
+    try:
+        updated = download_fresh_data()
+        if not updated:
+            logger.warning("Failed to fetch fresh data; proceeding with existing merged dataset if available")
+    except Exception as e:
+        logger.error(f"Error updating lottery data: {str(e)}")
+
     print("\nLoading lottery data...")
     df = load_data(DATA_DIR / "merged_lottery_data.csv")
     print(f"Loaded {len(df)} lottery records")
     
     # Generate predictions
     print("\nGenerating lottery number predictions...")
-    predictions = generate_predictions(
-        trainer, 
-        df, 
+    predictions = np_generate_predictions(
+        ensemble,
+        df,
         count=args.count,
-        diversity=args.diversity
+        diversity=args.diversity,
+        combination_method=args.ensemble,
     )
     
     # Save predictions
-    save_predictions(predictions)
+    json_path, text_path = save_predictions(predictions)
     
     # Display predictions
     display_predictions(predictions)
@@ -502,12 +521,40 @@ def main():
     # Create visualization - always on
     print("\nCreating visualizations...")
     try:
-        visualize_predictions(predictions)
+        viz_path = visualize_predictions(predictions)
         print(f"Visualization saved to outputs/visualizations directory")
     except Exception as e:
         print(f"Error creating visualization: {str(e)}")
         traceback.print_exc()
     
+    # Write run metadata
+    try:
+        run_meta = {
+            'timestamp': datetime.now().isoformat(),
+            'ensemble_method': args.ensemble,
+            'count': args.count,
+            'diversity': args.diversity,
+            'seed': args.seed,
+            'data': {
+                'date_min': df['Draw Date'].min().strftime('%Y-%m-%d') if 'Draw Date' in df.columns else None,
+                'date_max': df['Draw Date'].max().strftime('%Y-%m-%d') if 'Draw Date' in df.columns else None,
+                'records': int(len(df)),
+            },
+            'models': list(models.keys()) if isinstance(models, dict) else [],
+            'outputs': {
+                'predictions_json': str(json_path),
+                'predictions_txt': str(text_path),
+                'visualization': str(viz_path) if 'viz_path' in locals() and viz_path else None,
+            },
+        }
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        meta_path = RESULTS_DIR / f"run_meta_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(meta_path, 'w') as f:
+            json.dump(run_meta, f, indent=2)
+        print(f"Run metadata saved to {meta_path}")
+    except Exception as e:
+        print(f"Warning: failed to write run metadata: {e}")
+
     print("\nAll tasks completed successfully.")
 
 if __name__ == "__main__":

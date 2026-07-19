@@ -43,12 +43,17 @@ pip install -r requirements.txt
 
 To get up and running quickly:
 
-1. Make sure all requirements are installed
-2. Run the main script to generate predictions:
+1. Create the local environment (predict-only stack)
 
 ```bash
-# Run the prediction system with defaults (no retraining)
-python scripts/main.py
+conda env create -f environment.yml
+conda activate lotto-predict
+```
+
+2. Run predictions (10 lines, optimized coverage):
+
+```bash
+./predict_tonight.sh
 ```
 
 The system will automatically:
@@ -62,14 +67,10 @@ The system will automatically:
 The system offers several command-line options to customize its behavior:
 
 ```bash
-# Generate predictions using existing models
-python scripts/main.py
-
-# Retrain models with fresh data
-python scripts/main.py --retrain yes --force
-
-# Generate a specific number of diverse predictions
-python scripts/main.py --count 10 --diversity 0.5
+# One-liners
+make predict      # run predictions
+make backtest     # quick backtest with baselines
+make nightly      # nightly backtest runner
 ```
 
 ### Command Line Arguments

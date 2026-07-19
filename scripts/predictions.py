@@ -518,10 +518,11 @@ def save_predictions(
     try:
         start_time = time.time()
         
-        # Prepare output data
+        # Prepare output data - convert numpy int64 to regular int
+        predictions_serializable = [[int(num) for num in pred] for pred in predictions]
         output = {
             'timestamp': datetime.now().isoformat(),
-            'predictions': predictions,
+            'predictions': predictions_serializable,
             'count': len(predictions)
         }
         
