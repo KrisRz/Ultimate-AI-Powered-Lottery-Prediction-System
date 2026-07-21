@@ -24,6 +24,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lottery.ev import DrawConditions, line_ev, popularity_ratio, should_play  # noqa: E402
+from scripts.ev_play import next_draw_conditions  # noqa: E402
 
 OUT_FILE = Path("outputs/dashboard.html")
 MERGED_FILE = Path("data/merged_lottery_data.csv")
@@ -46,13 +47,9 @@ def gather() -> dict:
         d["last_draw"] = df["Draw Date"].max()
         d["stale_days"] = (datetime.now() - pd.to_datetime(d["last_draw"])).days
 
-    cond = DrawConditions()
-    if PRIZE_TIERS_FILE.exists():
-        tiers = pd.read_csv(PRIZE_TIERS_FILE)
-        last = tiers.sort_values("draw_number").iloc[-1]
-        if pd.notna(last.get("next_jackpot_estimate")):
-            cond.jackpot = float(last["next_jackpot_estimate"])
-        cond.roll_down = bool(last.get("next_jackpot_roll_down", False))
+    # Single source of truth for next-draw conditions - the same function the
+    # advisor and the email alert use (jackpot, MBW flag, estimated sales).
+    cond = next_draw_conditions()
     d["cond"] = cond
     d["verdict"] = should_play(cond, threshold=0.0)
 
@@ -205,7 +202,7 @@ def render(d: dict) -> str:
   <div class="tile">
     <div class="tile-label">Best-line EV (2 rounds, &pound;2 ticket)</div>
     <div class="tile-value">&pound;{v['ev_best_line']:+.2f}</div>
-    <div class="tile-note">jackpot &pound;{cond.jackpot:,.0f}/round &middot; {'Must-Be-Won' if cond.roll_down else 'normal draw'}</div>
+    <div class="tile-note">jackpot &pound;{cond.jackpot:,.0f} (event pool) &middot; {cond.tickets_sold:,} lines sold &middot; {'Must-Be-Won' if cond.roll_down else 'normal draw'}</div>
   </div>"""
 
     if "ledger" in d:
@@ -245,8 +242,8 @@ def render(d: dict) -> str:
 <h2>Current portfolio <span class="muted">({esc(d.get('portfolio_method', '?'))}, {esc(d.get('portfolio_date', '?'))})</span></h2>
 <table>
   <thead><tr><th>#</th><th>Line</th><th>EV</th><th>Popularity vs avg player</th></tr></thead>
-  <tbody>{portfolio_rows or '<tr><td colspan=4>no portfolio yet - run: make play</td></tr>'}</tbody>
-</table>""" if True else ""
+  <tbody>{portfolio_rows or '<tr><td colspan=4>no portfolio - SKIP verdict builds none (python scripts/ev_play.py --force to preview lines)</td></tr>'}</tbody>
+</table>"""
 
     backtest_html = "<h2>Backtest vs random</h2><p class='muted'>no backtest yet - run: make backtest</p>"
     if "backtest" in d:

@@ -86,6 +86,16 @@ class TestLineEV:
         one = line_ev(UNPOPULAR_LINE, DrawConditions(jackpot=2_000_000, rounds=1))
         assert two > one
 
+    def test_rolldown_pool_is_per_event_not_per_round(self):
+        # The MBW jackpot is ONE pool shared across rounds (Allwyn 2026), so
+        # playing two rounds must not double the roll-down uplift
+        def uplift(rounds):
+            base = DrawConditions(jackpot=12_000_000, roll_down=False, rounds=rounds)
+            mbw = DrawConditions(jackpot=12_000_000, roll_down=True, rounds=rounds)
+            return line_ev(UNPOPULAR_LINE, mbw) - line_ev(UNPOPULAR_LINE, base)
+
+        assert uplift(2) <= uplift(1)
+
 
 class TestShouldPlay:
     def test_skips_ordinary_draw_at_zero_threshold(self):
@@ -96,6 +106,13 @@ class TestShouldPlay:
         line = best_unpopular_reference_line()
         assert len(set(line)) == 6
         assert all(32 <= n <= 59 for n in line)  # unpopular = high numbers
+
+    def test_reference_line_is_actually_unpopular(self):
+        # Regression: the old builder produced 32,34,36,... - an arithmetic
+        # sequence whose x8 pattern penalty erased the high-number advantage
+        line = best_unpopular_reference_line()
+        assert len({b - a for a, b in zip(line, line[1:])}) > 1
+        assert popularity_ratio(line) < 0.3
 
     def test_lenient_threshold_allows_play(self):
         verdict = should_play(DrawConditions(jackpot=2_000_000), threshold=-2.0)

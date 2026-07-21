@@ -44,7 +44,7 @@ def main() -> None:
     subject = f"LOTTO +EV ALERT: next draw EV £{verdict['ev_best_line']:+.2f} per line"
     body = (
         f"The next UK Lotto draw clears your EV threshold.\n\n"
-        f"Jackpot (per round): £{cond.jackpot:,.0f}\n"
+        f"Jackpot (event pool): £{cond.jackpot:,.0f}\n"
         f"Must-Be-Won:         {'YES' if cond.roll_down else 'no'}\n"
         f"Estimated lines sold: {cond.tickets_sold:,}\n"
         f"Best-line EV:        £{verdict['ev_best_line']:+.2f} (per £2 ticket, both rounds)\n\n"

@@ -14,8 +14,11 @@ Three ingredients:
    ticket-popularity studies) and are meant to be calibrated against
    data/prize_tiers.csv winner counts as they accumulate.
 
-3. EV per line = sum over both rounds of tier probabilities x payouts
-   (jackpot payout discounted by expected co-winners) minus the ticket price.
+3. EV per line: fixed tiers pay per round; the jackpot is ONE pool per draw
+   event, shared across both rounds (Allwyn, June 2026: "the jackpot will be
+   shared across both rounds, while all other prize tiers will continue to
+   offer fixed cash prizes, paid per round"). Jackpot payout is discounted by
+   expected co-winners from either round; ticket price subtracted once.
 """
 
 from __future__ import annotations
@@ -131,7 +134,7 @@ def expected_cowinner_share(line: Sequence[int], tickets_sold: int) -> float:
 @dataclass
 class DrawConditions:
     """What we know about the next draw event."""
-    jackpot: float = 2_000_000.0          # per round
+    jackpot: float = 2_000_000.0          # single pool per EVENT, shared across rounds
     tickets_sold: int = DEFAULT_TICKETS_SOLD
     roll_down: bool = False               # Must-Be-Won draw
     rounds: int = 2                       # two rounds per event since 2026-06-10
@@ -140,7 +143,12 @@ class DrawConditions:
 
 def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
     """Expected value in GBP of playing `line` for one draw event (all rounds
-    included, ticket price subtracted)."""
+    included, ticket price subtracted).
+
+    Fixed tiers pay per round. The jackpot is one pool for the whole event:
+    a ticket enters it once per round, and co-winners can come from either
+    round, so the pool sees tickets_sold x rounds competing entries.
+    """
     fixed_ev = (
         P_MATCH_5_BONUS * PRIZE_MATCH_5_BONUS
         + P_MATCH_5 * PRIZE_MATCH_5
@@ -148,21 +156,21 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
         + P_MATCH_3 * PRIZE_MATCH_3
         + P_MATCH_2 * PRIZE_MATCH_2
     )
-    jackpot_ev = P_JACKPOT * cond.jackpot * expected_cowinner_share(line, cond.tickets_sold)
+    jackpot_ev = (
+        cond.rounds * P_JACKPOT * cond.jackpot
+        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+    )
 
     rolldown_ev = 0.0
     if cond.roll_down:
-        # Must-Be-Won: if nobody hits the jackpot (near-certain), it is split
-        # across all lower-tier cash winners. Uniform-share approximation:
-        # this line's expected slice = J x P(line wins any cash tier)
-        # / E[number of winning lines among all tickets].
-        p_no_jackpot = exp(-cond.tickets_sold * P_JACKPOT)
-        expected_winning_lines = max(cond.tickets_sold * P_ANY_CASH, 1.0)
-        slice_per_winning_line = cond.jackpot / expected_winning_lines
-        rolldown_ev = p_no_jackpot * P_ANY_CASH * slice_per_winning_line
+        # Must-Be-Won: if no entry in any round hits the jackpot
+        # (near-certain), the single pool is split across all lower-tier cash
+        # winners of both rounds. Uniform-share approximation - the rounds
+        # cancel: per-ticket slice = P(no jackpot) x J / tickets_sold.
+        p_no_jackpot = exp(-cond.tickets_sold * cond.rounds * P_JACKPOT)
+        rolldown_ev = p_no_jackpot * cond.jackpot / max(cond.tickets_sold, 1)
 
-    per_round = fixed_ev + jackpot_ev + rolldown_ev
-    return cond.rounds * per_round - cond.ticket_price
+    return cond.rounds * fixed_ev + jackpot_ev + rolldown_ev - cond.ticket_price
 
 
 def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
@@ -180,7 +188,7 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
         "reference_line": list(reference),
         "threshold": threshold,
         "conditions": {
-            "jackpot_per_round": cond.jackpot,
+            "jackpot_event_pool": cond.jackpot,
             "rounds": cond.rounds,
             "roll_down": cond.roll_down,
             "tickets_sold": cond.tickets_sold,
@@ -223,6 +231,9 @@ def best_unpopular_reference_line() -> List[int]:
     for n in candidates:
         if any(abs(n - m) == 1 for m in line):
             continue  # avoid consecutive-pair pattern appeal
+        trial = sorted(line + [n])
+        if len(trial) >= 3 and len({b - a for a, b in zip(trial, trial[1:])}) == 1:
+            continue  # constant-step lines carry the x8 arithmetic penalty
         line.append(n)
         if len(line) == N_PICK:
             break
