@@ -75,7 +75,7 @@ class TestAddSettleReport:
         assert "Total won:      £24.00" in out
 
     def test_settle_uses_actual_tier_prizes_when_available(self, isolated_ledger):
-        _write_history(isolated_ledger, [HISTORY_ROW_R1])
+        _write_history(isolated_ledger, [HISTORY_ROW_R1, HISTORY_ROW_R2])
         pd.DataFrame([{
             "draw_number": 3190, "draw_date": "2026-07-18", "round": 1, "tier": 5,
             "winners": 82350, "prize_total": 1976400.0, "rollover": False,
@@ -89,13 +89,25 @@ class TestAddSettleReport:
         ))
         roi.cmd_settle(Namespace())
         ledger = pd.read_csv(isolated_ledger / "ledger.csv")
+        # Match-3 in round 1 priced from actual tier data; 0 matches in round 2
         assert float(ledger.iloc[0]["prize"]) == pytest.approx(1976400.0 / 82350)
-        assert ledger.iloc[0]["prize_source"] == "actual"
+        assert ledger.iloc[0]["prize_source"] == "actual+none"
 
     def test_unsettled_when_draw_not_in_history(self, isolated_ledger):
         _write_history(isolated_ledger, [HISTORY_ROW_R1])
         roi.cmd_add(Namespace(
             draw_date="2099-01-02", lines="1 2 3 4 5 6", from_latest=False,
+            cost_per_line=2.0,
+        ))
+        roi.cmd_settle(Namespace())
+        ledger = pd.read_csv(isolated_ledger / "ledger.csv")
+        assert bool(ledger.iloc[0]["settled"]) is False
+
+    def test_unsettled_when_only_one_round_collected(self, isolated_ledger):
+        # 2026-format draws must not settle from partial (single-round) data
+        _write_history(isolated_ledger, [HISTORY_ROW_R1])
+        roi.cmd_add(Namespace(
+            draw_date="2026-07-18", lines="22 32 34 1 2 3", from_latest=False,
             cost_per_line=2.0,
         ))
         roi.cmd_settle(Namespace())

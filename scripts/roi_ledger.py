@@ -47,7 +47,13 @@ LEDGER_COLUMNS = [
 
 def _load_ledger() -> pd.DataFrame:
     if LEDGER_FILE.exists():
-        return pd.read_csv(LEDGER_FILE)
+        ledger = pd.read_csv(LEDGER_FILE)
+        # Unsettled rows round-trip these columns as all-NaN float64; pandas >= 2.2
+        # raises on assigning bool/str into a float column during settle.
+        for col in ("matches_r1", "bonus_r1", "matches_r2", "bonus_r2", "prize_source"):
+            if col in ledger.columns:
+                ledger[col] = ledger[col].astype("object")
+        return ledger
     return pd.DataFrame(columns=LEDGER_COLUMNS)
 
 
@@ -143,8 +149,10 @@ def cmd_settle(_args) -> None:
         draws = history[history["Draw Date"] == row["draw_date"]]
         if draws.empty:
             continue
-        line = set(int(t) for t in str(row["line"]).split())
         d_date = datetime.strptime(row["draw_date"], "%Y-%m-%d").date()
+        if d_date >= TWO_ROUND_START and len(draws) < 2:
+            continue  # partial data - settling on one round would undercount
+        line = set(int(t) for t in str(row["line"]).split())
         total_prize, sources = 0.0, []
         for _, draw in draws.iterrows():
             drawn = {int(draw[f"Number_{i}"]) for i in range(1, 7)}
