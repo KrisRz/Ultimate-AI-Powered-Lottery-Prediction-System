@@ -35,6 +35,25 @@ jobs:
           import sys
           sys.exit(0 if download_fresh_data() else 1)"
 
+      # download_fresh_data() returns True even when the network fails and it
+      # falls back to cached data - verify we actually hold the expected draw,
+      # so a quiet no-op run turns into a loud red one.
+      - name: Verify collected data is fresh
+        run: |
+          PYTHONPATH=. python - <<'EOF'
+          import sys
+          from datetime import date, datetime
+          import pandas as pd
+          from scripts.monitoring.collection_watchdog import most_recent_draw_date
+
+          today = date.today()
+          expected = today if today.weekday() in (2, 5) else most_recent_draw_date()
+          tiers = pd.read_csv("data/prize_tiers.csv")
+          latest = max(datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"])
+          print(f"latest collected: {latest}, expected: {expected}")
+          sys.exit(0 if latest >= expected else 1)
+          EOF
+
       - name: Commit collected data
         run: |
           git config user.name "lotto-collector[bot]"

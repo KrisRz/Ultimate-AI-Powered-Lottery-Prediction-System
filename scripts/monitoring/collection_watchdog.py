@@ -37,15 +37,21 @@ def main() -> int:
     if not PRIZE_TIERS_FILE.exists():
         problem = f"{PRIZE_TIERS_FILE} does not exist at all"
     else:
-        tiers = pd.read_csv(PRIZE_TIERS_FILE)
-        latest = max(
-            datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"]
-        )
-        if latest >= expected:
-            print(f"[watchdog] OK - draw {expected} present (latest: {latest}, "
-                  f"{len(tiers)} tier rows total)")
-            return 0
-        problem = f"latest collected draw is {latest}, expected {expected}"
+        # A truncated/empty file must alert like missing data, not crash
+        # before the email goes out.
+        try:
+            tiers = pd.read_csv(PRIZE_TIERS_FILE)
+            latest = max(
+                datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"]
+            )
+        except Exception as exc:
+            problem = f"could not read {PRIZE_TIERS_FILE}: {exc}"
+        else:
+            if latest >= expected:
+                print(f"[watchdog] OK - draw {expected} present (latest: {latest}, "
+                      f"{len(tiers)} tier rows total)")
+                return 0
+            problem = f"latest collected draw is {latest}, expected {expected}"
 
     msg = (
         f"Lotto data collection FAILED: {problem}.\n\n"

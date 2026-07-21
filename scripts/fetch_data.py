@@ -1178,24 +1178,17 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
     legacy.to_csv(DOWNLOADED_FILE, index=False)
     merge_data_files()
 
-    # Keep the full-history file (both rounds) up to date if it exists
-    if FULL_HISTORY_FILE.exists():
-        full = pd.read_csv(FULL_HISTORY_FILE)
-        if draw_number not in set(full["DrawNumber"].astype(int)):
-            jackpot_raw = (game.findtext("next-estimated-jackpot") or "").replace(",", "")
-            new_rows = pd.DataFrame([{
-                "Draw Date": draw_date,
-                **{f"Number_{i+1}": n for i, n in enumerate(r["numbers"])},
-                "Bonus": r["bonus"],
-                "Jackpot": 0,
-                "JackpotWins": 0,
-                "Machine": r["machine"],
-                "Ball Set": r["ball_set"],
-                "DrawNumber": draw_number,
-                "Round": r["round"],
-            } for r in rounds])
-            pd.concat([full, new_rows], ignore_index=True).to_csv(FULL_HISTORY_FILE, index=False)
-            logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
+    # This draw's jackpot is the estimate published after the PREVIOUS draw -
+    # the XML itself only carries next-estimated-jackpot (i.e. for draw N+1).
+    # Read it before this draw's tier rows overwrite the file.
+    this_draw_jackpot = 0.0
+    if PRIZE_TIERS_FILE.exists():
+        prev_tiers = pd.read_csv(PRIZE_TIERS_FILE)
+        prev_tiers = prev_tiers[prev_tiers["draw_number"] < draw_number]
+        if len(prev_tiers):
+            est = prev_tiers.sort_values("draw_number").iloc[-1].get("next_jackpot_estimate")
+            if pd.notna(est):
+                this_draw_jackpot = float(est)
 
     # Prize tiers: levels 1-6 belong to Round 1, 7-12 to Round 2
     winners_el = game.find("winners")
@@ -1227,6 +1220,27 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
             tiers_df = tiers_df.drop_duplicates(subset=["draw_number", "round", "tier"], keep="last")
         tiers_df.sort_values(["draw_number", "round", "tier"]).to_csv(PRIZE_TIERS_FILE, index=False)
         logger.info(f"Recorded {len(tier_rows)} prize-tier rows for draw {draw_number} in {PRIZE_TIERS_FILE}")
+
+    # Keep the full-history file (both rounds) up to date if it exists
+    if FULL_HISTORY_FILE.exists():
+        full = pd.read_csv(FULL_HISTORY_FILE)
+        if draw_number not in set(full["DrawNumber"].astype(int)):
+            jackpot_wins = {
+                row["round"]: row["winners"] for row in tier_rows if row["tier"] == 1
+            }
+            new_rows = pd.DataFrame([{
+                "Draw Date": draw_date,
+                **{f"Number_{i+1}": n for i, n in enumerate(r["numbers"])},
+                "Bonus": r["bonus"],
+                "Jackpot": this_draw_jackpot,
+                "JackpotWins": jackpot_wins.get(r["round"], 0),
+                "Machine": r["machine"],
+                "Ball Set": r["ball_set"],
+                "DrawNumber": draw_number,
+                "Round": r["round"],
+            } for r in rounds])
+            pd.concat([full, new_rows], ignore_index=True).to_csv(FULL_HISTORY_FILE, index=False)
+            logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
 
 
 def download_fresh_data() -> bool:
