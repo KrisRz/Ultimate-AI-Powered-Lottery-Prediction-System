@@ -12,9 +12,37 @@ Fazy 1–6 wdrożone i zmergowane do `main` (PR #1–#5). Faza 7 (pętla danych)
 - 🟢 Watchdog (czw./niedz. 12:00) alarmuje mailem, gdy losowanie nie zostało zebrane (dane z oficjalnego XML są nieodwracalne po ~72 h).
 - 🟢 Maile przez SMTP potwierdzone na **obu** torach (chmura + lokalny Mac); alert tylko przy werdykcie PLAY lub awarii.
 - 🟢 Tor lokalny launchd (`post_draw.sh`): pull danych z chmury → settle ledgera (prywatny, poza repo) → dashboard.
-- 🟢 55 testów, CI zielone. Koszt: £0/mies. Pierwsza automatyczna zbiórka: środa 2026-07-22 22:45 czasu PL.
+- 🟢 58 testów. Koszt: £0/mies. Pierwsza automatyczna zbiórka: środa 2026-07-22 22:45 czasu PL.
 
-**➡️ NASTĘPNA SESJA (~2026-08, po ~9 losowaniach):** sprawdzić stabilność estymatora sprzedaży (~8,4 mln), wpisać realną nagrodę 5+bonus (dziś placeholder £250k w `lottery/ev.py`), zweryfikować mapowanie tierów→rund. Kalibracja wag popularności: ~2026-09/10 (25+ losowań). Szczegóły w Fazie 7 niżej. Do tego czasu appka pracuje sama — użytkownik czeka na mail „PLAY".
+**➡️ NASTĘPNA SESJA (~2026-08, po ~9 losowaniach):** sprawdzić stabilność estymatora sprzedaży (~8,4 mln), wpisać realną nagrodę 5+bonus (dziś placeholder £250k w `lottery/ev.py`). Kalibracja wag popularności: ~2026-09/10 (25+ losowań). Szczegóły w Fazie 7 niżej. Do tego czasu appka pracuje sama — użytkownik czeka na mail „PLAY".
+
+**⚠️ SPRAWDZIĆ W CZWARTEK 2026-07-23:** czy cron GitHub Actions faktycznie odpalił w środę (`gh run list` — do 2026-07-21 scheduler **nigdy** nie zadziałał, wszystkie sukcesy to ręczne dispatche; niedzielny watchdog 20.07 przepadł). Jeśli nie odpalił: ręczny dispatch `Collect draw data` + zbadać cron (push do workflow zwykle go budzi — nastąpił 2026-07-21).
+
+---
+
+## AUDYT 2026-07-21 — głęboka analiza i naprawy
+
+Trzyagentowy audyt (silnik EV, pipeline danych, ewaluacja). Rdzeń matematyczny zweryfikowany numerycznie jako poprawny (hipergeometryka = oficjalne kursy, Poisson współzwycięzców, estymator sprzedaży 8,38 mln spójny między tierami, mapowanie tierów→rund spójne wszędzie — kamień „zweryfikować mapowanie" z Fazy 7 zaliczony przedterminowo).
+
+**Rozstrzygnięcie kluczowej niewiadomej — semantyka jackpota:** oficjalny komunikat Allwyn: *„The jackpot will be shared across both rounds, while all other prize tiers will continue to offer fixed cash prizes, paid per round."* Jackpot = **jedna pula na całe losowanie** (nie per runda). Stary kod liczył roll-down 2× za wysoko i lekko zawyżał jackpot EV. Naprawione w `lottery/ev.py` (λ współzwycięzców × rundy; roll-down: rundy się skracają, per-kupon = e^(−2N·P_J)·J/N) + test regresyjny.
+
+**Naprawione tego dnia:**
+1. `roi_ledger.py`: kolumny bool/str po round-tripie CSV (pandas ≥2.2 rzucał TypeError w `settle` — to było źródło czerwonego CI na main) + zakaz rozliczania losowania 2026+ przy tylko 1 rundzie w danych.
+2. `lottery/ev.py`: linia referencyjna była ciągiem arytmetycznym [32,34,36,…] (kara ×8 niwelowała niepopularność, ratio 1.01 zamiast 0.13) → teraz [32,34,37,39,41,43], ratio ≈0.13; klucz w werdykcie `jackpot_per_round`→`jackpot_event_pool`.
+3. `dashboard.py`: używał własnej kopii warunków (15 mln kuponów zamiast estymowanych 8,4 mln → możliwy rozjazd mail PLAY vs dashboard SKIP) → teraz importuje `next_draw_conditions()` z `ev_play` (jedno źródło prawdy, to samo co alert mailowy).
+4. `ev_play.py`: flaga Must-Be-Won odporna na NaN (`bool(NaN)` dawał fałszywy PLAY), guard na pusty `prize_tiers.csv`, `latest.json` zapisywany też przy SKIP (koniec pętli „run make play" na dashboardzie).
+5. `fetch_data.py`: dopisywane do historii losowania miały `Jackpot: 0` (obliczony `jackpot_raw` nieużyty!) → teraz jackpot z `next_jackpot_estimate` poprzedniego losowania + realne `JackpotWins` z tierów. Ważne dla kalibracji Fazy 7 — dane są nieodwracalne.
+6. `collect.yml`: krok walidacji świeżości (fetch „udaje się" nawet przy braku sieci — teraz brak oczekiwanego losowania = czerwony run).
+7. `collection_watchdog.py`: uszkodzony/pusty CSV alarmuje mailem zamiast crashować przed wysyłką.
+8. `post_draw.sh`: nieudany rebase robi `--abort` (wcześniej zostawiał repo mid-rebase i zabijał wszystkie kolejne runy).
+9. `Makefile`: `PY ?= ./conda-py311/bin/python` — `make test/backtest/nightly` działają bez aktywowanej condy; `make backtest` z `--offline` (reprodukowalność).
+10. Sprzątanie: usunięte `predictions.py`, `simple_runner.py`, `compare_runs.py`, `analyze_predictions.py` (~1800 linii martwego/pseudonaukowego kodu) + `trained_models.pkl.backup` (4,2 MB); untracked `logs/lottery.log`, `data/.download_state.json`, `data/lotto-latest.xml` (wiecznie brudne drzewo).
+
+**Otwarte po audycie (do Fazy 7):**
+- Model roll-downu (uniform split) niezweryfikowany do pierwszego realnego Must-Be-Won; w danych 3190 jackpot zresetował się do £2M przy 0 zwycięzcach tier 1 i rollover=False — obserwować.
+- `popularity_ratio` nieznormalizowane po mnożnikach wzorców (globalna λ zawyżona) — poprawić przy kalibracji wag.
+- `SUM_BAND` górna granica 260 w portfelu ucina najlepsze niepopularne linie (sumy ~300) — rozluźnić przy kalibracji.
+- Werdykt PLAY liczony na linii referencyjnej; po zbudowaniu portfela warto walidować `min(EV) ≥ próg`.
 
 ---
 
@@ -202,7 +230,7 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 - [x] Liczba sprzedanych kuponów: **~8,4 mln/losowanie** estymowane z liczby zwycięzców tierów match-2/3/4 (`estimate_tickets_sold`) zamiast założonych 15 mln — EV advisor używa tego automatycznie.
 
 **Kamienie milowe:**
-- [ ] **+1 miesiąc** (~9 losowań, 100+ wierszy tierów): sprawdzić stabilność estymatora N (rozrzut median tydzień do tygodnia); pierwszy zaobserwowany zwycięzca 5+bonus → wpisać realną nagrodę w `PRIZE_MATCH_5_BONUS` (dziś placeholder £250k); zweryfikować, że tiery 1–6/7–12 faktycznie mapują się na rundy 1/2.
+- [ ] **+1 miesiąc** (~9 losowań, 100+ wierszy tierów): sprawdzić stabilność estymatora N (rozrzut median tydzień do tygodnia); pierwszy zaobserwowany zwycięzca 5+bonus → wpisać realną nagrodę w `PRIZE_MATCH_5_BONUS` (dziś placeholder £250k). ~~Zweryfikować mapowanie tierów 1–6/7–12 → rundy 1/2~~ — zrobione w audycie 2026-07-21 (spójne w `fetch_data`/`roi_ledger`/`ev`).
 - [ ] **+2–3 miesiące** (25+ losowań, 50+ rund): **kalibracja wag popularności** — nowy `scripts/calibrate_popularity.py`: dla każdej rundy policz `popularity_ratio` wylosowanej szóstki i dopasuj wagi (boost dat, dyskonto >31, lucky numbers) regresją `observed_winners / (N × P_tier)` ~ popularity score. Walidacja: istotna dodatnia korelacja score↔zwycięzcy; bez niej zostają wagi z literatury.
 - [ ] **Roll-down watch:** pierwsze losowanie Must-Be-Won → porównać realny podział jackpotu z naszym modelem roll-downu i poprawić go.
 - [ ] **Ledger ≥ 20 zagranych kuponów** (tylko przy PLAY!) → pierwszy raport ROI z sensowną próbką.

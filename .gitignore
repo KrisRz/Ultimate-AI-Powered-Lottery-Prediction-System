@@ -52,6 +52,10 @@ outputs/
 !data/lotto_full_history.csv
 data/ledger.csv
 
+# Fetcher state - rewritten on every fetch, never worth versioning
+data/.download_state.json
+data/lotto-latest.xml
+
 # Build artifacts
 *.egg-info/
 *.whl
