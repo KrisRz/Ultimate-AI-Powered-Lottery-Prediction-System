@@ -33,9 +33,13 @@ N_PICK = 6
 TOTAL_COMBOS = comb(N_BALLS, N_PICK)  # 45,057,474
 
 # Fixed per-winner prizes by tier, observed in official 2026 draw data
-# (data/prize_tiers.csv: prize_total / winners). 5+bonus had no winners in
-# observed draws yet - placeholder from pre-2026 structure, update when seen.
-PRIZE_MATCH_5_BONUS = 250_000.0
+# (data/prize_tiers.csv: prize_total / winners). 5+bonus is the well-known fixed
+# GBP 1,000,000 tier, confirmed in every collected draw and the full history
+# backfill (data/prize_tiers_history.csv).
+# NOTE: Match 3 (24) and Match 2 (5) vary between draws in the two-round game
+# (draw 3191 paid 10 / 1, draw 3190 paid 24 / 5) - they look pari-mutuel, not
+# fixed. Revisit once more official two-round draws accumulate (Phase 7).
+PRIZE_MATCH_5_BONUS = 1_000_000.0
 PRIZE_MATCH_5 = 1_000.0
 PRIZE_MATCH_4 = 50.0
 PRIZE_MATCH_3 = 24.0
@@ -65,20 +69,22 @@ P_ANY_CASH = P_JACKPOT + P_MATCH_5_BONUS + P_MATCH_5 + P_MATCH_4 + P_MATCH_3 + P
 # --- Popularity model -------------------------------------------------------
 
 def number_weight(n: int) -> float:
-    """Relative pick-rate of a single number vs uniform (1.0 = average).
+    """Relative pick-rate of a single number vs uniform (population mean 1.0).
 
-    Heuristic, calibration-pending: dates (1-31) are over-played, especially
-    1-12 (both day and month); numbers above 31 are under-played; a few
-    culturally "lucky" numbers get an extra boost.
+    Calibrated 2026-07-25 against 1,126 draws of Match-3 winner counts
+    (scripts/calibrate_popularity.py, data/prize_tiers_history.csv): draws with
+    more birthday-range numbers (<=31) yield systematically more low-tier
+    winners per ticket, so those numbers are over-played. The gap is real but
+    ~half the size the earlier literature heuristic assumed, and the per-number
+    "lucky" boosts it posited (7, 11, ...) sat within noise - so only the three
+    calibrated bucket levels survive. Dates 1-12 (both day and month) are the
+    most over-played; numbers above 31 are the safe, under-played picks.
     """
     if n <= 12:
-        w = 1.35
-    elif n <= 31:
-        w = 1.20
-    else:
-        w = 0.72
-    lucky = {3: 1.10, 7: 1.30, 11: 1.10, 17: 1.05, 23: 1.05}
-    return w * lucky.get(n, 1.0)
+        return 1.23
+    if n <= 31:
+        return 1.10
+    return 0.83
 
 
 MEAN_WEIGHT = sum(number_weight(n) for n in range(1, N_BALLS + 1)) / N_BALLS

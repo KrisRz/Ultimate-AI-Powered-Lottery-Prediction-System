@@ -14,9 +14,9 @@ Fazy 1–6 wdrożone i zmergowane do `main` (PR #1–#5). Faza 7 (pętla danych)
 - 🟢 Tor lokalny launchd (`post_draw.sh`): pull danych z chmury → settle ledgera (prywatny, poza repo) → dashboard.
 - 🟢 58 testów. Koszt: £0/mies. Pierwsza automatyczna zbiórka: środa 2026-07-22 22:45 czasu PL.
 
-**➡️ NASTĘPNA SESJA (~2026-08, po ~9 losowaniach):** sprawdzić stabilność estymatora sprzedaży (~8,4 mln), wpisać realną nagrodę 5+bonus (dziś placeholder £250k w `lottery/ev.py`). Kalibracja wag popularności: ~2026-09/10 (25+ losowań). Szczegóły w Fazie 7 niżej. Do tego czasu appka pracuje sama — użytkownik czeka na mail „PLAY".
+**➡️ STAN 2026-07-25:** kalibracja popularności ZROBIONA przedterminowo (backfill 1126 historycznych rozbić nagród z lottery.co.uk zdjął blokadę „czekaj 25+ losowań") — wagi `number_weight` skalibrowane na danych, nagroda 5+Bonus poprawiona na £1M. Szczegóły w Fazie 7 niżej. Otwarte: zmienne Match 3/Match 2 (do weryfikacji przy większej liczbie oficjalnych losowań 2-rundowych) + roll-down watch. Appka pracuje sama — użytkownik czeka na mail „PLAY".
 
-**⚠️ SPRAWDZIĆ W CZWARTEK 2026-07-23:** czy cron GitHub Actions faktycznie odpalił w środę (`gh run list` — do 2026-07-21 scheduler **nigdy** nie zadziałał, wszystkie sukcesy to ręczne dispatche; niedzielny watchdog 20.07 przepadł). Jeśli nie odpalił: ręczny dispatch `Collect draw data` + zbadać cron (push do workflow zwykle go budzi — nastąpił 2026-07-21).
+**✅ CRON POTWIERDZONY (2026-07-25):** scheduler GitHub Actions odpalił **sam** po raz pierwszy — `Collect draw data` (event=`schedule`) śr. 2026-07-22 22:42 UTC + retry czw. 08:41 UTC, `Collection watchdog` czw. 13:41 UTC, wszystkie sukcesem. Commit `1262502 data: collect draw 2026-07-22` na main (pierwszy realny commit z workflow). Losowanie 3191: 12 wierszy tierów, jackpot £2M niezerowy w historii, JackpotWins=0 (rollover). Tor lokalny launchd też zebrał to samo (`logs/post_draw.log` śr. 22:52). Pętla danych działa w pełni bez interwencji.
 
 ---
 
@@ -229,9 +229,13 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 **Co już skalibrowane z danych (2026-07-19):**
 - [x] Liczba sprzedanych kuponów: **~8,4 mln/losowanie** estymowane z liczby zwycięzców tierów match-2/3/4 (`estimate_tickets_sold`) zamiast założonych 15 mln — EV advisor używa tego automatycznie.
 
+**Co skalibrowane 2026-07-25 (przedterminowo — mieliśmy dane):**
+- [x] **Backfill historycznych rozbić nagród** — `scripts/backfill_prize_tiers.py` ściąga z `lottery.co.uk/lotto/results-DD-MM-YYYY` (liczby zwycięzców per tier per runda, zgodne CO DO SZTUKI z oficjalnym feedem). Cała era 59-kulowa: **1126 losowań** w `data/prize_tiers_history.csv`. To zdjęło blokadę „czekaj 25+ losowań".
+- [x] **Kalibracja wag popularności** — `scripts/calibrate_popularity.py` na 1139 rundach: losowania „urodzinowe" (dużo liczb ≤31) mają **+78% więcej zwycięzców/kupon** (monotonicznie 0,75→1,84; korelacja z modelem +0,51). Wagi odzyskane fitem forward-modelu (od-tłumienie ×2) → wpisane do `number_weight`: **≤12: 1,23 / 13–31: 1,10 / >31: 0,83** (było 1,35/1,20/0,72 — model był ~2× za agresywny). Słownik „lucky" usunięty (boosty w granicach szumu).
+- [x] **Match 5+Bonus = £1 000 000** (potwierdzone w oficjalnych i historycznych danych) — zastąpiło placeholder £250k. Efekt: próg opłacalności non-MBW spadł £9,2M→£4,76M.
+
 **Kamienie milowe:**
-- [ ] **+1 miesiąc** (~9 losowań, 100+ wierszy tierów): sprawdzić stabilność estymatora N (rozrzut median tydzień do tygodnia); pierwszy zaobserwowany zwycięzca 5+bonus → wpisać realną nagrodę w `PRIZE_MATCH_5_BONUS` (dziś placeholder £250k). ~~Zweryfikować mapowanie tierów 1–6/7–12 → rundy 1/2~~ — zrobione w audycie 2026-07-21 (spójne w `fetch_data`/`roi_ledger`/`ev`).
-- [ ] **+2–3 miesiące** (25+ losowań, 50+ rund): **kalibracja wag popularności** — nowy `scripts/calibrate_popularity.py`: dla każdej rundy policz `popularity_ratio` wylosowanej szóstki i dopasuj wagi (boost dat, dyskonto >31, lucky numbers) regresją `observed_winners / (N × P_tier)` ~ popularity score. Walidacja: istotna dodatnia korelacja score↔zwycięzcy; bez niej zostają wagi z literatury.
+- [ ] **+1 miesiąc** (~9 losowań): sprawdzić stabilność estymatora N. ~~5+bonus prize~~ zrobione (£1M). **Match 3/Match 2 są ZMIENNE** (3191: £10/£1, 3190: £24/£5 — wyglądają pari-mutuel); kod trzyma £24/£5, zweryfikować przy większej liczbie oficjalnych losowań 2-rundowych i ewentualnie przejść na średnią. ~~Mapowanie tierów~~ — zrobione (audyt 2026-07-21).
 - [ ] **Roll-down watch:** pierwsze losowanie Must-Be-Won → porównać realny podział jackpotu z naszym modelem roll-downu i poprawić go.
 - [ ] **Ledger ≥ 20 zagranych kuponów** (tylko przy PLAY!) → pierwszy raport ROI z sensowną próbką.
 

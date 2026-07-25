@@ -112,7 +112,9 @@ class TestShouldPlay:
         # sequence whose x8 pattern penalty erased the high-number advantage
         line = best_unpopular_reference_line()
         assert len({b - a for a, b in zip(line, line[1:])}) > 1
-        assert popularity_ratio(line) < 0.3
+        # Calibrated weights are less extreme than the old heuristic: a pure
+        # high-number line lands near 0.83**6 ~= 0.33, still firmly unpopular.
+        assert popularity_ratio(line) < 0.4
 
     def test_lenient_threshold_allows_play(self):
         verdict = should_play(DrawConditions(jackpot=2_000_000), threshold=-2.0)
