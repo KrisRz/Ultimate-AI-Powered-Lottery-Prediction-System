@@ -48,6 +48,7 @@ outputs/
 # Public lottery data IS tracked (versioning + backup + the cloud collector
 # commits it); the ledger with real money stays local-only
 !data/prize_tiers.csv
+!data/prize_tiers_history.csv
 !data/merged_lottery_data.csv
 !data/lotto_full_history.csv
 data/ledger.csv
@@ -109,3 +110,6 @@ test_env/
 .DS_Store
 .DS_Store
 .coverage
+
+# Local HTML cache for backfill_prize_tiers.py
+.tier_cache/
