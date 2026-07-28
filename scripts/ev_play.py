@@ -27,6 +27,7 @@ from lottery.ev import (  # noqa: E402
     DEFAULT_TICKETS_SOLD,
     calibrate_fixed_prizes,
     estimate_tickets_sold,
+    forecast_must_be_won,
     should_play,
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
@@ -47,6 +48,8 @@ def next_draw_conditions() -> DrawConditions:
             # bool(NaN) is True - a missing flag must never fake a Must-Be-Won
             flag = last.get("next_jackpot_roll_down")
             cond.roll_down = pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1")
+            if pd.notna(last.get("rollover_count")):
+                cond.rollover_count = int(last["rollover_count"])
             estimated = estimate_tickets_sold(tiers)
             if estimated:
                 cond.tickets_sold = estimated
@@ -89,6 +92,11 @@ def main() -> None:
     print(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
     print(f"Rounds per ticket:    {cond.rounds}")
     print(f"Must-Be-Won:          {'YES' if cond.roll_down else 'no'}")
+    mbw = forecast_must_be_won(cond.rollover_count)
+    if not cond.roll_down:
+        print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
+              f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
+              f"if nobody wins before")
     print(f"Assumed lines sold:   {cond.tickets_sold:,}")
     p = cond.prizes
     print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "

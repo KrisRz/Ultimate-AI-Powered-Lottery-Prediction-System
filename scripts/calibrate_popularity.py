@@ -186,6 +186,12 @@ def report(df: pd.DataFrame, recovered: np.ndarray) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--window", type=int, default=TREND_WINDOW)
+    parser.add_argument("--since", default=None, metavar="YYYY-MM-DD",
+                        help="Fit only on draws from this date on. Player habits "
+                             "drift, so a recent-only fit is the check on whether "
+                             "the whole-history weights still describe today.")
+    parser.add_argument("--last-draws", type=int, default=None, metavar="N",
+                        help="Fit only on the most recent N draw-rounds")
     args = parser.parse_args()
 
     if not TIERS_HISTORY_FILE.exists():
@@ -193,7 +199,16 @@ def main() -> int:
             f"{TIERS_HISTORY_FILE} not found - run scripts/backfill_prize_tiers.py first."
         )
     df = load_joined()
+    # Subset AFTER the trend is divided out: the rolling median needs the
+    # surrounding draws to estimate sales, and a window truncated at the edge
+    # would leak the popularity term it is supposed to remove.
     df = add_multiplier(df, args.window)
+    if args.since:
+        df = df[pd.to_datetime(df["Draw Date"]) >= args.since]
+    if args.last_draws:
+        df = df.tail(args.last_draws)
+    if len(df) < 100:
+        raise SystemExit(f"Only {len(df)} observations after filtering - too few to fit")
     df = drawn_features(df)
     recovered = per_number_regression(df)
     report(df, recovered)
