@@ -47,9 +47,13 @@ make install-cron                                # auto post-draw routine (Wed/S
 - **Probabilities** (`lottery/ev.py`): exact hypergeometric — jackpot
   1:45,057,474; 5+bonus 1:7,509,579; match-5 1:144,415; match-4 1:2,180;
   match-3 1:96; match-2 1:10.3 — verified in tests.
-- **Prizes**: fixed lower tiers observed from official 2026 data (match-5
-  £1000, match-4 £50, match-3 £24, match-2 £5); the jackpot is pari-mutuel
-  and gets discounted by the expected number of co-winners.
+- **Prizes**: fixed lower tiers re-derived from official 2026 data on every run
+  (`calibrate_fixed_prizes`, median over collected draws — 5+bonus £1,000,000,
+  match-5 £1000, match-4 £50, match-3 £10, match-2 £1); the jackpot is
+  pari-mutuel and gets discounted by the expected number of co-winners. Note
+  that a **roll-down draw pays more in the low tiers** (3190 paid £24/£5); that
+  uplift is the jackpot being redistributed and is priced separately, so the
+  median deliberately ignores it.
 - **Popularity model**: number weights (dates over-played, high numbers
   under-played) + pattern multipliers (arithmetic sequences, birthday-only
   tickets). Calibration data accumulates in `data/prize_tiers.csv` with every

@@ -32,10 +32,12 @@ COST_PER_LINE = 2.0
 TWO_ROUND_START = date(2026, 6, 7)
 
 # Fallback per-winner prize estimates when prize_tiers.csv has no actuals.
-# Keyed by (matches, bonus_hit). Jackpot/5+bonus are rough placeholders -
-# real amounts are pari-mutuel and drawn from prize_tiers.csv when possible.
-PRIZES_NEW_RULES = {(6, False): 2_000_000, (5, True): 250_000, (5, False): 1_000,
-                    (4, False): 50, (3, False): 24, (2, False): 5}
+# Keyed by (matches, bonus_hit). Only the jackpot is a rough placeholder - it is
+# pari-mutuel and taken from prize_tiers.csv whenever the draw was collected.
+# Match 3/2 are the BASE prizes (10/1); a roll-down draw pays more, but then the
+# real amounts are in prize_tiers.csv and `_prize_for` prefers them.
+PRIZES_NEW_RULES = {(6, False): 2_000_000, (5, True): 1_000_000, (5, False): 1_000,
+                    (4, False): 50, (3, False): 10, (2, False): 1}
 PRIZES_OLD_RULES = {(6, False): 3_000_000, (5, True): 1_000_000, (5, False): 1_750,
                     (4, False): 140, (3, False): 30, (2, False): 0}
 

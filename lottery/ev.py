@@ -36,18 +36,40 @@ TOTAL_COMBOS = comb(N_BALLS, N_PICK)  # 45,057,474
 # (data/prize_tiers.csv: prize_total / winners). 5+bonus is the well-known fixed
 # GBP 1,000,000 tier, confirmed in every collected draw and the full history
 # backfill (data/prize_tiers_history.csv).
-# NOTE: Match 3 (24) and Match 2 (5) vary between draws in the two-round game
-# (draw 3191 paid 10 / 1, draw 3190 paid 24 / 5) - they look pari-mutuel, not
-# fixed. Revisit once more official two-round draws accumulate (Phase 7).
+#
+# Match 3 / Match 2 are 10 / 1 in the two-round game - the base values, in 12 of
+# the 13 two-round draws on record. The one exception, draw 3190 (2026-07-18),
+# paid 24 / 5 because it was a ROLL-DOWN draw: the source page reads "GBP 10
+# Rolldown Prize: GBP 24" and "GBP 1 Rolldown Prize: GBP 5". Earlier revisions
+# read 24 / 5 off that single draw and treated it as the norm, which inflated
+# every line's EV by ~GBP 1.07 and put the non-MBW break-even jackpot at 4.8M
+# instead of 30M. Two guards against a repeat: these defaults are the base
+# prizes only, and `calibrate_fixed_prizes` re-derives them from collected data
+# with a median (roll-downs are a minority, so they cannot move it). The
+# roll-down boost is priced separately, in `line_ev`'s rolldown_ev term.
+#
+# Sanity check on the level: 2 x these prizes = GBP 0.73 of a GBP 2 line (36%),
+# plus the jackpot share ~= the ~50% UK Lotto returns to players. At 24 / 5 the
+# fixed tiers alone would have returned 90%, which no lottery does.
 PRIZE_MATCH_5_BONUS = 1_000_000.0
 PRIZE_MATCH_5 = 1_000.0
 PRIZE_MATCH_4 = 50.0
-PRIZE_MATCH_3 = 24.0
-PRIZE_MATCH_2 = 5.0
+PRIZE_MATCH_3 = 10.0
+PRIZE_MATCH_2 = 1.0
 
-# Typical number of lines sold per draw (UK Lotto). Only affects jackpot
-# sharing and roll-down splits; override from CLI when you know better.
-DEFAULT_TICKETS_SOLD = 15_000_000
+# Tier codes as they appear in data/prize_tiers.csv (1 = jackpot).
+TIER_MATCH_5_BONUS = 2
+TIER_MATCH_5 = 3
+TIER_MATCH_4 = 4
+TIER_MATCH_3 = 5
+TIER_MATCH_2 = 6
+
+# Typical number of lines sold per draw (UK Lotto). Only a fallback: with
+# collected data, `estimate_tickets_sold` measures it per draw. The 15,000,000
+# this used to hold was a guess; the median implied by tier winner counts across
+# the whole 59-ball era is ~8.6M and the two-round era runs ~6.5-7.5M
+# (data/prize_tiers_history.csv). Affects jackpot sharing and roll-down splits.
+DEFAULT_TICKETS_SOLD = 7_500_000
 
 
 def match_probability(k: int) -> float:
@@ -137,6 +159,32 @@ def expected_cowinner_share(line: Sequence[int], tickets_sold: int) -> float:
 
 # --- EV ---------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class FixedPrizes:
+    """Per-winner payouts for the tiers that are NOT pari-mutuel.
+
+    Base prizes: what an ordinary draw pays. A roll-down draw pays more in the
+    low tiers, but that uplift is the jackpot pool being redistributed and is
+    modelled in `line_ev`, so it must not be baked in here as well.
+    """
+    match_5_bonus: float = PRIZE_MATCH_5_BONUS
+    match_5: float = PRIZE_MATCH_5
+    match_4: float = PRIZE_MATCH_4
+    match_3: float = PRIZE_MATCH_3
+    match_2: float = PRIZE_MATCH_2
+    source: str = "default"               # "default" or "observed (N draws)"
+
+    def ev_per_round(self) -> float:
+        """Expected fixed-tier payout of one line in one round, before cost."""
+        return (
+            P_MATCH_5_BONUS * self.match_5_bonus
+            + P_MATCH_5 * self.match_5
+            + P_MATCH_4 * self.match_4
+            + P_MATCH_3 * self.match_3
+            + P_MATCH_2 * self.match_2
+        )
+
+
 @dataclass
 class DrawConditions:
     """What we know about the next draw event."""
@@ -145,6 +193,7 @@ class DrawConditions:
     roll_down: bool = False               # Must-Be-Won draw
     rounds: int = 2                       # two rounds per event since 2026-06-10
     ticket_price: float = TICKET_PRICE
+    prizes: FixedPrizes = field(default_factory=FixedPrizes)
 
 
 def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
@@ -155,13 +204,7 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
     a ticket enters it once per round, and co-winners can come from either
     round, so the pool sees tickets_sold x rounds competing entries.
     """
-    fixed_ev = (
-        P_MATCH_5_BONUS * PRIZE_MATCH_5_BONUS
-        + P_MATCH_5 * PRIZE_MATCH_5
-        + P_MATCH_4 * PRIZE_MATCH_4
-        + P_MATCH_3 * PRIZE_MATCH_3
-        + P_MATCH_2 * PRIZE_MATCH_2
-    )
+    fixed_ev = cond.prizes.ev_per_round()
     jackpot_ev = (
         cond.rounds * P_JACKPOT * cond.jackpot
         * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
@@ -173,6 +216,15 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
         # (near-certain), the single pool is split across all lower-tier cash
         # winners of both rounds. Uniform-share approximation - the rounds
         # cancel: per-ticket slice = P(no jackpot) x J / tickets_sold.
+        #
+        # Validated against draw 3190 (2026-07-18), the first roll-down we hold
+        # data for: the boost went to Match 3 (+GBP 14 x 169,438 winners) and
+        # Match 2 (+GBP 4 x 1,756,390), Match 4/5 untouched, total GBP 9.40M
+        # redistributed against a GBP 9.56M must-be-won pool (98%). Model term
+        # J/N = GBP 1.28/line vs GBP 1.26 actually paid out.
+        #
+        # Note this uplift is popularity-blind: a roll-down pays fixed boosts
+        # to low-tier winners, so an unpopular line gains nothing extra here.
         p_no_jackpot = exp(-cond.tickets_sold * cond.rounds * P_JACKPOT)
         rolldown_ev = p_no_jackpot * cond.jackpot / max(cond.tickets_sold, 1)
 
@@ -193,11 +245,20 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
         "ev_best_line": ev,
         "reference_line": list(reference),
         "threshold": threshold,
+        "break_even_jackpot": break_even_jackpot(cond, reference),
         "conditions": {
             "jackpot_event_pool": cond.jackpot,
             "rounds": cond.rounds,
             "roll_down": cond.roll_down,
             "tickets_sold": cond.tickets_sold,
+            "prizes": {
+                "match_5_bonus": cond.prizes.match_5_bonus,
+                "match_5": cond.prizes.match_5,
+                "match_4": cond.prizes.match_4,
+                "match_3": cond.prizes.match_3,
+                "match_2": cond.prizes.match_2,
+                "source": cond.prizes.source,
+            },
         },
     }
 
@@ -228,6 +289,75 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20) -> int | None:
         row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
     )
     return int(estimates[len(estimates) // 2])
+
+
+def calibrate_fixed_prizes(tiers_df, last_n_draws: int = 30,
+                           min_rows: int = 3) -> FixedPrizes:
+    """Re-derive the fixed per-winner prizes from collected official data.
+
+    Each (draw, round) row of data/prize_tiers.csv gives prize_total / winners
+    for a tier - the exact amount that tier paid. The estimator is the MEDIAN
+    over rows, and that choice is the whole safety mechanism: roll-down draws
+    boost Match 3 / Match 2 (3190 paid 24 / 5 over a base of 10 / 1) but are a
+    small minority, so they cannot move the median. Taking a mean - or reading
+    a single draw, which is how the 24 / 5 bug got in - would fold the
+    redistributed jackpot into the base prizes and double-count it against
+    `line_ev`'s rolldown_ev term.
+
+    Tiers with fewer than `min_rows` observations keep their module default
+    (5+bonus is usually won by nobody, so it rarely clears the bar).
+    """
+    fallback = FixedPrizes()
+    if tiers_df is None or len(tiers_df) == 0:
+        return fallback
+
+    recent_draws = sorted(tiers_df["draw_number"].unique())[-last_n_draws:]
+    sample = tiers_df[
+        tiers_df["draw_number"].isin(recent_draws)
+        & (tiers_df["winners"] > 0)
+        & (tiers_df["prize_total"] > 0)
+    ]
+    if len(sample) == 0:
+        return fallback
+
+    def median_for(tier: int, default: float) -> float:
+        rows = sample[sample["tier"] == tier]
+        if len(rows) < min_rows:
+            return default
+        per_winner = sorted(rows["prize_total"] / rows["winners"])
+        mid = len(per_winner) // 2
+        value = (per_winner[mid] if len(per_winner) % 2
+                 else (per_winner[mid - 1] + per_winner[mid]) / 2)
+        return round(float(value), 2)
+
+    return FixedPrizes(
+        match_5_bonus=median_for(TIER_MATCH_5_BONUS, fallback.match_5_bonus),
+        match_5=median_for(TIER_MATCH_5, fallback.match_5),
+        match_4=median_for(TIER_MATCH_4, fallback.match_4),
+        match_3=median_for(TIER_MATCH_3, fallback.match_3),
+        match_2=median_for(TIER_MATCH_2, fallback.match_2),
+        source=f"observed ({len(recent_draws)} draws)",
+    )
+
+
+def break_even_jackpot(cond: DrawConditions,
+                       line: Sequence[int] | None = None) -> float:
+    """Jackpot pool at which `line` breaks even under `cond`'s other terms.
+
+    Answers "how big does it have to get?" directly, instead of leaving the
+    reader to invert the EV formula. Returns inf if no jackpot can do it.
+    """
+    line = list(line) if line is not None else best_unpopular_reference_line()
+    shortfall = cond.ticket_price - cond.rounds * cond.prizes.ev_per_round()
+    if shortfall <= 0:
+        return 0.0
+    per_pound = (
+        cond.rounds * P_JACKPOT
+        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+    )
+    if cond.roll_down:
+        per_pound += exp(-cond.tickets_sold * cond.rounds * P_JACKPOT) / max(cond.tickets_sold, 1)
+    return shortfall / per_pound if per_pound > 0 else float("inf")
 
 
 def best_unpopular_reference_line() -> List[int]:

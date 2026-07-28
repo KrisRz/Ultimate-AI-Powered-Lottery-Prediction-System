@@ -4,14 +4,20 @@ import pytest
 
 from lottery.ev import (
     DrawConditions,
+    FixedPrizes,
+    PRIZE_MATCH_2,
+    PRIZE_MATCH_3,
     P_JACKPOT,
     P_MATCH_2,
     P_MATCH_3,
     P_MATCH_4,
     P_MATCH_5,
     P_MATCH_5_BONUS,
+    TICKET_PRICE,
     TOTAL_COMBOS,
     best_unpopular_reference_line,
+    break_even_jackpot,
+    calibrate_fixed_prizes,
     expected_cowinner_share,
     line_ev,
     match_probability,
@@ -119,6 +125,108 @@ class TestShouldPlay:
     def test_lenient_threshold_allows_play(self):
         verdict = should_play(DrawConditions(jackpot=2_000_000), threshold=-2.0)
         assert verdict["play"] is True
+
+
+class TestFixedPrizes:
+    """Regression cover for the roll-down-prizes-as-base-prizes bug.
+
+    Draw 3190 (2026-07-18) was a roll-down: it paid Match 3 £24 / Match 2 £5
+    over a base of £10 / £1. Reading those off that one draw inflated every
+    line's EV by ~£1.07 and dropped the break-even jackpot from £30M to £4.8M -
+    close enough to a real rollover to trigger a false PLAY alert.
+    """
+
+    @staticmethod
+    def _tiers(match_3_by_draw):
+        """prize_tiers.csv-shaped frame; {draw_number: match-3 prize} in."""
+        import pandas as pd
+        rows = []
+        for draw, m3 in match_3_by_draw.items():
+            for rnd in (1, 2):
+                for tier, winners, per_winner in (
+                    (3, 40, 1_000.0), (4, 3_000, 50.0),
+                    (5, 80_000, m3), (6, 800_000, 1.0 if m3 == 10 else 5.0),
+                ):
+                    rows.append({"draw_number": draw, "round": rnd, "tier": tier,
+                                 "winners": winners,
+                                 "prize_total": winners * per_winner})
+        return pd.DataFrame(rows)
+
+    def test_defaults_are_base_prizes(self):
+        assert PRIZE_MATCH_3 == 10.0
+        assert PRIZE_MATCH_2 == 1.0
+
+    def test_fixed_tiers_return_a_plausible_share_of_the_stake(self):
+        # UK Lotto returns ~50% of stakes; the fixed tiers are only part of
+        # that (the jackpot pool is the rest). At the old 24/5 this was 90%,
+        # which is the tell that no lottery could pay it.
+        share = DrawConditions().rounds * FixedPrizes().ev_per_round() / TICKET_PRICE
+        assert 0.30 < share < 0.45
+
+    def test_recovers_prizes_from_observed_data(self):
+        prizes = calibrate_fixed_prizes(self._tiers({3191: 10, 3192: 10, 3193: 10}))
+        assert prizes.match_3 == 10.0
+        assert prizes.match_2 == 1.0
+        assert prizes.match_5 == 1_000.0
+        assert prizes.match_4 == 50.0
+        assert prizes.source.startswith("observed")
+
+    def test_median_ignores_a_minority_rolldown_draw(self):
+        prizes = calibrate_fixed_prizes(
+            self._tiers({3190: 24, 3191: 10, 3192: 10, 3193: 10}))
+        assert prizes.match_3 == 10.0
+        assert prizes.match_2 == 1.0
+
+    def test_thin_data_keeps_the_defaults(self):
+        import pandas as pd
+        one_row = pd.DataFrame([{"draw_number": 3190, "round": 1, "tier": 5,
+                                 "winners": 80_000, "prize_total": 80_000 * 24}])
+        assert calibrate_fixed_prizes(one_row).match_3 == PRIZE_MATCH_3
+
+    def test_no_data_keeps_the_defaults(self):
+        import pandas as pd
+        assert calibrate_fixed_prizes(None) == FixedPrizes()
+        assert calibrate_fixed_prizes(pd.DataFrame(
+            columns=["draw_number", "round", "tier", "winners",
+                     "prize_total"])) == FixedPrizes()
+
+    def test_zero_winner_tiers_are_skipped(self):
+        # Unclaimed tiers carry prize_total 0 - averaging them in would drag
+        # every prize toward zero.
+        import pandas as pd
+        rows = [{"draw_number": d, "round": r, "tier": 5, "winners": w,
+                 "prize_total": w * 10.0}
+                for d, r, w in ((3191, 1, 0), (3191, 2, 80_000),
+                                (3192, 1, 80_000), (3192, 2, 80_000))]
+        assert calibrate_fixed_prizes(pd.DataFrame(rows)).match_3 == 10.0
+
+    def test_rolldown_prizes_are_not_double_counted(self):
+        # The roll-down uplift lives in line_ev's rolldown term. If the base
+        # prizes also carried it, a roll-down draw would be priced twice.
+        cond = DrawConditions(jackpot=9_560_000, roll_down=True,
+                              tickets_sold=7_457_262)
+        boosted = DrawConditions(jackpot=9_560_000, roll_down=True,
+                                 tickets_sold=7_457_262,
+                                 prizes=FixedPrizes(match_3=24.0, match_2=5.0))
+        assert line_ev(UNPOPULAR_LINE, boosted) - line_ev(UNPOPULAR_LINE, cond) \
+            == pytest.approx(2 * (P_MATCH_3 * 14 + P_MATCH_2 * 4))
+
+
+class TestBreakEvenJackpot:
+    def test_break_even_jackpot_makes_ev_zero(self):
+        cond = DrawConditions(tickets_sold=7_457_262)
+        cond.jackpot = break_even_jackpot(cond)
+        assert line_ev(best_unpopular_reference_line(), cond) == pytest.approx(0.0, abs=1e-6)
+
+    def test_ordinary_draw_needs_an_implausible_jackpot(self):
+        # With base prizes the bar is ~£30M - UK Lotto caps out well below
+        # that, so "SKIP" is the answer for every non-Must-Be-Won draw.
+        assert break_even_jackpot(DrawConditions(tickets_sold=7_457_262)) > 25_000_000
+
+    def test_rolldown_break_even_is_far_lower(self):
+        plain = break_even_jackpot(DrawConditions(tickets_sold=7_457_262))
+        mbw = break_even_jackpot(DrawConditions(tickets_sold=7_457_262, roll_down=True))
+        assert mbw < plain / 2
 
 
 class TestEstimateTicketsSold:

@@ -202,7 +202,7 @@ def render(d: dict) -> str:
   <div class="tile">
     <div class="tile-label">Best-line EV (2 rounds, &pound;2 ticket)</div>
     <div class="tile-value">&pound;{v['ev_best_line']:+.2f}</div>
-    <div class="tile-note">jackpot &pound;{cond.jackpot:,.0f} (event pool) &middot; {cond.tickets_sold:,} lines sold &middot; {'Must-Be-Won' if cond.roll_down else 'normal draw'}</div>
+    <div class="tile-note">jackpot &pound;{cond.jackpot:,.0f} (event pool) &middot; {cond.tickets_sold:,} lines sold &middot; {'Must-Be-Won' if cond.roll_down else 'normal draw'}<br>break-even at &pound;{v['break_even_jackpot']:,.0f} &middot; fixed prizes {cond.prizes.source}: 3&rarr;&pound;{cond.prizes.match_3:,.0f}, 2&rarr;&pound;{cond.prizes.match_2:,.0f}</div>
   </div>"""
 
     if "ledger" in d:
