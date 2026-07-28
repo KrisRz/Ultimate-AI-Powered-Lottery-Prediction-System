@@ -15,12 +15,14 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from lottery.ev import next_draw_dates  # noqa: E402
 
 DATA_DIR = Path("data")
 LEDGER_FILE = DATA_DIR / "ledger.csv"
@@ -60,11 +62,8 @@ def _load_ledger() -> pd.DataFrame:
 
 
 def _next_draw_date(today: date | None = None) -> date:
-    """Lotto draws are on Wednesday (2) and Saturday (5)."""
-    d = (today or date.today()) + timedelta(days=1)
-    while d.weekday() not in (2, 5):
-        d += timedelta(days=1)
-    return d
+    """Lotto draws are on Wednesday and Saturday - calendar lives in lottery.ev."""
+    return next_draw_dates(today, 1)[0]
 
 
 def _parse_lines(lines_arg: str) -> list[list[int]]:

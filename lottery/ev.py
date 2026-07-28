@@ -24,6 +24,7 @@ Three ingredients:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from math import comb, exp
 from typing import Iterable, List, Sequence
 
@@ -128,24 +129,121 @@ def _is_arithmetic(line: Sequence[int]) -> bool:
     return len(diffs) == 1
 
 
-def popularity_ratio(line: Sequence[int]) -> float:
-    """How much more (>1) or less (<1) likely other players are to hold this
-    exact line, relative to a uniformly random pick.
+ARITHMETIC_MULT = 8.0       # 1-2-3-4-5-6, 5-10-15-..., very heavily played
+CONSECUTIVE_MULT = 1.8      # any run of three or more
+BIRTHDAY_MULT = 1.6         # every number <= 31
 
-    Independent weighted-pick model (product of number weights, normalized)
-    times pattern multipliers for visually attractive tickets.
-    """
+
+def _raw_popularity(line: Sequence[int]) -> float:
     ratio = 1.0
     for n in line:
         ratio *= number_weight(n) / MEAN_WEIGHT
 
     if _is_arithmetic(line):
-        ratio *= 8.0        # 1-2-3-4-5-6, 5-10-15-..., very heavily played
+        ratio *= ARITHMETIC_MULT
     elif _has_consecutive_run(line, 3):
-        ratio *= 1.8
+        ratio *= CONSECUTIVE_MULT
     if all(n <= 31 for n in line):
-        ratio *= 1.6        # pure-birthday ticket
+        ratio *= BIRTHDAY_MULT
     return ratio
+
+
+def popularity_ratio(line: Sequence[int]) -> float:
+    """How much more (>1) or less (<1) likely other players are to hold this
+    exact line, relative to a uniformly random pick.
+
+    Independent weighted-pick model (product of number weights) times pattern
+    multipliers for visually attractive tickets, divided by the constant that
+    makes the average over all C(59,6) lines exactly 1.0 - see
+    POPULARITY_NORMALIZATION.
+    """
+    return _raw_popularity(line) / POPULARITY_NORMALIZATION
+
+
+def _weight_sums(balls: int, pick: int = N_PICK) -> tuple:
+    """Exact sums of the number-weight product over every C(balls, pick) line
+    drawn from 1..balls: (all lines, only lines holding a run of 3+).
+
+    Straight enumeration would mean 45M lines. This walks the balls once,
+    carrying (chosen so far, trailing run length capped at 2, run-of-3 seen)
+    and accumulating the weight products - 59 steps over <60 states.
+    """
+    states = {(0, 0, False): 1.0}
+    for n in range(1, balls + 1):
+        w = number_weight(n) / MEAN_WEIGHT
+        nxt: dict = {}
+        for (k, run, seen), acc in states.items():
+            skip = (k, 0, seen)                     # n not on the ticket: run breaks
+            nxt[skip] = nxt.get(skip, 0.0) + acc
+            if k < pick:
+                run_now = run + 1
+                take = (k + 1, min(run_now, 2), seen or run_now >= 3)
+                nxt[take] = nxt.get(take, 0.0) + acc * w
+        states = nxt
+    total = sum(v for (k, _, _), v in states.items() if k == pick)
+    with_run = sum(v for (k, _, seen), v in states.items() if k == pick and seen)
+    return total, with_run
+
+
+def _arithmetic_lines(balls: int = N_BALLS, pick: int = N_PICK):
+    """Every constant-step line, cheapest to enumerate directly (there are 319
+    of them for 6 from 59)."""
+    for step in range(1, (balls - 1) // (pick - 1) + 1):
+        for start in range(1, balls - step * (pick - 1) + 1):
+            yield [start + i * step for i in range(pick)]
+
+
+def _popularity_normalization() -> float:
+    """Mean of the raw popularity score over all C(59,6) lines.
+
+    `popularity_ratio` is a pick rate *relative to uniform*, so its average
+    across every possible line has to be exactly 1.0 - otherwise
+    `tickets_sold * ratio / TOTAL_COMBOS` describes more (or fewer) tickets
+    than were actually sold. The raw score averages 1.046: the pattern
+    multipliers push mass in and nothing takes it back out. Dividing by this
+    constant restores the invariant.
+
+    Computed exactly rather than sampled, and recomputed from whatever the
+    weights and multipliers currently are, so a recalibration cannot leave a
+    stale constant behind. Let w(line) be the product of number weights and
+    B(line) = 1.6 when every number is <= 31:
+
+        sum = SUM w*B  +  7 * SUM_arithmetic w*B  +  0.8 * SUM_run3-only w*B
+
+    (7 and 0.8 are the multipliers minus the 1.0 already counted; arithmetic
+    wins over the run-of-3 branch, and the only arithmetic lines holding a run
+    of 3 are the step-1 ones.)
+    """
+    all_lines, all_run3 = _weight_sums(N_BALLS)
+    low_lines, low_run3 = _weight_sums(31)      # lines that are entirely <= 31
+
+    def with_birthday(over_all: float, over_low: float) -> float:
+        return over_all + (BIRTHDAY_MULT - 1.0) * over_low
+
+    arith = arith_low = arith_run3 = arith_run3_low = 0.0
+    for line in _arithmetic_lines():
+        w = 1.0
+        for n in line:
+            w *= number_weight(n) / MEAN_WEIGHT
+        is_low = line[-1] <= 31
+        arith += w
+        arith_low += w if is_low else 0.0
+        if line[1] - line[0] == 1:              # step 1 => also a run of 3+
+            arith_run3 += w
+            arith_run3_low += w if is_low else 0.0
+
+    total = (
+        with_birthday(all_lines, low_lines)
+        + (ARITHMETIC_MULT - 1.0) * with_birthday(arith, arith_low)
+        + (CONSECUTIVE_MULT - 1.0) * (
+            with_birthday(all_run3, low_run3)
+            - with_birthday(arith_run3, arith_run3_low)
+        )
+    )
+    return total / TOTAL_COMBOS
+
+
+POPULARITY_NORMALIZATION = _popularity_normalization()
 
 
 def expected_cowinner_share(line: Sequence[int], tickets_sold: int) -> float:
@@ -194,6 +292,7 @@ class DrawConditions:
     rounds: int = 2                       # two rounds per event since 2026-06-10
     ticket_price: float = TICKET_PRICE
     prizes: FixedPrizes = field(default_factory=FixedPrizes)
+    rollover_count: int = 0               # consecutive rollovers so far (feed)
 
 
 def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
@@ -289,6 +388,51 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20) -> int | None:
         row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
     )
     return int(estimates[len(estimates) // 2])
+
+
+# UK Lotto pays the jackpot out at the latest on the 6th draw of a roll:
+# after ROLLOVER_CAP consecutive rollovers the next draw is Must-Be-Won and
+# rolls down to the lower tiers if nobody hits six. Read off the data rather
+# than the rulebook: across every draw since Nov 2018 no rollover streak
+# exceeded 5, and all 70 draws that reached 5 were resolved right there - 53
+# rolled down, 17 had an outright jackpot winner.
+ROLLOVER_CAP = 5
+DRAW_WEEKDAYS = (2, 5)          # Wednesday, Saturday
+
+
+def next_draw_dates(after: date | None = None, count: int = 1) -> List[date]:
+    """The next `count` draw dates strictly after `after` (default: today)."""
+    d = (after or date.today())
+    out: List[date] = []
+    while len(out) < count:
+        d += timedelta(days=1)
+        if d.weekday() in DRAW_WEEKDAYS:
+            out.append(d)
+    return out
+
+
+def forecast_must_be_won(rollover_count: int, after: date | None = None) -> dict:
+    """How many draws until the jackpot must be paid out, and on what date.
+
+    `rollover_count` is the post-draw counter carried by the official feed
+    (data/prize_tiers.csv), so the upcoming draw is the one that would make it
+    `rollover_count + 1`. The Must-Be-Won draw is the one entered on a count of
+    ROLLOVER_CAP.
+
+    This is an UPPER BOUND on the wait, not a schedule: any jackpot win resets
+    the counter and pushes the date out. It is for planning a budget - the
+    authoritative one-draw-ahead signal stays the official feed's
+    `next_jackpot_roll_down` flag, which `DrawConditions.roll_down` carries.
+    """
+    draws_away = max(ROLLOVER_CAP - int(rollover_count) + 1, 1)
+    dates = next_draw_dates(after, draws_away)
+    return {
+        "rollover_count": int(rollover_count),
+        "cap": ROLLOVER_CAP,
+        "draws_away": draws_away,
+        "expected_date": dates[-1],
+        "is_next_draw": draws_away == 1,
+    }
 
 
 def calibrate_fixed_prizes(tiers_df, last_n_draws: int = 30,

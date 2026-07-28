@@ -23,7 +23,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lottery.ev import DrawConditions, line_ev, popularity_ratio, should_play  # noqa: E402
+from lottery.ev import (  # noqa: E402
+    DrawConditions,
+    forecast_must_be_won,
+    line_ev,
+    popularity_ratio,
+    should_play,
+)
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 
 OUT_FILE = Path("outputs/dashboard.html")
@@ -192,6 +198,12 @@ def render(d: dict) -> str:
         if play else
         "negative EV at your threshold (normal for ordinary draws) - do not play"
     )
+    if not cond.roll_down:
+        mbw = forecast_must_be_won(cond.rollover_count)
+        verdict_note += (
+            f" · rollover {mbw['rollover_count']}/{mbw['cap']}, Must-Be-Won in "
+            f"{mbw['draws_away']} draw(s) (~{mbw['expected_date']}) unless won first"
+        )
 
     tiles = f"""
   <div class="tile {verdict_cls}">

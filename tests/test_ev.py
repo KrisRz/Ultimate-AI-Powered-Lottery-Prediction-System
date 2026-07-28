@@ -1,10 +1,15 @@
 """Tests for the EV engine - probabilities, popularity model, EV, portfolio."""
 
+from datetime import date
+
 import pytest
 
 from lottery.ev import (
     DrawConditions,
     FixedPrizes,
+    POPULARITY_NORMALIZATION,
+    ROLLOVER_CAP,
+    _weight_sums,
     PRIZE_MATCH_2,
     PRIZE_MATCH_3,
     P_JACKPOT,
@@ -19,8 +24,10 @@ from lottery.ev import (
     break_even_jackpot,
     calibrate_fixed_prizes,
     expected_cowinner_share,
+    forecast_must_be_won,
     line_ev,
     match_probability,
+    next_draw_dates,
     popularity_ratio,
     should_play,
 )
@@ -125,6 +132,89 @@ class TestShouldPlay:
     def test_lenient_threshold_allows_play(self):
         verdict = should_play(DrawConditions(jackpot=2_000_000), threshold=-2.0)
         assert verdict["play"] is True
+
+
+class TestPopularityNormalization:
+    """popularity_ratio is a pick rate relative to uniform, so its mean over
+    every possible line must be exactly 1.0 - otherwise
+    `tickets_sold * ratio / TOTAL_COMBOS` describes more tickets than were sold.
+    """
+
+    def test_mean_over_random_lines_is_one(self):
+        import random
+        rng = random.Random(20260728)
+        n = 40_000
+        mean = sum(popularity_ratio(rng.sample(range(1, 60), 6))
+                   for _ in range(n)) / n
+        assert mean == pytest.approx(1.0, abs=0.02)
+
+    def test_raw_score_is_the_one_that_drifts(self):
+        # Documents WHY the constant exists: the pattern multipliers add mass
+        # that nothing takes back out.
+        assert POPULARITY_NORMALIZATION > 1.0
+
+    def test_weight_sums_match_brute_force(self):
+        # The DP replaces a 45M-line enumeration; check it against the real
+        # thing on a lottery small enough to enumerate (4 from 12).
+        import itertools
+        from lottery.ev import MEAN_WEIGHT, _has_consecutive_run, number_weight
+
+        total = run3 = 0.0
+        for line in itertools.combinations(range(1, 13), 4):
+            w = 1.0
+            for n in line:
+                w *= number_weight(n) / MEAN_WEIGHT
+            total += w
+            if _has_consecutive_run(line, 3):
+                run3 += w
+
+        dp_total, dp_run3 = _weight_sums(12, 4)
+        assert dp_total == pytest.approx(total, rel=1e-12)
+        assert dp_run3 == pytest.approx(run3, rel=1e-12)
+
+    def test_arithmetic_enumeration_is_complete(self):
+        import itertools
+        from lottery.ev import _arithmetic_lines, _is_arithmetic
+
+        enumerated = {tuple(line) for line in _arithmetic_lines(20, 4)}
+        brute = {c for c in itertools.combinations(range(1, 21), 4)
+                 if _is_arithmetic(c)}
+        assert enumerated == brute
+
+    def test_relative_ordering_survives_normalization(self):
+        assert popularity_ratio([1, 2, 3, 4, 5, 6]) > popularity_ratio(BIRTHDAY_LINE)
+        assert popularity_ratio(BIRTHDAY_LINE) > popularity_ratio(UNPOPULAR_LINE)
+
+
+class TestMustBeWonForecast:
+    """The only reliably +EV draws are Must-Be-Won ones, so knowing when the
+    next is due is what turns 'wait for the alert' into a budget plan."""
+
+    def test_draw_dates_are_wednesdays_and_saturdays(self):
+        dates = next_draw_dates(date(2026, 7, 28), 5)
+        assert [d.isoformat() for d in dates] == [
+            "2026-07-29", "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-12"]
+
+    def test_draw_on_a_draw_day_returns_the_following_one(self):
+        assert next_draw_dates(date(2026, 7, 29), 1)[0] == date(2026, 8, 1)
+
+    def test_counts_down_to_the_cap(self):
+        # Live state after draw 3192: two rollovers banked, so the Must-Be-Won
+        # draw is the 4th from now unless somebody wins first.
+        f = forecast_must_be_won(2, after=date(2026, 7, 28))
+        assert f["draws_away"] == 4
+        assert f["expected_date"] == date(2026, 8, 8)
+        assert f["is_next_draw"] is False
+
+    def test_at_the_cap_the_next_draw_must_be_won(self):
+        f = forecast_must_be_won(ROLLOVER_CAP, after=date(2026, 7, 28))
+        assert f["is_next_draw"] is True
+        assert f["expected_date"] == date(2026, 7, 29)
+
+    def test_never_forecasts_into_the_past(self):
+        # A feed glitch reporting more rollovers than the cap must not produce
+        # a negative countdown.
+        assert forecast_must_be_won(99, after=date(2026, 7, 28))["draws_away"] == 1
 
 
 class TestFixedPrizes:

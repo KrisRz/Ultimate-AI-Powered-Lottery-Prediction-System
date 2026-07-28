@@ -56,8 +56,16 @@ make install-cron                                # auto post-draw routine (Wed/S
   median deliberately ignores it.
 - **Popularity model**: number weights (dates over-played, high numbers
   under-played) + pattern multipliers (arithmetic sequences, birthday-only
-  tickets). Calibration data accumulates in `data/prize_tiers.csv` with every
-  fetch (winners per tier per round, from the official XML feed).
+  tickets), calibrated against 1,126 draws of Match-3 winner counts and
+  normalized so the average line scores exactly 1.0. Calibration data
+  accumulates in `data/prize_tiers.csv` with every fetch; re-check the fit on
+  recent draws only with
+  `python scripts/calibrate_popularity.py --last-draws 500`.
+- **When the jackpot must be paid out**: rollovers are capped at 5, so the 6th
+  draw of a roll is Must-Be-Won and rolls down. `make play` counts down to it
+  ("rollover 2 of 5 — Must-Be-Won in 4 draws, ~2026-08-08"). Historically that
+  is ~9 draws a year, and 96% of them cleared the break-even jackpot — it is
+  where essentially all of the +EV lives.
 - **Two rounds**: since 2026-06-07 every ticket enters two draws per night;
   EV sums over both.
 - **Portfolio** (`lottery/portfolio.py`): greedy max-EV selection with
