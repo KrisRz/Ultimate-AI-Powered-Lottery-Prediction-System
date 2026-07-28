@@ -94,8 +94,13 @@ ops/                launchd template for the post-draw cron
 ## Email alerts (+EV draws)
 
 The post-draw routine emails you only when the next draw clears the EV
-threshold. Put SMTP credentials in `~/.lotto_env` (outside the repo, never
-committed):
+threshold — roughly nine times a year. The email is self-contained: draw date,
+jackpot, EV, break-even, **the lines to play**, and a ready-to-paste
+`roi_ledger add` command. Lines are seeded from the draw date, so the evening
+run and the next-morning retry propose the same portfolio rather than two
+different ones.
+
+Put SMTP credentials in `~/.lotto_env` (outside the repo, never committed):
 
 ```bash
 export SMTP_SERVER=smtp.gmail.com      # SSL port 465; Gmail needs an App Password
