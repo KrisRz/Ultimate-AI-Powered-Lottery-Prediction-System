@@ -55,10 +55,15 @@ def main() -> int:
 
     msg = (
         f"Lotto data collection FAILED: {problem}.\n\n"
-        f"The official XML only serves the latest draw - fix this before the "
-        f"next draw or the prize-tier data for {expected} is lost.\n"
-        f"Manual recovery: PYTHONPATH=. python -c "
+        f"The official XML only serves the latest draw, so act before the next "
+        f"one:\n"
+        f"  1. PYTHONPATH=. python -c "
         f"'from scripts.fetch_data import download_fresh_data; download_fresh_data()'\n"
+        f"  2. Missed that window? Winner counts for {expected} are still "
+        f"recoverable from the archive scraper:\n"
+        f"     PYTHONPATH=. python scripts/backfill_prize_tiers.py\n"
+        f"     (writes data/prize_tiers_history.csv - note its prize amounts "
+        f"carry roll-down boosts, so trust the winner counts, not the prizes)\n"
     )
     print(f"[watchdog] ALERT - {problem}")
     maybe_send_email("LOTTO COLLECTION FAILURE", msg)

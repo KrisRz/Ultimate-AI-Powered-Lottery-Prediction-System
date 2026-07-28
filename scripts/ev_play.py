@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     DEFAULT_TICKETS_SOLD,
+    calibrate_fixed_prizes,
     estimate_tickets_sold,
     should_play,
 )
@@ -49,6 +50,9 @@ def next_draw_conditions() -> DrawConditions:
             estimated = estimate_tickets_sold(tiers)
             if estimated:
                 cond.tickets_sold = estimated
+            # Fixed-tier prizes come from the data too - a hardcoded table is
+            # how the Match 3/2 roll-down prizes once leaked into every draw.
+            cond.prizes = calibrate_fixed_prizes(tiers)
     return cond
 
 
@@ -69,6 +73,7 @@ def main() -> None:
     args = parser.parse_args()
 
     cond = next_draw_conditions()
+    what_if = args.jackpot is not None or args.roll_down or args.tickets is not None
     if args.jackpot is not None:
         cond.jackpot = args.jackpot
     if args.roll_down:
@@ -85,7 +90,12 @@ def main() -> None:
     print(f"Rounds per ticket:    {cond.rounds}")
     print(f"Must-Be-Won:          {'YES' if cond.roll_down else 'no'}")
     print(f"Assumed lines sold:   {cond.tickets_sold:,}")
+    p = cond.prizes
+    print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
+          f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")
     print(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{args.threshold:+.2f})")
+    print(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
+          f"{' (roll-down)' if cond.roll_down else ''}")
     print("-" * 64)
 
     portfolio = []
@@ -110,8 +120,17 @@ def main() -> None:
               f"total EV £{total_ev:+.2f}")
         print("=" * 64)
 
-    # Always persist the verdict - the dashboard reads latest.json, and a SKIP
-    # with no file would tell the user to re-run make play forever.
+    # A what-if run (--jackpot / --roll-down / --tickets) must NOT touch
+    # latest.json: that file is what `roi_ledger.py add --from-latest` records
+    # as really played and what the dashboard shows as the live verdict.
+    # Exploring "what if the jackpot were £12M" once left a PLAY portfolio
+    # sitting there for a draw that is actually a SKIP.
+    if what_if:
+        print("(what-if run - latest.json left untouched)")
+        return
+
+    # Always persist the real verdict - the dashboard reads latest.json, and a
+    # SKIP with no file would tell the user to re-run make play forever.
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
         "timestamp": datetime.now().isoformat(),

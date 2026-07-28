@@ -66,13 +66,14 @@ class TestAddSettleReport:
         assert bool(row["settled"]) is True
         assert int(row["matches_r1"]) == 3
         assert int(row["matches_r2"]) == 0
-        # New-rules estimate for match-3 (no prize_tiers.csv present)
-        assert float(row["prize"]) == pytest.approx(24.0)
+        # New-rules estimate for match-3 (no prize_tiers.csv present): the BASE
+        # prize of £10, not the £24 a roll-down draw pays
+        assert float(row["prize"]) == pytest.approx(10.0)
 
         roi.cmd_report(Namespace())
         out = capsys.readouterr().out
         assert "Total spent:    £2.00" in out
-        assert "Total won:      £24.00" in out
+        assert "Total won:      £10.00" in out
 
     def test_settle_uses_actual_tier_prizes_when_available(self, isolated_ledger):
         _write_history(isolated_ledger, [HISTORY_ROW_R1, HISTORY_ROW_R2])
