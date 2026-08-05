@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from lottery.ev import DrawConditions, next_draw_dates, should_play  # noqa: E402
+from lottery.ev import DrawConditions, should_play, upcoming_draw_date  # noqa: E402
 from lottery.portfolio import build_portfolio  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
@@ -105,7 +105,7 @@ def main() -> None:
         return
 
     n_lines = int(os.environ.get("EV_ALERT_LINES", DEFAULT_LINES))
-    subject, body = build_alert(cond, verdict, next_draw_dates(count=1)[0], n_lines)
+    subject, body = build_alert(cond, verdict, upcoming_draw_date(), n_lines)
     print(body)
     maybe_send_email(subject, body)
     print(f"[ev-alert] PLAY (EV £{verdict['ev_best_line']:+.2f}) - alert attempted "

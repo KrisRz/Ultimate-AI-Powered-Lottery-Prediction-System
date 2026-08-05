@@ -1,6 +1,6 @@
 """Tests for the EV engine - probabilities, popularity model, EV, portfolio."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -9,6 +9,7 @@ from lottery.ev import (
     FixedPrizes,
     POPULARITY_NORMALIZATION,
     ROLLOVER_CAP,
+    UK_TZ,
     _weight_sums,
     PRIZE_MATCH_2,
     PRIZE_MATCH_3,
@@ -30,6 +31,7 @@ from lottery.ev import (
     next_draw_dates,
     popularity_ratio,
     should_play,
+    upcoming_draw_date,
 )
 from lottery.ev import estimate_tickets_sold
 from lottery.portfolio import MAX_PAIRWISE_OVERLAP, build_portfolio
@@ -201,20 +203,74 @@ class TestMustBeWonForecast:
     def test_counts_down_to_the_cap(self):
         # Live state after draw 3192: two rollovers banked, so the Must-Be-Won
         # draw is the 4th from now unless somebody wins first.
-        f = forecast_must_be_won(2, after=date(2026, 7, 28))
+        f = forecast_must_be_won(2, now=date(2026, 7, 28))
         assert f["draws_away"] == 4
         assert f["expected_date"] == date(2026, 8, 8)
         assert f["is_next_draw"] is False
 
     def test_at_the_cap_the_next_draw_must_be_won(self):
-        f = forecast_must_be_won(ROLLOVER_CAP, after=date(2026, 7, 28))
+        f = forecast_must_be_won(ROLLOVER_CAP, now=date(2026, 7, 28))
         assert f["is_next_draw"] is True
         assert f["expected_date"] == date(2026, 7, 29)
 
     def test_never_forecasts_into_the_past(self):
         # A feed glitch reporting more rollovers than the cap must not produce
         # a negative countdown.
-        assert forecast_must_be_won(99, after=date(2026, 7, 28))["draws_away"] == 1
+        assert forecast_must_be_won(99, now=date(2026, 7, 28))["draws_away"] == 1
+
+    def test_countdown_starts_at_tonights_draw_on_a_draw_day(self):
+        # Regression: the countdown counts the draw you can still enter as #1,
+        # so on a draw day the date must not skip past tonight. Live state after
+        # draw 3194 (rollover 4) asked on Wednesday 2026-08-05 is Saturday
+        # 2026-08-08 - counting 08-05 and 08-08. Starting from `next_draw_dates`
+        # counted 08-08 and 08-12 and named the wrong draw as Must-Be-Won.
+        f = forecast_must_be_won(4, now=date(2026, 8, 5))       # Wed, sales open
+        assert f["draws_away"] == 2
+        assert f["expected_date"] == date(2026, 8, 8)
+
+    def test_same_forecast_holds_the_day_before(self):
+        # The forecast names a draw, so it must not move just because the clock
+        # rolled over to the draw day.
+        tue = forecast_must_be_won(4, now=date(2026, 8, 4))
+        wed = forecast_must_be_won(4, now=date(2026, 8, 5))
+        assert tue["expected_date"] == wed["expected_date"] == date(2026, 8, 8)
+
+    def test_after_sales_close_the_countdown_moves_on(self):
+        # Same Wednesday, 21:00: tonight's draw has happened, so the two draws
+        # left are 08-08 and 08-12. (The feed's rollover count catches up when
+        # the draw is collected an hour later.)
+        f = forecast_must_be_won(4, now=datetime(2026, 8, 5, 21, 0, tzinfo=UK_TZ))
+        assert f["expected_date"] == date(2026, 8, 12)
+
+
+class TestUpcomingDrawDate:
+    """Which draw a ticket bought right now enters - the ledger files lines
+    under this date and settles them against that draw's results."""
+
+    def test_draw_day_before_sales_close(self):
+        assert upcoming_draw_date(datetime(2026, 8, 5, 14, 0, tzinfo=UK_TZ)) == date(2026, 8, 5)
+        assert upcoming_draw_date(datetime(2026, 8, 8, 19, 29, tzinfo=UK_TZ)) == date(2026, 8, 8)
+
+    def test_draw_day_after_sales_close(self):
+        assert upcoming_draw_date(datetime(2026, 8, 5, 19, 30, tzinfo=UK_TZ)) == date(2026, 8, 8)
+        assert upcoming_draw_date(datetime(2026, 8, 8, 23, 59, tzinfo=UK_TZ)) == date(2026, 8, 12)
+
+    def test_non_draw_day(self):
+        assert upcoming_draw_date(datetime(2026, 8, 6, 9, 0, tzinfo=UK_TZ)) == date(2026, 8, 8)
+
+    def test_utc_input_is_read_in_uk_time(self):
+        # The cloud collector runs on UTC. During BST 19:00 UTC is 20:00 in
+        # London - sales already closed - and reading it as local time would
+        # hand out a draw the ticket cannot enter.
+        assert upcoming_draw_date(datetime(2026, 8, 5, 19, 0, tzinfo=timezone.utc)) == date(2026, 8, 8)
+
+    def test_evening_run_and_morning_retry_agree(self):
+        # ev_alert.py relies on this: the Wed-night run and the Thu-morning
+        # retry must name the same draw, or the two emails propose different
+        # portfolios for the same money.
+        evening = upcoming_draw_date(datetime(2026, 8, 5, 21, 45, tzinfo=timezone.utc))
+        retry = upcoming_draw_date(datetime(2026, 8, 6, 6, 0, tzinfo=timezone.utc))
+        assert evening == retry == date(2026, 8, 8)
 
 
 class TestFixedPrizes:
