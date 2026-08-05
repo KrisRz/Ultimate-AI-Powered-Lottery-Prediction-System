@@ -67,15 +67,42 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+# Numeric HTML entities (&#163; is £) would otherwise donate their digits to the
+# amount. The pages use &pound;, but pinning this costs nothing and a markup
+# change would be silent corruption rather than a crash.
+_NUMERIC_ENTITY_RE = re.compile(r"&#\d+;")
+_AMOUNT_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
 def _to_int(text: str) -> int:
-    """Digits only: strips £, commas, and words like 'Rollover'/'Rolldown'."""
+    """Digits only - a winners cell is a single count like '1,135,143'.
+
+    NOTE: this is safe only because winners cells carry exactly one number.
+    Do not reuse it for prize cells, which can carry two - see `_to_money`.
+    """
     digits = re.sub(r"[^\d]", "", text or "")
     return int(digits) if digits else 0
 
 
 def _to_money(text: str) -> float:
-    cleaned = re.sub(r"[^\d.]", "", (text or "").replace(",", ""))
-    return float(cleaned) if cleaned else 0.0
+    """Amount actually paid per winner, in GBP.
+
+    A roll-down draw renders TWO amounts in one cell: draw 3190 (2026-07-18)
+    read "£10 Rolldown Prize: £24" for Match 3 and "£1 Rolldown Prize: £5" for
+    Match 2. Stripping everything but digits glued them into 1024 and 15, which
+    silently corrupted `prize_per_winner` for all 93 roll-down draws in the
+    archive - the only draws this project ever plays. Nothing in the live EV
+    path read it (that comes from the official feed via prize_tiers.csv), but
+    it made the historical roll-down data unusable for validating the model.
+
+    Take the LARGEST amount in the cell. A roll-down is an uplift, never a cut,
+    so the boosted figure is the one that was paid; tiers a roll-down does not
+    touch render "Rolldown Prize: £0" and correctly fall back to their base.
+    """
+    text = _NUMERIC_ENTITY_RE.sub(" ", text or "")
+    amounts = [float(m.group().rstrip(",").replace(",", ""))
+               for m in _AMOUNT_RE.finditer(text)]
+    return max(amounts) if amounts else 0.0
 
 
 def parse_breakdown(html: str, draw_number: int, draw_date: str) -> list[dict]:
@@ -182,15 +209,24 @@ def main() -> int:
                         help="HTML cache dir (default: scratchpad or ./.tier_cache)")
     parser.add_argument("--no-cache", action="store_true", help="always refetch, ignore cache")
     parser.add_argument("--strict", action="store_true", help="abort on first parse failure")
+    parser.add_argument("--redo-draws", default=None,
+                        help="comma-separated draw numbers to re-parse even though they "
+                             "are already in the output (their rows are replaced). Lets a "
+                             "parser fix be applied to the affected draws only, instead of "
+                             "re-scraping the whole archive")
     args = parser.parse_args()
+
+    redo = ({int(x) for x in args.redo_draws.replace(" ", "").split(",") if x}
+            if args.redo_draws else set())
 
     cache_dir = Path(args.cache_dir) if args.cache_dir else DATA_DIR.parent / ".tier_cache"
 
     targets = draws_to_fetch(args.since_draw)
     done: set[int] = set()
     if OUTPUT_FILE.exists():
-        done = set(pd.read_csv(OUTPUT_FILE)["draw_number"].astype(int))
-        logger.info("Resuming: %d draws already in %s", len(done), OUTPUT_FILE)
+        done = set(pd.read_csv(OUTPUT_FILE)["draw_number"].astype(int)) - redo
+        logger.info("Resuming: %d draws already in %s%s", len(done), OUTPUT_FILE,
+                    f" ({len(redo)} forced to re-parse)" if redo else "")
     todo = [(n, d) for n, d in targets if n not in done]
     if args.limit:
         todo = todo[: args.limit]
