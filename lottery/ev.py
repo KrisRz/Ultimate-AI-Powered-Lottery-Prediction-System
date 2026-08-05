@@ -24,9 +24,10 @@ Three ingredients:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from math import comb, exp
 from typing import Iterable, List, Sequence
+from zoneinfo import ZoneInfo
 
 TICKET_PRICE = 2.0
 N_BALLS = 59
@@ -399,10 +400,39 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20) -> int | None:
 ROLLOVER_CAP = 5
 DRAW_WEEKDAYS = (2, 5)          # Wednesday, Saturday
 
+# Sales for a draw close at 19:30 UK time; the draw follows at ~20:00. Any
+# question of the form "which draw am I looking at?" has to be answered against
+# this clock, not against the calendar day: on Wednesday afternoon the draw you
+# can still enter is TONIGHT'S, while at 22:45 the same evening it is already
+# Saturday's. A date alone cannot tell those two apart.
+UK_TZ = ZoneInfo("Europe/London")
+SALES_CLOSE = time(19, 30)
+
+
+def _london(moment: datetime | date | None) -> datetime:
+    """Normalise a moment to Europe/London.
+
+    A bare `date` is read as the START of that day - i.e. sales open - which is
+    how "what does the picture look like on 2026-08-08?" naturally reads.
+    """
+    if moment is None:
+        return datetime.now(UK_TZ)
+    if isinstance(moment, datetime):        # check first: datetime subclasses date
+        return (moment.astimezone(UK_TZ) if moment.tzinfo
+                else moment.replace(tzinfo=UK_TZ))
+    return datetime.combine(moment, time(0, 0), tzinfo=UK_TZ)
+
 
 def next_draw_dates(after: date | None = None, count: int = 1) -> List[date]:
-    """The next `count` draw dates strictly after `after` (default: today)."""
+    """The next `count` draw dates strictly after `after` (default: today).
+
+    Pure calendar arithmetic: it never returns `after` itself, even when `after`
+    is a draw day. To ask which draw a ticket bought *now* would enter, use
+    `upcoming_draw_date` - see the warning there.
+    """
     d = (after or date.today())
+    if isinstance(d, datetime):
+        d = d.date()
     out: List[date] = []
     while len(out) < count:
         d += timedelta(days=1)
@@ -411,7 +441,25 @@ def next_draw_dates(after: date | None = None, count: int = 1) -> List[date]:
     return out
 
 
-def forecast_must_be_won(rollover_count: int, after: date | None = None) -> dict:
+def upcoming_draw_date(now: datetime | date | None = None) -> date:
+    """The draw a ticket bought at `now` would actually enter.
+
+    On a draw day that is TODAY's draw while sales are open, and the following
+    draw once they have closed. `next_draw_dates` cannot answer this - it always
+    steps past today - and using it here was wrong in two places at once:
+    the ROI ledger filed a Wednesday-afternoon ticket under Saturday's draw (so
+    `settle` scored it against results it never played), and the Must-Be-Won
+    forecast landed one draw into the future every Wednesday and Saturday.
+    """
+    moment = _london(now)
+    today = moment.date()
+    if today.weekday() in DRAW_WEEKDAYS and moment.time() < SALES_CLOSE:
+        return today
+    return next_draw_dates(today, 1)[0]
+
+
+def forecast_must_be_won(rollover_count: int,
+                         now: datetime | date | None = None) -> dict:
     """How many draws until the jackpot must be paid out, and on what date.
 
     `rollover_count` is the post-draw counter carried by the official feed
@@ -419,13 +467,20 @@ def forecast_must_be_won(rollover_count: int, after: date | None = None) -> dict
     `rollover_count + 1`. The Must-Be-Won draw is the one entered on a count of
     ROLLOVER_CAP.
 
+    Counting starts at `upcoming_draw_date(now)`, so `draws_away == 1` means
+    "the one you can buy into right now". Counting from `next_draw_dates`
+    instead put the date one draw late whenever the question was asked on a
+    draw day before 19:30 - i.e. every Wednesday and Saturday afternoon, which
+    is exactly when anyone asks it.
+
     This is an UPPER BOUND on the wait, not a schedule: any jackpot win resets
     the counter and pushes the date out. It is for planning a budget - the
     authoritative one-draw-ahead signal stays the official feed's
     `next_jackpot_roll_down` flag, which `DrawConditions.roll_down` carries.
     """
     draws_away = max(ROLLOVER_CAP - int(rollover_count) + 1, 1)
-    dates = next_draw_dates(after, draws_away)
+    first = upcoming_draw_date(now)
+    dates = [first] + next_draw_dates(first, draws_away - 1)
     return {
         "rollover_count": int(rollover_count),
         "cap": ROLLOVER_CAP,

@@ -1,12 +1,13 @@
 """Tests for the ROI ledger add/settle/report cycle."""
 
 from argparse import Namespace
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 import pytest
 
 import scripts.roi_ledger as roi
+from lottery.ev import UK_TZ
 
 
 @pytest.fixture
@@ -46,9 +47,21 @@ class TestParseLines:
 
 
 class TestNextDrawDate:
-    def test_wednesday_and_saturday(self):
+    def test_non_draw_day_points_at_the_next_draw(self):
         assert roi._next_draw_date(date(2026, 7, 19)).isoformat() == "2026-07-22"  # Sun -> Wed
-        assert roi._next_draw_date(date(2026, 7, 22)).isoformat() == "2026-07-25"  # Wed -> Sat
+        assert roi._next_draw_date(date(2026, 7, 21)).isoformat() == "2026-07-22"  # Tue -> Wed
+
+    def test_on_a_draw_day_lines_belong_to_tonights_draw(self):
+        # The bug this replaces: a bare date on a draw day resolved to the NEXT
+        # draw, so lines bought on Wednesday afternoon were filed under Saturday
+        # and settled against results they were never entered in. A bare date
+        # means start-of-day, i.e. sales open.
+        assert roi._next_draw_date(date(2026, 7, 22)).isoformat() == "2026-07-22"  # Wed -> Wed
+        assert roi._next_draw_date(date(2026, 7, 25)).isoformat() == "2026-07-25"  # Sat -> Sat
+
+    def test_after_sales_close_it_rolls_to_the_following_draw(self):
+        after_close = datetime(2026, 7, 22, 21, 0, tzinfo=UK_TZ)   # Wed, draw done
+        assert roi._next_draw_date(after_close).isoformat() == "2026-07-25"
 
 
 class TestAddSettleReport:

@@ -22,7 +22,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from lottery.ev import next_draw_dates  # noqa: E402
+from lottery.ev import upcoming_draw_date  # noqa: E402
 
 DATA_DIR = Path("data")
 LEDGER_FILE = DATA_DIR / "ledger.csv"
@@ -62,8 +62,14 @@ def _load_ledger() -> pd.DataFrame:
 
 
 def _next_draw_date(today: date | None = None) -> date:
-    """Lotto draws are on Wednesday and Saturday - calendar lives in lottery.ev."""
-    return next_draw_dates(today, 1)[0]
+    """The draw these lines are being bought for - calendar lives in lottery.ev.
+
+    Must be the draw still open for entry, not the next one on the calendar:
+    lines added on a Wednesday afternoon are for THAT night. Using
+    `next_draw_dates` here filed them under Saturday, and `settle` then scored
+    them against a draw they were never in.
+    """
+    return upcoming_draw_date(today)
 
 
 def _parse_lines(lines_arg: str) -> list[list[int]]:
