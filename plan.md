@@ -263,7 +263,24 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 - ✅ **Naprawione:** `upcoming_draw_date()` w `lottery/ev.py` — świadome zegara, nie tylko kalendarza (sprzedaż zamyka się **19:30 czasu UK**, strefa liczona jawnie przez `ZoneInfo("Europe/London")`, bo kolektor chodzi na UTC, a latem 19:00 UTC to już 20:00 w Londynie). `next_draw_dates()` zostaje jako czysta arytmetyka kalendarzowa z docstringiem odsyłającym do nowej funkcji. Ścieżka mailowa bez zmian w produkcji — odpala się zawsze po zamknięciu sprzedaży, jest osobny test pilnujący, że przebieg wieczorny i poranny retry nadal wskazują to samo losowanie. **Usunięty test, który utrwalał błąd** (`test_roi_ledger.py` asertował `Wed -> Sat` jako poprawne). +10 testów, razem 115.
 - ❌ **Drugi błąd, w danych historycznych:** `backfill_prize_tiers.py:72` robi `re.sub(r"[^\d]", "", text)` — wycina litery, ale **skleja obie liczby**. Komórka „£10 Rolldown Prize: £24" daje `1024` zamiast 24, „£1 … £5" daje `15` zamiast 5. Dotyczy **93 losowań, 2017–2026 — wszystkich roll-downów**. Nie rusza żywej ścieżki EV (czyta `prize_tiers.csv` z fetchera, tam £24.00 poprawnie) ani kalibracji popularności (używa wyłącznie kolumny `winners`), ale psuje każdą historyczną analizę roll-downów — czyli dokładnie to, czym model roll-downu miałby być walidowany na czymś więcej niż jednym losowaniu.
 - **Dlaczego mail nigdy nie przyszedł — nic nie jest zepsute.** Ostatnie losowanie Must-Be-Won to 3190 (18.07.2026, pula £9,559,451 → realnie +EV). Kolektor z alertami ruszył 19.07, **dzień później**. Od tego czasu 3191–3194 to zwykłe rollovery i SKIP jest poprawny. Okazje przychodzą ~10 razy w roku, system żyje 2,5 tygodnia.
-- **Ile realnie warte jest czekanie** (93 losowania MBW z historii, przyłożony dzisiejszy próg £9.14M): mediana puli **£12.5M**, przebija próg **86/93 = 92%**; po odrzuceniu 2017–18, gdzie pula wychodzi £0 (luki w danych, nie realne zero) — **86/89 = 97%**. Tempo ~10–12 rocznie. Obietnica z README (96%) broni się po poprawce £1.07, a margines jest zdrowy: mediana puli leży 37% powyżej progu, więc typowe MBW nie jest graniczne.
+- **Ile realnie warte jest czekanie.** ⚠️ Detektor „podbite niskie tiery" znajduje **93** losowania, ale to NIE są wszystko Must-Be-Won: 19 z nich to boosty promocyjne przy streaku 0–4 rolowań (mniej więcej co miesiąc, warte ~£0,37/linię — za mało, żeby przewrócić losowanie). Napędzanych capem jest **74**, z czego 4 (2017–18) mają pulę £0 = luki w danych. Właściwa populacja to **70 losowań, 2019-01-30 → 2026-07-18**: mediana puli **£12,18M**, przebija dzisiejszy próg £9,14M **68/70 = 97%**, tempo **9,4/rok**. Pudła tylko dwa, oba 2019 (£4,4M i £7,4M). Czyli obietnica z README (96%) trzyma się bez poprawek — a filtrowanie po samym boostcie niskich tierów zawyża liczbę okazji o jedną trzecią. Margines jest zdrowy: mediana leży 33% nad progiem, więc typowe MBW nie jest graniczne.
+
+**Czeka na rozstrzygnięcie (stan 2026-08-05 22:30):**
+- **Pierwsze realne Must-Be-Won.** Rollover 4/5 po losowaniu 3194 (01.08). Jeśli 3195 (05.08) nie wyłoni zwycięzcy → **sobota 08.08 jest Must-Be-Won**, próg roll-downu £9,14M, spodziewana pula £9–10M, czyli **tuż nad progiem** (mediana historyczna £12,18M, ale ta akurat będzie cienka). Szansa, że sobota jest w grze: ~80% (P(trafienie szóstki w losowaniu) ≈ 15–20%).
+- **Ledger nadal ma 0 kuponów** — ścieżka PLAY nigdy nie przeszła na prawdziwych pieniądzach. Sobota jest pierwszą okazją.
+- **93 losowania w `prize_tiers_history.csv` mają nadal zepsute `prize_per_winner`** — parser naprawiony (PR #11), ale danych nie przeparsowano. Komenda: `python scripts/backfill_prize_tiers.py --redo-draws <lista>`, ~93 strzały do oficjalnej strony. Do zrobienia świadomie, nie przy okazji.
+- **Realne opóźnienia GitHub Actions** (z historii przebiegów, ważne przy planowaniu): cron wieczorny 21:45 UTC odpala się ~55 min później, poranny 06:00 UTC ~2,5 h później, watchdog 12:00 UTC ~1–1,5 h później. Czyli kolekcja po losowaniu realnie ~23:40 BST, nie 22:45.
+
+**Checklista po losowaniu** (`git pull` zawsze najpierw — kolektor commituje dane z chmury):
+```bash
+git pull                                             # dane z chmury
+tail -3 data/merged_lottery_data.csv                 # czy losowanie zebrane
+make play                                            # werdykt + rollover 4/5 -> ?
+gh run list --workflow=collect.yml --limit 2         # czy kolekcja przeszla
+gh run view --log | grep ev-alert                    # SKIP czy PLAY (bez czekania na maila)
+make roi                                             # settle + ROI (jesli grane)
+```
+Brak maila sam w sobie nic nie znaczy — `[ev-alert] SKIP (EV £-x.xx)` w logu to poprawne zachowanie. Dopiero SKIP **przy** Must-Be-Won z pulą nad progiem = błąd do zdiagnozowania.
 
 **Kamienie milowe:**
 - [ ] **+1 miesiąc** (~9 losowań): sprawdzić stabilność estymatora N. ~~5+bonus prize~~ zrobione (£1M). ~~Match 3/Match 2~~ zrobione 2026-07-28 (£10/£1, roll-down zdemaskowany). ~~Mapowanie tierów~~ — zrobione (audyt 2026-07-21).
