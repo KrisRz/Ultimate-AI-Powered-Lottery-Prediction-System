@@ -64,8 +64,19 @@ make install-cron                                # auto post-draw routine (Wed/S
 - **When the jackpot must be paid out**: rollovers are capped at 5, so the 6th
   draw of a roll is Must-Be-Won and rolls down. `make play` counts down to it
   ("rollover 2 of 5 — Must-Be-Won in 4 draws, ~2026-08-08"). Historically that
-  is ~9 draws a year, and 96% of them cleared the break-even jackpot — it is
-  where essentially all of the +EV lives.
+  is ~9 draws a year, and it is where essentially all of the +EV lives — but
+  **only about 4 of those 9 are actually +EV**. A Must-Be-Won draw sells
+  ~1.38x an ordinary one and the roll-down pays J/N, so the extra buyers eat
+  the edge: re-priced at each historical draw's own measured sales, 27 of 65
+  cap-driven draws since 2019 clear break-even (median EV −£0.14). The earlier
+  "96%" figure priced them at ordinary-draw sales and was too optimistic by
+  more than double. **Must-Be-Won is a necessary condition, not a sufficient
+  one — wait for the advisor's verdict, not the calendar.**
+- **Sales are the fragile input**: on a roll-down the EV is dominated by J/N,
+  so `make play` reports the verdict across the sales range (uplift quartiles
+  1.07–1.69) and flags whether it survives the busy end. A draw that only
+  clears on the central estimate is not a real opportunity. Re-calibrate with
+  `python scripts/calibrate_mbw_uplift.py`.
 - **Two rounds**: since 2026-06-07 every ticket enters two draws per night;
   EV sums over both.
 - **Portfolio** (`lottery/portfolio.py`): greedy max-EV selection with
