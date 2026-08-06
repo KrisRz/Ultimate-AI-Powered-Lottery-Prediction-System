@@ -71,6 +71,22 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
             f"for the lines.)\n"
         )
 
+    # The sales estimate is the one number that decides a roll-down verdict, and
+    # it is estimated, not observed. The email is read away from the Mac with
+    # hours to sales close, so it has to carry the uncertainty itself - a lone
+    # "+£0.04" reads as a clean PLAY even when it sits 3% from break-even.
+    sens = verdict.get("sales_sensitivity")
+    if sens:
+        caveat = (
+            f"Across plausible sales: £{sens['ev_low']:+.2f} at "
+            f"{sens['tickets_high']:,} lines ... £{sens['ev_high']:+.2f} at "
+            f"{sens['tickets_low']:,} lines\n"
+            f"Holds across that range: "
+            f"{'YES' if sens['robust'] else 'NO - thin edge, central estimate only'}\n"
+        )
+    else:
+        caveat = ""
+
     body = (
         f"The next UK Lotto draw clears your EV threshold.\n\n"
         f"Draw:                 {draw_date}\n"
@@ -80,6 +96,7 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         f"Best-line EV:         £{verdict['ev_best_line']:+.2f} "
         f"(per £{cond.ticket_price:.0f} ticket, both rounds)\n"
         f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}\n"
+        + caveat
         + portfolio_block +
         f"\nEV is an average over a lottery-sized variance: a +EV draw is a good "
         f"bet, not a likely win.\n"

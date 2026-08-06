@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     DEFAULT_TICKETS_SOLD,
+    MBW_SALES_UPLIFT,
     calibrate_fixed_prizes,
     estimate_tickets_sold,
     forecast_must_be_won,
@@ -36,8 +37,15 @@ PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 OUT_DIR = Path("outputs/predictions")
 
 
-def next_draw_conditions() -> DrawConditions:
-    """Best known conditions for the upcoming draw, from collected data."""
+def next_draw_conditions(force_roll_down: bool = False) -> DrawConditions:
+    """Best known conditions for the upcoming draw, from collected data.
+
+    `force_roll_down` belongs here rather than in the caller because the sales
+    estimate DEPENDS on it - a Must-Be-Won draw sells ~1.38x an ordinary one.
+    Setting `cond.roll_down` after the fact would leave a what-if `--roll-down`
+    run priced at ordinary-draw sales, which is the same mistake that made the
+    2026-08-08 alert read +EV.
+    """
     cond = DrawConditions()
     if PRIZE_TIERS_FILE.exists():
         tiers = pd.read_csv(PRIZE_TIERS_FILE)
@@ -47,10 +55,11 @@ def next_draw_conditions() -> DrawConditions:
                 cond.jackpot = float(last["next_jackpot_estimate"])
             # bool(NaN) is True - a missing flag must never fake a Must-Be-Won
             flag = last.get("next_jackpot_roll_down")
-            cond.roll_down = pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1")
+            cond.roll_down = force_roll_down or (
+                pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1"))
             if pd.notna(last.get("rollover_count")):
                 cond.rollover_count = int(last["rollover_count"])
-            estimated = estimate_tickets_sold(tiers)
+            estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down)
             if estimated:
                 cond.tickets_sold = estimated
             # Fixed-tier prizes come from the data too - a hardcoded table is
@@ -75,12 +84,10 @@ def main() -> None:
                         help="Build a portfolio even when the draw is below threshold")
     args = parser.parse_args()
 
-    cond = next_draw_conditions()
+    cond = next_draw_conditions(force_roll_down=args.roll_down)
     what_if = args.jackpot is not None or args.roll_down or args.tickets is not None
     if args.jackpot is not None:
         cond.jackpot = args.jackpot
-    if args.roll_down:
-        cond.roll_down = True
     if args.tickets is not None:
         cond.tickets_sold = args.tickets
 
@@ -97,13 +104,23 @@ def main() -> None:
         print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
               f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
               f"if nobody wins before")
-    print(f"Assumed lines sold:   {cond.tickets_sold:,}")
+    print(f"Assumed lines sold:   {cond.tickets_sold:,}"
+          f"{f' (Must-Be-Won uplift x{MBW_SALES_UPLIFT})' if cond.roll_down else ''}")
     p = cond.prizes
     print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
           f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")
     print(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{args.threshold:+.2f})")
     print(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
           f"{' (roll-down)' if cond.roll_down else ''}")
+    # On a roll-down the verdict lives or dies on the sales estimate, so show
+    # what it does across the plausible range instead of one tidy number.
+    sens = verdict.get("sales_sensitivity")
+    if sens:
+        print(f"Across sales range:   £{sens['ev_low']:+.3f} at {sens['tickets_high']:,} lines "
+              f"... £{sens['ev_high']:+.3f} at {sens['tickets_low']:,} (quartiles)")
+        holds = ("YES" if sens["robust"]
+                 else "NO - only the central sales estimate clears it")
+        print(f"Holds across range:   {holds}")
     print("-" * 64)
 
     portfolio = []

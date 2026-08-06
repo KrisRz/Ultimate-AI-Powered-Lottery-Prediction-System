@@ -23,7 +23,7 @@ Three ingredients:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from math import comb, exp
 from typing import Iterable, List, Sequence
@@ -72,6 +72,34 @@ TIER_MATCH_2 = 6
 # the whole 59-ball era is ~8.6M and the two-round era runs ~6.5-7.5M
 # (data/prize_tiers_history.csv). Affects jackpot sharing and roll-down splits.
 DEFAULT_TICKETS_SOLD = 7_500_000
+
+# A Must-Be-Won draw sells MORE than an ordinary one, and that matters more than
+# anything else in this model: the roll-down term is J / N, so an ordinary-draw
+# sales figure applied to a Must-Be-Won draw inflates its EV - on precisely the
+# ~9 draws a year the alert exists to fire on. Measured 2026-08-06 against the
+# 93 roll-down draws in data/prize_tiers_history.csv (identified by Match 3
+# paying above its era base), each compared with the ordinary draws immediately
+# before it: median 1.379 over the 59-ball era (n=89), quartiles 1.07 / 1.69.
+# Stable across periods (1.26 - 1.48 by 2-4 year block).
+#
+# Paired against the PRECEDING draws, not against the era average, because UK
+# Lotto sales drift down over the decade and roll-downs are not spread evenly
+# across it. The window is 4 draws: comparing against only the 1-2 draws before
+# a roll-down understates the effect to ~1.11, because those draws sit at
+# rollover 3-4 and are already selling hot. Four draws is about one rollover
+# cycle, which is the mix `estimate_tickets_sold` actually measures.
+#
+# What this figure does NOT separate is "Must-Be-Won" from "big jackpot": a
+# roll-down always carries the largest pool of its cycle. That is fine for
+# forecasting N here (a Must-Be-Won draw always has both properties at once),
+# but it means a below-median pool like 2026-08-08's GBP 8.4M may sell nearer
+# the low quartile. Splitting the two needs pool sizes per historical draw, and
+# `prize_per_winner` is still corrupted for all 93 roll-down draws in the
+# archive (backfill_prize_tiers.py --redo-draws), so it cannot be done yet.
+# Hence the quartiles are carried alongside and reported, not averaged away.
+MBW_SALES_UPLIFT = 1.38
+MBW_SALES_UPLIFT_P25 = 1.07
+MBW_SALES_UPLIFT_P75 = 1.69
 
 
 def match_probability(k: int) -> float:
@@ -331,12 +359,47 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
     return cond.rounds * fixed_ev + jackpot_ev + rolldown_ev - cond.ticket_price
 
 
+def sales_sensitivity(cond: DrawConditions, threshold: float = 0.0,
+                      line: Sequence[int] | None = None) -> dict | None:
+    """EV across the spread of the Must-Be-Won sales uplift, or None if the
+    draw is not Must-Be-Won.
+
+    On a roll-down draw the EV is dominated by J / N, so the whole verdict turns
+    on one estimated number. `MBW_SALES_UPLIFT` is a median over 89 historical
+    roll-downs with quartiles 1.07 / 1.69 - real spread, not noise around a
+    known value. Reporting only the central figure is what let a verdict
+    sitting 3.2% from break-even read as a clean PLAY. `robust` is the honest
+    headline: does this draw still pay if it sells like the busier roll-downs?
+    """
+    if not cond.roll_down:
+        return None
+    line = list(line) if line is not None else best_unpopular_reference_line()
+    baseline = cond.tickets_sold / MBW_SALES_UPLIFT
+
+    def ev_at(uplift: float) -> float:
+        return line_ev(line, replace(cond, tickets_sold=max(int(baseline * uplift), 1)))
+
+    low, high = ev_at(MBW_SALES_UPLIFT_P75), ev_at(MBW_SALES_UPLIFT_P25)
+    return {
+        "ev_low": low,            # busier draw (p75 uplift) - the pessimistic case
+        "ev_high": high,          # quieter draw (p25 uplift)
+        "tickets_low": int(baseline * MBW_SALES_UPLIFT_P25),
+        "tickets_high": int(baseline * MBW_SALES_UPLIFT_P75),
+        "uplift": MBW_SALES_UPLIFT,
+        "robust": low >= threshold,
+    }
+
+
 def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
     """Decide whether the draw is worth entering at all.
 
     Uses a maximally unpopular reference line - if even that line's EV is
     below `threshold`, skip the draw. Default threshold 0.0 = only play
     +EV draws (in practice: rare Must-Be-Won roll-downs / huge rollovers).
+
+    `play` is the verdict at the central sales estimate. For a Must-Be-Won draw
+    `sales_sensitivity` carries the same verdict across the plausible range of
+    ticket sales - see there for why the central number alone is not enough.
     """
     reference = best_unpopular_reference_line()
     ev = line_ev(reference, cond)
@@ -346,6 +409,7 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
         "reference_line": list(reference),
         "threshold": threshold,
         "break_even_jackpot": break_even_jackpot(cond, reference),
+        "sales_sensitivity": sales_sensitivity(cond, threshold, reference),
         "conditions": {
             "jackpot_event_pool": cond.jackpot,
             "rounds": cond.rounds,
@@ -363,32 +427,87 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
     }
 
 
-def estimate_tickets_sold(tiers_df, last_n_draws: int = 20) -> int | None:
-    """Estimate lines sold per draw from observed winner counts.
+def rolldown_draw_numbers(tiers_df) -> set:
+    """Draw numbers in `tiers_df` that paid roll-down (boosted) low tiers.
+
+    A roll-down redistributes the jackpot into Match 3 / Match 2, so those tiers
+    pay well above their base rate (draw 3190 paid 24 / 5 against a base of
+    10 / 1). Flagging them by that signature keeps this self-contained: the
+    feed's `next_jackpot_roll_down` column describes the draw AFTER the row, so
+    it cannot classify the earliest draw in a file - which is exactly draw 3190
+    in the collected data.
+
+    Same minority argument as `calibrate_fixed_prizes`: the median Match 3 price
+    is the base rate because roll-downs are ~1 draw in 12, so anything far above
+    that median is a boost, not the norm.
+    """
+    empty: set = set()
+    if tiers_df is None or len(tiers_df) == 0:
+        return empty
+    # prize_total is absent from some callers' frames (and from the older
+    # fixtures); without it there is no boost to detect, so flag nothing rather
+    # than raising - the caller falls back to the whole window.
+    if not {"tier", "winners", "prize_total", "draw_number"} <= set(tiers_df.columns):
+        return empty
+    rows = tiers_df[(tiers_df["tier"] == TIER_MATCH_3) & (tiers_df["winners"] > 0)
+                    & (tiers_df["prize_total"] > 0)]
+    if len(rows) < 3:
+        return empty
+    per_winner = sorted(rows["prize_total"] / rows["winners"])
+    base = per_winner[len(per_winner) // 2]
+    if base <= 0:
+        return empty
+    boosted = rows[(rows["prize_total"] / rows["winners"]) > base * 1.2]
+    return set(int(d) for d in boosted["draw_number"].unique())
+
+
+def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
+                          roll_down: bool = False) -> int | None:
+    """Estimate lines sold for the UPCOMING draw from observed winner counts.
 
     For fixed-prize tiers the expected winner count is N x P(tier), so each
     observation gives N ~= winners / P. Uses the high-count tiers (match 4/3/2,
     least distorted by jackpot-sharing) over recent draws, both rounds, and
     takes the median to damp popularity-of-drawn-numbers noise.
 
-    This is the first model parameter that becomes measurable from collected
-    data - it directly sharpens jackpot-sharing and roll-down EV.
+    Two steps, because the answer depends on WHICH draw is being forecast:
+
+    1. Measure the ordinary-draw sales level, excluding any roll-down draws in
+       the window. With a full 20-draw window one or two roll-downs barely move
+       a median, but the collected file started at 3190 - a roll-down - and with
+       6 draws on record that single draw was 1/6 of the sample and pulled the
+       estimate up 10% (6,574,552 vs 5,913,930).
+    2. If the upcoming draw is Must-Be-Won, scale by MBW_SALES_UPLIFT. Skipping
+       this was the bug found 2026-08-06: the 2026-08-08 alert priced a
+       Must-Be-Won draw at ordinary-draw sales and reported EV +GBP 0.038 when
+       break-even sat only 3.2% away in N. The one Must-Be-Won draw with full
+       data, 3190, returned GBP 1.586 per GBP 2 line.
     """
     if tiers_df is None or len(tiers_df) == 0:
         return None
     tier_probs = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
     recent_draws = sorted(tiers_df["draw_number"].unique())[-last_n_draws:]
-    sample = tiers_df[
+    window = tiers_df[
         tiers_df["draw_number"].isin(recent_draws)
         & tiers_df["tier"].isin(tier_probs)
         & (tiers_df["winners"] > 0)
     ]
-    if len(sample) == 0:
+    if len(window) == 0:
         return None
+
+    # Baseline is the ORDINARY level; roll-downs are re-added via the uplift.
+    # If the window is nothing but roll-downs there is no ordinary level to
+    # measure, so fall back to the whole window rather than returning None.
+    boosted = rolldown_draw_numbers(tiers_df[tiers_df["draw_number"].isin(recent_draws)])
+    sample = window[~window["draw_number"].isin(boosted)] if boosted else window
+    if len(sample) == 0:
+        sample = window
+
     estimates = sorted(
         row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
     )
-    return int(estimates[len(estimates) // 2])
+    baseline = estimates[len(estimates) // 2]
+    return int(baseline * (MBW_SALES_UPLIFT if roll_down else 1.0))
 
 
 # UK Lotto pays the jackpot out at the latest on the 6th draw of a roll:

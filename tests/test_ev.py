@@ -33,7 +33,14 @@ from lottery.ev import (
     should_play,
     upcoming_draw_date,
 )
-from lottery.ev import estimate_tickets_sold
+from lottery.ev import (
+    MBW_SALES_UPLIFT,
+    MBW_SALES_UPLIFT_P25,
+    MBW_SALES_UPLIFT_P75,
+    estimate_tickets_sold,
+    rolldown_draw_numbers,
+    sales_sensitivity,
+)
 from lottery.portfolio import MAX_PAIRWISE_OVERLAP, build_portfolio
 
 BIRTHDAY_LINE = [3, 7, 11, 14, 21, 27]
@@ -375,14 +382,21 @@ class TestBreakEvenJackpot:
         assert mbw < plain / 2
 
 
+def _tiers_rows(draw: int, n_true: int, match_3_prize: float = 10.0):
+    """One draw's high-count tiers, consistent with `n_true` lines sold."""
+    rows = []
+    for tier, p in ((4, P_MATCH_4), (5, P_MATCH_3), (6, P_MATCH_2)):
+        winners = int(n_true * p)
+        prize = {4: 50.0, 5: match_3_prize, 6: 1.0}[tier]
+        rows.append({"draw_number": draw, "round": 1, "tier": tier,
+                     "winners": winners, "prize_total": winners * prize})
+    return rows
+
+
 class TestEstimateTicketsSold:
     def _tiers_df(self, n_true: int):
         import pandas as pd
-        rows = []
-        for tier, p in ((4, P_MATCH_4), (5, P_MATCH_3), (6, P_MATCH_2)):
-            rows.append({"draw_number": 3190, "round": 1, "tier": tier,
-                         "winners": int(n_true * p), "prize_total": 0.0})
-        return pd.DataFrame(rows)
+        return pd.DataFrame(_tiers_rows(3190, n_true))
 
     def test_recovers_true_ticket_count(self):
         est = estimate_tickets_sold(self._tiers_df(8_000_000))
@@ -393,6 +407,120 @@ class TestEstimateTicketsSold:
         assert estimate_tickets_sold(None) is None
         assert estimate_tickets_sold(pd.DataFrame(
             columns=["draw_number", "round", "tier", "winners"])) is None
+
+    def test_must_be_won_draw_is_scaled_up(self):
+        # The 2026-08-06 bug: a Must-Be-Won draw was priced at ordinary-draw
+        # sales, and the roll-down term is J/N, so its EV came out too high.
+        ordinary = estimate_tickets_sold(self._tiers_df(6_000_000))
+        must_be_won = estimate_tickets_sold(self._tiers_df(6_000_000), roll_down=True)
+        assert must_be_won == pytest.approx(ordinary * MBW_SALES_UPLIFT, rel=0.01)
+        assert must_be_won > ordinary
+
+    def test_rolldown_draws_do_not_inflate_the_baseline(self):
+        import pandas as pd
+        # A roll-down in the window sells more; leaving it in the sample raises
+        # the "ordinary" level it is supposed to be measured against. With the
+        # 6 collected draws that single draw moved the estimate 6.57M vs 5.91M.
+        ordinary_only = pd.DataFrame(
+            [r for d in range(3191, 3196) for r in _tiers_rows(d, 6_000_000)])
+        with_boosted = pd.concat([
+            ordinary_only,
+            pd.DataFrame(_tiers_rows(3190, 9_000_000, match_3_prize=24.0)),
+        ], ignore_index=True)
+        assert estimate_tickets_sold(with_boosted) == \
+            estimate_tickets_sold(ordinary_only)
+
+    def test_all_rolldown_window_falls_back_instead_of_returning_none(self):
+        import pandas as pd
+        only_boosted = pd.DataFrame(
+            [r for d in (3190, 3191, 3192)
+             for r in _tiers_rows(d, 9_000_000, match_3_prize=24.0)])
+        assert estimate_tickets_sold(only_boosted) == pytest.approx(9_000_000, rel=0.02)
+
+
+class TestRolldownDetection:
+    def test_flags_the_boosted_draw_only(self):
+        import pandas as pd
+        df = pd.DataFrame(
+            [r for d in range(3191, 3196) for r in _tiers_rows(d, 6_000_000)]
+            + _tiers_rows(3190, 9_000_000, match_3_prize=24.0))
+        assert rolldown_draw_numbers(df) == {3190}
+
+    def test_no_boost_means_no_rolldowns(self):
+        import pandas as pd
+        df = pd.DataFrame(
+            [r for d in range(3191, 3196) for r in _tiers_rows(d, 6_000_000)])
+        assert rolldown_draw_numbers(df) == set()
+
+    def test_thin_data_flags_nothing(self):
+        import pandas as pd
+        assert rolldown_draw_numbers(pd.DataFrame(_tiers_rows(3190, 6_000_000))) == set()
+        assert rolldown_draw_numbers(None) == set()
+
+    def test_missing_prize_column_flags_nothing_instead_of_raising(self):
+        import pandas as pd
+        df = pd.DataFrame([{"draw_number": d, "round": 1, "tier": 5, "winners": 100}
+                           for d in range(3190, 3196)])
+        assert rolldown_draw_numbers(df) == set()
+        assert estimate_tickets_sold(df) is not None
+
+
+class TestSalesSensitivity:
+    def test_absent_for_ordinary_draws(self):
+        cond = DrawConditions(tickets_sold=7_000_000)
+        assert sales_sensitivity(cond) is None
+        assert should_play(cond)["sales_sensitivity"] is None
+
+    def test_busier_sales_pay_less(self):
+        cond = DrawConditions(jackpot=10_000_000, tickets_sold=9_000_000, roll_down=True)
+        sens = sales_sensitivity(cond)
+        assert sens["ev_low"] < sens["ev_high"]
+        assert sens["tickets_low"] < cond.tickets_sold < sens["tickets_high"]
+
+    def test_quartile_ticket_counts_come_off_the_pre_uplift_baseline(self):
+        cond = DrawConditions(jackpot=10_000_000, tickets_sold=9_000_000, roll_down=True)
+        sens = sales_sensitivity(cond)
+        baseline = cond.tickets_sold / MBW_SALES_UPLIFT
+        assert sens["tickets_low"] == int(baseline * MBW_SALES_UPLIFT_P25)
+        assert sens["tickets_high"] == int(baseline * MBW_SALES_UPLIFT_P75)
+
+    def test_thin_edge_is_flagged_not_robust(self):
+        # A draw that only clears break-even on the central sales estimate must
+        # not read as a clean PLAY - that is what the 2026-08-08 email did.
+        cond = DrawConditions(jackpot=10_000_000, tickets_sold=9_000_000, roll_down=True)
+        cond.jackpot = break_even_jackpot(cond) * 1.01
+        verdict = should_play(cond)
+        assert verdict["play"] is True
+        assert verdict["sales_sensitivity"]["robust"] is False
+
+    def test_a_fat_pool_is_robust(self):
+        cond = DrawConditions(jackpot=25_000_000, tickets_sold=9_000_000, roll_down=True)
+        verdict = should_play(cond)
+        assert verdict["play"] is True
+        assert verdict["sales_sensitivity"]["robust"] is True
+
+
+class TestAugust2026Regression:
+    """The draw that exposed the bug: 2026-08-08, pool £8,391,429.
+
+    Ordinary-draw sales of 6,574,552 made it read +£0.038. Priced as the
+    Must-Be-Won draw it actually is, it is a clear SKIP - and the one roll-down
+    with full data (3190) returned £1.586 per £2 line.
+    """
+    POOL = 8_391_429.0
+    ORDINARY_BASELINE = 5_913_930      # collected draws, roll-down 3190 excluded
+
+    def test_was_a_false_play_at_ordinary_sales(self):
+        cond = DrawConditions(jackpot=self.POOL, tickets_sold=6_574_552, roll_down=True)
+        assert should_play(cond)["play"] is True
+
+    def test_is_a_skip_once_the_uplift_is_applied(self):
+        cond = DrawConditions(jackpot=self.POOL, roll_down=True,
+                              tickets_sold=int(self.ORDINARY_BASELINE * MBW_SALES_UPLIFT))
+        verdict = should_play(cond)
+        assert verdict["play"] is False
+        assert verdict["ev_best_line"] < 0
+        assert verdict["break_even_jackpot"] > self.POOL
 
 
 class TestPortfolio:
