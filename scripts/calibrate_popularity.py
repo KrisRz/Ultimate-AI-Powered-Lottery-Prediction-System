@@ -46,7 +46,10 @@ import pandas as pd
 from lottery.ev import (
     N_BALLS,
     N_PICK,
+    P_MATCH_2,
     P_MATCH_3,
+    P_MATCH_4,
+    TOTAL_COMBOS,
     number_weight,
     popularity_ratio,
 )
@@ -54,32 +57,47 @@ from lottery.ev import (
 DATA_DIR = Path("data")
 HISTORY_FILE = DATA_DIR / "lotto_full_history.csv"
 TIERS_HISTORY_FILE = DATA_DIR / "prize_tiers_history.csv"
+SALES_HISTORY_FILE = DATA_DIR / "sales_history.csv"
 
 TREND_WINDOW = 51        # draws in the rolling-median sales trend (odd, ~6 months)
 CALIB_TIER = 5           # tier 5 == Match 3 (strong signal, low noise)
 CALIB_MATCH = 3          # numbers a Match-3 winner shares with the drawn set
 NUMBER_COLS = [f"Number_{i}" for i in range(1, 7)]
 
+# All three high-count tiers see the drawn set's popularity, each through a
+# different match degree k: log(multiplier) ~ (k/6) * sum log(weight). Fitting
+# each separately and un-damping by 6/k must land on the SAME weights if the
+# independent-weights model is adequate - a cross-tier consistency check the
+# single-tier fit cannot provide (Baker & McHale 2009's cross-tier correlation
+# is exactly this shared driver).
+TIER_CONFIG = {
+    4: (P_MATCH_4, 4, "Match 4"),
+    5: (P_MATCH_3, 3, "Match 3"),
+    6: (P_MATCH_2, 2, "Match 2"),
+}
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def load_joined() -> pd.DataFrame:
-    """One row per (draw, round): the six drawn numbers + Match-3 winners."""
+def load_joined(tier: int = CALIB_TIER) -> pd.DataFrame:
+    """One row per (draw, round): the six drawn numbers + `tier` winners."""
     hist = pd.read_csv(HISTORY_FILE)
     hist = hist.rename(columns={"DrawNumber": "draw_number", "Round": "round"})
     tiers = pd.read_csv(TIERS_HISTORY_FILE)
-    m3 = tiers[tiers["tier"] == CALIB_TIER][["draw_number", "round", "winners"]]
+    tt = tiers[tiers["tier"] == tier][["draw_number", "round", "winners"]]
 
-    df = hist.merge(m3, on=["draw_number", "round"], how="inner")
+    df = hist.merge(tt, on=["draw_number", "round"], how="inner")
     df = df[(df["winners"] > 0)].sort_values(["draw_number", "round"]).reset_index(drop=True)
-    logger.info("Joined %d (draw, round) observations with Match-3 winners", len(df))
+    logger.info("Joined %d (draw, round) observations with %s winners",
+                len(df), TIER_CONFIG[tier][2])
     return df
 
 
-def add_multiplier(df: pd.DataFrame, window: int = TREND_WINDOW) -> pd.DataFrame:
+def add_multiplier(df: pd.DataFrame, window: int = TREND_WINDOW,
+                   tier_prob: float = P_MATCH_3) -> pd.DataFrame:
     """Popularity multiplier per observation, sales trend divided out."""
-    raw = df["winners"] / P_MATCH_3               # ~ N_i * pop_i
+    raw = df["winners"] / tier_prob               # ~ N_i * pop_i
     trend = raw.rolling(window, center=True, min_periods=window // 2).median()
     df = df.assign(sales_est=trend, multiplier=raw / trend)
     return df.dropna(subset=["multiplier"])
@@ -100,7 +118,7 @@ def drawn_features(df: pd.DataFrame) -> pd.DataFrame:
 # log(multiplier) ~= (3/6) * sum_{n in D} log(weight_n). A regression coefficient
 # on a number-indicator is therefore HALF the number's log-weight, and the true
 # pick-rate weight is recovered by scaling the coefficient back up by 6/3 = 2.
-UNDAMP = N_PICK / (N_PICK - CALIB_MATCH)  # = 6 / 3 = 2.0
+UNDAMP = N_PICK / CALIB_MATCH  # = 6 / 3 = 2.0 (log-mult carries k/6 of the weight sum)
 
 
 def per_number_regression(df: pd.DataFrame) -> np.ndarray:
@@ -122,13 +140,13 @@ def per_number_regression(df: pd.DataFrame) -> np.ndarray:
     return weights / weights.mean()
 
 
-def fit_bucket_weights(df: pd.DataFrame) -> dict:
+def fit_bucket_weights(df: pd.DataFrame, match_degree: int = CALIB_MATCH) -> dict:
     """Calibrated pick-rate for the three interpretable buckets used by ev.py.
 
     Regresses log(multiplier) on the count of drawn numbers in {<=12, 13-31,
-    >31} (13-31 is the reference), un-damps the contrasts, then solves for the
-    absolute levels under the population constraint 12*w_low + 19*w_mid +
-    28*w_high == 59 (i.e. mean pick-rate 1.0).
+    >31} (13-31 is the reference), un-damps the contrasts by 6/match_degree,
+    then solves for the absolute levels under the population constraint
+    12*w_low + 19*w_mid + 28*w_high == 59 (i.e. mean pick-rate 1.0).
     """
     nums = df[NUMBER_COLS].to_numpy()
     n_low12 = (nums <= 12).sum(axis=1)
@@ -136,10 +154,109 @@ def fit_bucket_weights(df: pd.DataFrame) -> dict:
     X = np.column_stack([np.ones(len(df)), n_low12, n_high])
     y = np.log(df["multiplier"].to_numpy())
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
-    r_low = np.exp(UNDAMP * beta[1])   # w_low12 / w_mid
-    r_high = np.exp(UNDAMP * beta[2])  # w_high  / w_mid
+    undamp = N_PICK / match_degree     # log-mult carries (k/6) of the weight sum
+    r_low = np.exp(undamp * beta[1])   # w_low12 / w_mid
+    r_high = np.exp(undamp * beta[2])  # w_high  / w_mid
     w_mid = N_BALLS / (12 * r_low + 19 + 28 * r_high)
     return {"low12": r_low * w_mid, "mid": w_mid, "high": r_high * w_mid}
+
+
+def cross_tier_report(window: int = TREND_WINDOW) -> None:
+    """Fit the buckets from each high-count tier separately.
+
+    Three independent match degrees un-damped by 6/k must agree if the
+    independent-weights model is adequate. Added 2026-08-07: they do -
+    M4 1.228/1.094/0.838, M3 1.230/1.100/0.834, M2 1.205/1.092/0.850 - the
+    validation Baker & McHale's cross-tier-correlation critique asks for.
+    A naive variance-weighted JOINT fit was also tried and LOST out-of-sample
+    to the M3-only installed weights (it over-weights Match 2, the tier with
+    the least signal per unit of noise), so the joint fit is deliberately
+    absent here: this table is a consistency check, not an estimator.
+    """
+    print("\nCross-tier consistency (each tier fit independently, un-damped 6/k):")
+    print(f"  {'tier':>8} {'k':>3} {'<=12':>7} {'13-31':>7} {'>31':>7}")
+    for tier, (prob, k, label) in sorted(TIER_CONFIG.items(), key=lambda kv: -kv[1][1]):
+        df = add_multiplier(load_joined(tier), window, tier_prob=prob)
+        b = fit_bucket_weights(df, match_degree=k)
+        print(f"  {label:>8} {k:>3} {b['low12']:>7.3f} {b['mid']:>7.3f} {b['high']:>7.3f}")
+    cur = {"low12": number_weight(1), "mid": number_weight(20), "high": number_weight(40)}
+    print(f"  {'installed':>8} {'-':>3} {cur['low12']:>7.3f} {cur['mid']:>7.3f} {cur['high']:>7.3f}")
+
+
+def cowinner_tail_report() -> None:
+    """Observed jackpot-winner counts vs the popularity model's prediction.
+
+    This is the direct test of `expected_cowinner_share` - the term the whole
+    jackpot-sharing edge runs through. Winners per (draw, round) should be
+    Poisson(N * popularity_ratio(drawn)/C); the histogram over the era tests
+    both the level and the tail. Simon (1998) warns of ~2,000 combinations
+    with >200 holders; at our era size that shows up as rare 4+-winner draws.
+    First run (2026-08-07, 1,147 draw-rounds): observed 963/158/21/3/2 for
+    0/1/2/3/4+ vs predicted 942/179/22/2.7/0.4 - chi2 ~ 4.2 on 3 df, p ~ 0.24.
+    The model is adequate; the extreme tail (2 draws with 4+ winners) is the
+    only cluster-effect trace and is below significance.
+    """
+    if not SALES_HISTORY_FILE.exists():
+        print("\nCo-winner tail: data/sales_history.csv missing - run `make sales`.")
+        return
+    hist = pd.read_csv(HISTORY_FILE, parse_dates=["Draw Date"])
+    hist = hist[hist["Draw Date"] >= "2015-10-10"]
+    sales = pd.read_csv(SALES_HISTORY_FILE).dropna(subset=["draw_number"])
+    nmap = dict(zip(sales["draw_number"].astype(int), sales["lines_sold"]))
+
+    observed = np.zeros(5)
+    predicted = np.zeros(5)
+    for _, r in hist.iterrows():
+        n_lines = nmap.get(int(r["DrawNumber"]))
+        if not n_lines or not np.isfinite(r["JackpotWins"]):
+            continue
+        observed[min(int(r["JackpotWins"]), 4)] += 1
+        line = [int(r[c]) for c in NUMBER_COLS]
+        lam = n_lines * popularity_ratio(line) / TOTAL_COMBOS
+        probs = [np.exp(-lam)]
+        for k in range(1, 4):
+            probs.append(probs[-1] * lam / k)
+        probs.append(max(1.0 - sum(probs), 0.0))
+        predicted += probs
+
+    print("\nJackpot co-winner tail (the expected_cowinner_share test):")
+    print(f"  {'winners':>8} {'observed':>9} {'model':>9}")
+    for k in range(5):
+        label = f"{k}" if k < 4 else "4+"
+        print(f"  {label:>8} {observed[k]:>9.0f} {predicted[k]:>9.1f}")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        chi2 = np.nansum((observed - predicted) ** 2 / predicted)
+    print(f"  chi2 {chi2:.1f} (4 df, on expected counts) - "
+          f"{'model adequate' if chi2 < 9.5 else 'TAIL DIVERGES - revisit cluster model'}")
+
+
+def oos_report(window: int = TREND_WINDOW) -> None:
+    """Out-of-sample check: do the INSTALLED weights predict the second half
+    of history better than a refit on the first half? If a refit ever wins
+    decisively, the installed constants have drifted stale."""
+    df = add_multiplier(load_joined(CALIB_TIER), window, tier_prob=P_MATCH_3)
+    half = df["draw_number"].median()
+    train, test = df[df["draw_number"] <= half], df[df["draw_number"] > half]
+    if len(train) < 100 or len(test) < 100:
+        return
+    refit = fit_bucket_weights(train)
+    installed = {"low12": number_weight(1), "mid": number_weight(20),
+                 "high": number_weight(40)}
+
+    def predict(dd, b):
+        nums = dd[NUMBER_COLS].to_numpy()
+        lw = np.log([b["low12"], b["mid"], b["high"]])
+        s = ((nums <= 12) * lw[0] + ((nums > 12) & (nums <= 31)) * lw[1]
+             + (nums > 31) * lw[2]).sum(axis=1)
+        return (CALIB_MATCH / N_PICK) * s
+
+    y = np.log(test["multiplier"].to_numpy())
+    print("\nOut-of-sample (fit first half, score second half, Match 3):")
+    for name, b in (("refit(train)", refit), ("installed", installed)):
+        pred = predict(test, b)
+        corr = np.corrcoef(pred, y)[0, 1]
+        mse = float(np.mean((pred - y) ** 2))
+        print(f"  {name:>13}: corr {corr:.3f}  mse {mse:.5f}")
 
 
 def report(df: pd.DataFrame, recovered: np.ndarray) -> None:
@@ -212,6 +329,12 @@ def main() -> int:
     df = drawn_features(df)
     recovered = per_number_regression(df)
     report(df, recovered)
+    # Model-validation sections run on the full era regardless of --since /
+    # --last-draws: they answer "is the model right", not "has it drifted".
+    if not (args.since or args.last_draws):
+        cross_tier_report(args.window)
+        cowinner_tail_report()
+        oos_report(args.window)
     return 0
 
 

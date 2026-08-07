@@ -148,3 +148,55 @@ class TestIngestOfficialJson:
         fetch_data._ingest_official_json(odd)
         tiers = pd.read_csv(isolated_data_dir / "prize_tiers.csv")
         assert len(tiers) == 4
+
+
+class TestRecoverMissingDraws:
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    class _FakeSession:
+        def __init__(self, payloads):
+            self.payloads = payloads
+            self.requested = []
+
+        def get(self, url, **kwargs):
+            draw = int(url.rstrip("/").rsplit("/", 1)[-1])
+            self.requested.append(draw)
+            return TestRecoverMissingDraws._FakeResp(self.payloads[draw])
+
+    def _payload_for(self, draw_no):
+        p = copy.deepcopy(SAMPLE_JSON)
+        p["drawResult"]["drawNo"] = draw_no
+        p["prizeBreakdown"]["jackpotRolloverCount"] = 0
+        return p
+
+    def test_backfills_gap_between_collected_and_latest(self, isolated_data_dir):
+        fetch_data._ingest_official_json(self._payload_for(3195))
+        session = self._FakeSession({3196: self._payload_for(3196),
+                                     3197: self._payload_for(3197)})
+        n = fetch_data.recover_missing_draws(session, {}, latest_drawno=3198)
+        assert n == 2
+        assert session.requested == [3196, 3197]
+        tiers = pd.read_csv(isolated_data_dir / "prize_tiers.csv")
+        assert set(tiers["draw_number"]) == {3195, 3196, 3197}
+
+    def test_no_gap_requests_nothing(self, isolated_data_dir):
+        fetch_data._ingest_official_json(self._payload_for(3195))
+        session = self._FakeSession({})
+        assert fetch_data.recover_missing_draws(session, {}, latest_drawno=3196) == 0
+        assert session.requested == []
+
+    def test_one_dead_draw_does_not_stop_the_rest(self, isolated_data_dir):
+        fetch_data._ingest_official_json(self._payload_for(3195))
+        session = self._FakeSession({3197: self._payload_for(3197)})  # 3196 -> KeyError
+        n = fetch_data.recover_missing_draws(session, {}, latest_drawno=3198)
+        assert n == 1
+        tiers = pd.read_csv(isolated_data_dir / "prize_tiers.csv")
+        assert 3197 in set(tiers["draw_number"])
