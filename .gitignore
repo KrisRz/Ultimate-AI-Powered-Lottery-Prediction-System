@@ -52,6 +52,7 @@ outputs/
 !data/merged_lottery_data.csv
 !data/lotto_full_history.csv
 !data/sales_history.csv
+!data/mbw_validation.csv
 data/ledger.csv
 
 # Fetcher state - rewritten on every fetch, never worth versioning

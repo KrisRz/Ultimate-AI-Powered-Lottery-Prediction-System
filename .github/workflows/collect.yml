@@ -54,11 +54,23 @@ jobs:
           sys.exit(0 if latest >= expected else 1)
           EOF
 
+      # Scores the model against the draw when it was a Must-Be-Won (~9/year):
+      # measured sales vs forecast, advertised pool vs actual redistribution.
+      # Runs before the commit so its scorecard CSV rides the same push.
+      - name: Score the model after a Must-Be-Won draw
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: PYTHONPATH=. python scripts/monitoring/post_mbw_validation.py
+
       - name: Commit collected data
         run: |
           git config user.name "lotto-collector[bot]"
           git config user.email "actions@users.noreply.github.com"
           git add -f data/prize_tiers.csv data/merged_lottery_data.csv data/lotto_full_history.csv
+          git add -f data/mbw_validation.csv 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No new data (already collected - idempotent run)"
           else

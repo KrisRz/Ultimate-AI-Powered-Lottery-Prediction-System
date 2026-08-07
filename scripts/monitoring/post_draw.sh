@@ -31,6 +31,9 @@ git pull --rebase --autostash origin main || {
 echo "[post-draw] $(date '+%Y-%m-%d %H:%M') fetching latest result..."
 PYTHONPATH=. python -c "from scripts.fetch_data import download_fresh_data; download_fresh_data()"
 
+echo "[post-draw] scoring the model if that was a Must-Be-Won draw..."
+PYTHONPATH=. python scripts/monitoring/post_mbw_validation.py || true
+
 echo "[post-draw] settling ledger..."
 PYTHONPATH=. python scripts/roi_ledger.py settle
 PYTHONPATH=. python scripts/roi_ledger.py report
