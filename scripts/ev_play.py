@@ -28,6 +28,7 @@ from lottery.ev import (  # noqa: E402
     calibrate_fixed_prizes,
     estimate_tickets_sold,
     forecast_must_be_won,
+    kelly_stake,
     mbw_uplift,
     should_play,
     upcoming_draw_date,
@@ -85,6 +86,8 @@ def main() -> None:
                              f"prize_tiers.csv, else {DEFAULT_TICKETS_SOLD:,})")
     parser.add_argument("--threshold", type=float, default=0.0,
                         help="Minimum EV (GBP) per line to recommend playing")
+    parser.add_argument("--bankroll", type=float, default=1000.0,
+                        help="Bankroll (GBP) the Kelly stake is sized against")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--force", action="store_true",
                         help="Build a portfolio even when the draw is below threshold")
@@ -128,6 +131,18 @@ def main() -> None:
         holds = ("YES" if sens["robust"]
                  else "NO - only the central sales estimate clears it")
         print(f"Holds across range:   {holds}")
+    if verdict["play"]:
+        k = kelly_stake(cond, args.bankroll)
+        if k["lines_full"] >= 1:
+            print(f"Kelly stake:          {k['lines_full']} lines full / "
+                  f"{k['lines_half']} half-Kelly on a £{args.bankroll:,.0f} bankroll")
+        else:
+            # The honest MacLean-Ziemba answer: a real edge that is 81% to
+            # lose a given line justifies almost nothing growth-theoretically.
+            print(f"Kelly stake:          £{k['stake_full']:.2f} on a "
+                  f"£{args.bankroll:,.0f} bankroll (f*={k['kelly_fraction']:.2e}) - "
+                  f"the edge is real, but at this bankroll every line is an "
+                  f"entertainment stake, not growth")
     print("-" * 64)
 
     portfolio = []

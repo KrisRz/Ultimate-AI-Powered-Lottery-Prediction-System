@@ -1243,10 +1243,177 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
             logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
 
 
+# The JSON API behind the official site (found in its Next.js bundles). No
+# auth, but an AWS WAF rejects non-browser user agents with 403. Richer than
+# the XML: per-winner prize AND per-tier fund, plus per-tier roll-down flags.
+# Window is only ~180 days - the git-committed CSVs remain the full archive.
+API_JSON_URL = "https://api-dfe.national-lottery.co.uk/draw-game/results/1/latest"
+LATEST_JSON_FILE = DATA_DIR / "lotto-latest.json"
+
+_JSON_TIER_BY_LABEL = {
+    "Match 6": 1, "Match 5 + Bonus": 2, "Match 5": 3,
+    "Match 4": 4, "Match 3": 5, "Match 2": 6,
+}
+
+# Read off the data, not the rulebook: no rollover streak since Nov 2018
+# exceeded 5 (see lottery.ev.ROLLOVER_CAP). Used to derive the Must-Be-Won
+# flag when the XML with the official forward-looking field is unreachable.
+_ROLLOVER_CAP = 5
+
+
+def _forward_fields_from_xml(session, headers) -> dict:
+    """Best-effort fetch of the forward-looking fields only the XML carries.
+
+    The JSON API describes the draw that HAPPENED; the estimated jackpot and
+    Must-Be-Won flag for the NEXT draw live only in the legacy XML endpoint.
+    Any failure returns {} - the caller has a derivation fallback - so a dead
+    redirect cannot take the whole collection down with it.
+    """
+    import xml.etree.ElementTree as ET
+    try:
+        resp = session.get(
+            "https://www.national-lottery.co.uk/results/lotto/draw-history/csv",
+            headers=headers, timeout=20)
+        resp.raise_for_status()
+        content = resp.content
+        if not content.lstrip().startswith(b"<?xml"):
+            return {}
+        with open(LATEST_XML_FILE, "wb") as f:
+            f.write(content)
+        game = ET.fromstring(content).find("game")
+        if game is None:
+            return {}
+        est = (game.findtext("next-estimated-jackpot") or "").replace(",", "")
+        return {
+            "next_jackpot_estimate": float(est) if est else None,
+            "next_jackpot_roll_down":
+                (game.findtext("next-estimated-jackpot-roll-down") or "N") == "Y",
+        }
+    except Exception as exc:
+        logger.warning(f"Forward-looking XML fields unavailable: {exc}")
+        return {}
+
+
+def _ingest_official_json(payload: dict, forward: dict | None = None) -> None:
+    """Ingest a draw event from the api-dfe JSON (primary source since 2026-08).
+
+    Writes the same files as `_ingest_official_xml`, with two additions in
+    PRIZE_TIERS_FILE: `prize_per_winner` (direct from the API instead of
+    prize_total / winners, which the roll-down analyses keep re-deriving) and
+    `tier_roll_down` (the API's own per-tier roll-down marker, replacing the
+    boosted-Match-3 signature heuristic for every draw collected from now on).
+
+    `forward` carries next_jackpot_estimate / next_jackpot_roll_down read from
+    the XML. Without it the Must-Be-Won flag is derived from the rollover
+    count hitting the cap - that misses special-event Must-Be-Won draws
+    (which Allwyn schedules without 5 rollovers) but never a cap-driven one.
+    """
+    draw = payload["drawResult"]
+    pb = payload["prizeBreakdown"]
+    draw_number = int(draw["drawNo"])
+    draw_date = str(draw["drawDate"])[:10]
+
+    machines = pb.get("drawMachines") or []
+    nums = draw["drawnNumbers"]
+    round_sets = [nums.get("drawnNumbers"), nums.get("drawnNumbersAdditional")]
+    rounds = []
+    for i, rs in enumerate(r for r in round_sets if r):
+        numbers = sorted(int(n) for n in rs["primaryNumbers"])
+        bonus = int(rs["secondaryNumbers"][0])
+        if len(set(numbers)) != 6 or not all(1 <= n <= 59 for n in numbers) or not 1 <= bonus <= 59:
+            raise ValueError(f"Official JSON: invalid numbers in round {i + 1}: {numbers} bonus {bonus}")
+        m = machines[i] if i < len(machines) else (machines[0] if machines else {})
+        rounds.append({
+            "round": i + 1,
+            "numbers": numbers,
+            "bonus": bonus,
+            "ball_set": str(m.get("ballSet", "")).lstrip("L"),
+            "machine": m.get("machineName", ""),
+        })
+    if not rounds:
+        raise ValueError("Official JSON: no drawn numbers - format changed?")
+
+    r1 = rounds[0]
+    legacy = pd.DataFrame([{
+        "DrawDate": draw_date,
+        **{f"Ball {i+1}": n for i, n in enumerate(r1["numbers"])},
+        "Bonus Ball": r1["bonus"],
+        "Ball Set": r1["ball_set"],
+        "Machine": r1["machine"],
+        "DrawNumber": draw_number,
+    }])
+    legacy.to_csv(DOWNLOADED_FILE, index=False)
+    merge_data_files()
+
+    rollover = bool(pb.get("isJackpotRollover"))
+    rollover_count = int(pb.get("jackpotRolloverCount") or 0)
+    forward = forward or {}
+    next_roll_down = forward.get("next_jackpot_roll_down")
+    if next_roll_down is None:
+        next_roll_down = rollover_count >= _ROLLOVER_CAP
+
+    tier_rows = []
+    for lvl in pb.get("prizeLevels") or []:
+        tier = _JSON_TIER_BY_LABEL.get(lvl.get("matchLabel"))
+        if tier is None:
+            logger.warning(f"Official JSON: unknown tier label {lvl.get('matchLabel')!r} - skipped")
+            continue
+        tier_rows.append({
+            "draw_number": draw_number,
+            "draw_date": draw_date,
+            "round": 1 if lvl.get("drawRound") == "ONE" else 2,
+            "tier": tier,
+            "winners": int(lvl.get("allWinnersCount") or 0),
+            "prize_total": (lvl.get("prizeFundCents") or 0) / 100.0,
+            "rollover": rollover,
+            "rollover_count": rollover_count,
+            "next_jackpot_estimate": forward.get("next_jackpot_estimate"),
+            "next_jackpot_roll_down": next_roll_down,
+            "prize_per_winner": ((lvl.get("prize") or {}).get("prizeCents") or 0) / 100.0,
+            "tier_roll_down": bool(lvl.get("prizeRollDown")),
+        })
+    if tier_rows:
+        tiers_df = pd.DataFrame(tier_rows)
+        if PRIZE_TIERS_FILE.exists():
+            old = pd.read_csv(PRIZE_TIERS_FILE)
+            tiers_df = pd.concat([old, tiers_df], ignore_index=True)
+            tiers_df = tiers_df.drop_duplicates(subset=["draw_number", "round", "tier"], keep="last")
+        tiers_df.sort_values(["draw_number", "round", "tier"]).to_csv(PRIZE_TIERS_FILE, index=False)
+        logger.info(f"Recorded {len(tier_rows)} prize-tier rows for draw {draw_number} in {PRIZE_TIERS_FILE}")
+
+    if FULL_HISTORY_FILE.exists():
+        full = pd.read_csv(FULL_HISTORY_FILE)
+        if draw_number not in set(full["DrawNumber"].astype(int)):
+            # The JSON states this draw's jackpot outright - no back-reading
+            # the previous row's estimate like the XML path has to.
+            jackpot = ((draw.get("topPrize") or {}).get("prizeCents") or 0) / 100.0
+            jackpot_wins = {
+                row["round"]: row["winners"] for row in tier_rows if row["tier"] == 1
+            }
+            new_rows = pd.DataFrame([{
+                "Draw Date": draw_date,
+                **{f"Number_{i+1}": n for i, n in enumerate(r["numbers"])},
+                "Bonus": r["bonus"],
+                "Jackpot": jackpot,
+                "JackpotWins": jackpot_wins.get(r["round"], 0),
+                "Machine": r["machine"],
+                "Ball Set": r["ball_set"],
+                "DrawNumber": draw_number,
+                "Round": r["round"],
+            } for r in rounds])
+            pd.concat([full, new_rows], ignore_index=True).to_csv(FULL_HISTORY_FILE, index=False)
+            logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
+
+
 def download_fresh_data() -> bool:
     """
     Download fresh lottery data from the official source.
-    
+
+    Primary: the api-dfe JSON (per-winner prizes, per-tier funds, roll-down
+    markers), plus a best-effort XML read for the forward-looking jackpot
+    fields. Fallback: the legacy XML/CSV endpoint exactly as before, so a
+    broken JSON API degrades to the collection quality we had before it.
+
     Returns:
         Boolean indicating whether the download was successful
     """
@@ -1281,6 +1448,29 @@ def download_fresh_data() -> bool:
         
         session = requests.Session()
         backoff = [0, 2, 5]
+
+        # Primary path: the JSON API. Retried on its own; any exhaustion falls
+        # through to the legacy XML/CSV loop below, unchanged.
+        for attempt, delay in enumerate(backoff, start=1):
+            try:
+                if delay:
+                    _time.sleep(delay)
+                resp = session.get(API_JSON_URL,
+                                   headers={"User-Agent": headers["User-Agent"]},
+                                   timeout=20)
+                resp.raise_for_status()
+                payload = resp.json()
+                with open(LATEST_JSON_FILE, 'wb') as f:
+                    f.write(resp.content)
+                forward = _forward_fields_from_xml(
+                    session, {"User-Agent": headers["User-Agent"]})
+                _ingest_official_json(payload, forward)
+                logger.info("Successfully collected the latest draw from the JSON API")
+                return True
+            except Exception as json_e:
+                logger.warning(f"JSON API attempt {attempt} failed: {json_e}")
+
+        logger.warning("JSON API unreachable - falling back to the legacy XML/CSV endpoint")
         for attempt, delay in enumerate(backoff, start=1):
             try:
                 if delay:

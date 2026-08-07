@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from lottery.ev import DrawConditions, should_play, upcoming_draw_date  # noqa: E402
+from lottery.ev import DrawConditions, kelly_stake, should_play, upcoming_draw_date  # noqa: E402
 from lottery.portfolio import build_portfolio  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
@@ -87,6 +87,23 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
     else:
         caveat = ""
 
+    # Sized, not just flagged: where the edge lives (Match 3/2 on a roll-down)
+    # decides how much a rational bankroll puts on it. Half-Kelly is the
+    # discount for N being estimated. Failure here must not eat the alert.
+    try:
+        bankroll = float(os.environ.get("EV_ALERT_BANKROLL", "1000"))
+        k = kelly_stake(cond, bankroll)
+        if k["lines_full"] >= 1:
+            kelly_line = (f"Kelly stake:          {k['lines_full']} lines full / "
+                          f"{k['lines_half']} half-Kelly "
+                          f"(£{bankroll:,.0f} bankroll)\n")
+        else:
+            kelly_line = (f"Kelly stake:          £{k['stake_full']:.2f} at a "
+                          f"£{bankroll:,.0f} bankroll - a real edge, but every "
+                          f"line is an entertainment stake, not growth\n")
+    except Exception:
+        kelly_line = ""
+
     body = (
         f"The next UK Lotto draw clears your EV threshold.\n\n"
         f"Draw:                 {draw_date}\n"
@@ -96,7 +113,7 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         f"Best-line EV:         £{verdict['ev_best_line']:+.2f} "
         f"(per £{cond.ticket_price:.0f} ticket, both rounds)\n"
         f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}\n"
-        + caveat
+        + caveat + kelly_line
         + portfolio_block +
         f"\nEV is an average over a lottery-sized variance: a +EV draw is a good "
         f"bet, not a likely win.\n"

@@ -117,8 +117,13 @@ Zweryfikowane żywcem 2026-08-07:
     parsowanie XML i z polami, których XML nie ma (fundusz per tier!).
   - Okno tylko ~180 dni (najstarszy działający drawNo 3145) → kolektor commitujący do
     gita pozostaje jedyną pełną historią; to potwierdza architekturę, nie zmienia jej.
-- [ ] Dodać ingest JSON jako główny (XML zostaje fallbackiem), zapisywać
-  `prizeFundCents`/`prizeCap` per tier — od razu lepsza walidacja modelu roll-downu.
+- [x] **Zrobione 2026-08-07:** `_ingest_official_json` jest głównym torem kolektora
+  (retry, potem pełny fallback na stary tor XML/CSV). Nowe kolumny w
+  `prize_tiers.csv`: `prize_per_winner` (wprost z API) i `tier_roll_down`
+  (oficjalny marker per tier — koniec heurystyki podbitego Match 3 dla nowych
+  losowań). Pola wyprzedzające (`next_jackpot_estimate/roll_down`) dociągane
+  z XML best-effort; gdy XML martwy, flaga MBW wyprowadzana z capu rolloverów
+  (5) — alert przeżyje śmierć przekierowania. Zweryfikowane na żywo na 3195.
 - [ ] Watchdog: sprawdzać oba źródła (api-dfe + Merseyworld archive) zanim uzna
   losowanie za stracone.
 
@@ -130,14 +135,23 @@ między zwycięzców Match 3** — nie proporcjonalnie po wszystkich tierach i n
 strumieniem J/N. Nasze przybliżenie zwalidowało się na 3190 w 2% (J/N = £1,28 vs £1,26),
 ale dokładna reguła daje:
 
-- [ ] `rolldown_ev` rozbite na tiery: stały bonus `+£4 × P(match2) × rounds` plus
-  człon Match 3 `(J − 4·E[W₂]) / E[W₃]` × P(match3). Ważne przy małych pulach (jak
-  £8,39M z 08.08), gdzie proporcje tierów decydują o werdykcie na marginesie.
-- [ ] Walidacja na przeparsowanych roll-downach z archiwum (patrz §5) — czy podział
-  M2-najpierw-M3-reszta odtwarza obserwowane £24/£5, £24 = 10 + 14 itd.
-- [ ] Specjalne losowania MBW (Allwyn planuje ~£15M na święta **bez** 5 rolloverów;
-  roll-down identyczny): `forecast_must_be_won` liczy tylko cap-driven — flaga
-  `next_jackpot_roll_down` je złapie, ale dashboard powinien odróżniać te dwa typy.
+**Wykonane 2026-08-07, z jedną ważną korektą teoretyczną:**
+- [x] **Podział jest EV-równoważny J/N** — każda reguła rozdająca całą pulę
+  zwycięzcom niższych tierów daje losowemu kuponowi J/N w oczekiwaniu (stąd
+  walidacja 98% na 3190). Dokładna reguła zmienia ROZKŁAD, nie średnią — weszła
+  więc nie do `line_ev` (tam J/N zostaje), ale do `rolldown_tier_boosts()` +
+  `line_return_distribution()` (mieszanina: z P(nikt nie trafi 6) ≈ 65% tiery
+  z boostem, inaczej bazowe), na których stoi Kelly (§6).
+- [x] **93 roll-downy przeparsowane** (`--redo-draws`, 0 sklejonych wartości;
+  M3 per-winner £39–157). Walidacja reguły na 88 post-2018: **M2 = dokładnie £5
+  w 61/88**, człon M3 odtwarza się z medianowym błędem **−9%, systematycznym**.
+  ⚠️ Hipoteza: kolumna `Jackpot` archiwum to ogłoszony estymat, a realnie
+  rozdzielana pula biega ~9% niżej — jeśli tak, człon J/N liczony na ogłoszonej
+  puli jest ~9% optymistyczny. **Rozstrzygnąć na najbliższym MBW**: porównać
+  ogłoszone 8 391 429 z kwotą realnie rozdzieloną po 08.08. Outlier: 3131
+  (specjalne świąteczne MBW 24.12.2025) ma w archiwum ewidentnie błędną pulę.
+- [ ] Dashboard: odróżniać cap-driven MBW od specjalnych (flaga łapie oba typy;
+  `forecast_must_be_won` prognozuje tylko cap-driven).
 
 ## 4. PRIORYTET 1 — Endogeniczny model sprzedaży zamiast stałej 1,38 📊
 
@@ -195,10 +209,16 @@ prawdopodobieństwach jest o rzędy wielkości większy; dokładnie dlatego synd
 mógł racjonalnie stawiać sześciocyfrowe kwoty na Cash WinFall
 ([raport Inspektora Generalnego MA, 2012](https://www.mass.gov/files/documents/2016/08/vv/lottery-cash-winfall-letter-july-2012.pdf)).
 
-- [ ] Rozkład EV per tier już w modelu jest — policzyć z niego frakcję Kelly'ego
-  (i ½-Kelly) dla zadanego majątku/budżetu; do maila PLAY dołączać **sugerowaną liczbę
-  linii** zamiast stałych 5. Uczciwie: przy naszej skali (£10–20/losowanie) to głównie
-  walor edukacyjny — ale to jest różnica między „alertem" a „systemem decyzyjnym".
+- [x] **Zrobione 2026-08-07** — `kelly_stake()` z DOKŁADNĄ maksymalizacją
+  E[log(1+f·r)] (bisekcja pochodnej; przybliżenie f\*≈E[r]/E[r²] jest dla wypłat
+  loteryjnych błędne o rzędy wielkości — dodatni gruby ogon pompuje E[r²], choć
+  strata jest ograniczona do ceny kuponu). Advisor i mail drukują stawkę.
+  **Uczciwy wynik: pełny Kelly dla pojedynczej linii to f\* ≈ 3e-6** — nawet
+  +40% edge na MBW uzasadnia grosze przy detalicznym bankrollu, dokładnie jak
+  u MacLean-Ziemba (83% edge → 65 biletów/$10M). Komunikat mówi to wprost:
+  „edge jest realny, ale każda linia to stawka rozrywkowa, nie wzrostowa".
+  To zamyka spór „ile grać": budżet £10–20/MBW jest w pełni racjonalny jako
+  rozrywka z dodatnim EV, nie jako inwestycja.
 - [ ] Szybki test analityczny Abrams & Garibaldi (`s(p,N) = [1−(1−p)^N]/N`, reguła
   `N < J/5`) jako niezależny sanity-check werdyktu —
   [Finding good bets in the lottery](https://arxiv.org/abs/2507.01993).

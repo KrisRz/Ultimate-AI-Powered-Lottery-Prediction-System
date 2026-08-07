@@ -276,7 +276,7 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 **Czeka na rozstrzygnięcie (stan 2026-08-05 22:30):**
 - ~~**Pierwsze realne Must-Be-Won.** Rollover 4/5 po losowaniu 3194 (01.08).~~ **Rozstrzygnięte 2026-08-06:** 3195 bez szóstki → 08.08 jest Must-Be-Won z pulą £8,391,429, ale po naprawce sprzedaży to **SKIP (EV −£0,203)**, nie PLAY. Przewidywanie „pula £9–10M, tuż nad progiem" było zresztą optymistyczne w obie strony: pula wyszła niżej (£8,39M), a próg wyżej (£9,99M, nie £9,14M). Szczegóły w audycie 2026-08-06 wyżej.
 - **Ledger nadal ma 0 kuponów** — ścieżka PLAY nigdy nie przeszła na prawdziwych pieniądzach. Sobota jest pierwszą okazją.
-- **93 losowania w `prize_tiers_history.csv` mają nadal zepsute `prize_per_winner`** — parser naprawiony (PR #11), ale danych nie przeparsowano. Komenda: `python scripts/backfill_prize_tiers.py --redo-draws <lista>`, ~93 strzały do oficjalnej strony. Do zrobienia świadomie, nie przy okazji.
+- ~~**93 losowania w `prize_tiers_history.csv` mają nadal zepsute `prize_per_winner`**~~ — **zrobione 2026-08-07**: `--redo-draws` na wszystkich 93, zero sklejonych wartości, roll-downowe Match 3 mają realne ceny £39–157. Odblokowana walidacja dokładnej reguły roll-downu (wyniki w `plan-ulepszen-2026-08.md` §3: M2=£5 w 61/88, człon M3 −9% systematycznie — hipoteza: ogłoszona pula > realnie rozdzielona).
 - **Realne opóźnienia GitHub Actions** (z historii przebiegów, ważne przy planowaniu): cron wieczorny 21:45 UTC odpala się ~55 min później, poranny 06:00 UTC ~2,5 h później, watchdog 12:00 UTC ~1–1,5 h później. Czyli kolekcja po losowaniu realnie ~23:40 BST, nie 22:45.
 
 **Checklista po losowaniu** (`git pull` zawsze najpierw — kolektor commituje dane z chmury):
