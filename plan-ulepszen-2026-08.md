@@ -86,11 +86,18 @@ wiersze. Co mówią dane:
   się znoszą; dla **środowego MBW zawyża N o ~25–30% → EV zbyt pesymistyczne →
   ryzyko przegapienia +EV** (bezpieczny kierunek błędu, ale kosztowny: okazji jest
   ~4/rok).
-- **Następny krok (osobny PR):** `estimate_tickets_sold` z bazą tego samego dnia
-  tygodnia + uplift per dzień (stałe wyżej), `DrawConditions.draw_date`, żeby
-  `sales_sensitivity` brała właściwe kwartyle; regresja absolutna
-  (R²=0,89 in-sample) NIE nadaje się do prognozy poziomów — liniowy trend nie łapie
-  dekady spadku, formuła względna (uplift × baza) zostaje.
+- ✅ **Day-aware sprzedaż wdrożona 2026-08-07** (drugi PR): `estimate_tickets_sold`
+  z bazą tego samego dnia tygodnia + `mbw_uplift(draw_date)` per dzień
+  (**sobota 1,27 q 1,19/1,31 — środa 1,44 q 1,38/1,54**, w definicji zgodnej
+  z oknem estymatora: 20 losowań, tylko zwykłe, ten sam dzień),
+  `DrawConditions.draw_date`, `sales_sensitivity` z kwartylami per dzień (dużo
+  węższe niż mieszane 1,07/1,69 → flaga `robust` przestaje rozciągać się na
+  różnice między dniami), `calibrate_mbw_uplift.py` raportuje sekcję day-aware
+  z realnych sprzedaży. Werdykt na 08.08 po zmianie: **SKIP, EV −£0,36 przy
+  N=9,71M** (baza sobotnia; poprzednio −£0,20 przy 8,16M — mieszana baza
+  zaniżała sobotni poziom). Regresja absolutna (R²=0,89 in-sample) świadomie
+  NIE weszła do prognozy — liniowy trend nie łapie dekady spadku sprzedaży,
+  formuła względna (uplift × baza) zostaje.
 
 ## 2. PRIORYTET 0b — Naprawić żywy feed oficjalny 🔧
 

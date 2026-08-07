@@ -90,16 +90,48 @@ DEFAULT_TICKETS_SOLD = 7_500_000
 # cycle, which is the mix `estimate_tickets_sold` actually measures.
 #
 # What this figure does NOT separate is "Must-Be-Won" from "big jackpot": a
-# roll-down always carries the largest pool of its cycle. That is fine for
-# forecasting N here (a Must-Be-Won draw always has both properties at once),
-# but it means a below-median pool like 2026-08-08's GBP 8.4M may sell nearer
-# the low quartile. Splitting the two needs pool sizes per historical draw, and
-# `prize_per_winner` is still corrupted for all 93 roll-down draws in the
-# archive (backfill_prize_tiers.py --redo-draws), so it cannot be done yet.
-# Hence the quartiles are carried alongside and reported, not averaged away.
+# roll-down always carries the largest pool of its cycle. Settled 2026-08-07
+# with real per-draw sales (data/sales_history.csv, PR #13): pool size does
+# NOT drive the uplift (log-pool coefficient -0.016 across all 93 roll-downs)
+# - the confound that actually mattered was the WEEKDAY, priced below.
 MBW_SALES_UPLIFT = 1.38
 MBW_SALES_UPLIFT_P25 = 1.07
 MBW_SALES_UPLIFT_P75 = 1.69
+
+# Day-aware uplift, measured 2026-08-07 on real per-draw sales
+# (data/sales_history.csv) in the SAME definition the estimator uses: target
+# roll-down's lines over the median of the same-weekday, non-roll-down draws
+# among the 20 draws before it. Saturdays sell ~1.59x Wednesdays, so a mixed
+# baseline hides that a Wednesday Must-Be-Won needs a bigger relative jump
+# than a Saturday one: Sat n=62, Wed n=31. The mixed-base constant above only
+# ever fit Saturdays because 62 of the 93 calibration roll-downs were
+# Saturdays - on a Wednesday it overstates N by ~25-30%, i.e. EV reads too
+# pessimistic on exactly half the calendar. Kept as the fallback for
+# conditions with no draw date.
+#
+# Quartiles are far tighter than the mixed ones (which mixed two day-level
+# populations): the `robust` flag in sales_sensitivity becomes decisive
+# instead of spanning a third of the EV range. Recent drift is mild and
+# upward (since 2022: Sat 1.30 n=37, Wed 1.59 n=10) - the p75 end carries it.
+MBW_UPLIFT_BY_WEEKDAY = {
+    2: (1.44, 1.38, 1.54),   # Wednesday: (median, p25, p75)
+    5: (1.27, 1.19, 1.31),   # Saturday
+}
+
+
+def mbw_uplift(draw_date: date | None = None) -> tuple:
+    """(median, p25, p75) sales uplift for a Must-Be-Won draw on `draw_date`.
+
+    Day-specific when the weekday is known, mixed-baseline constants when it
+    is not. Draws only ever fall on Wednesday/Saturday; any other weekday
+    means the caller's date is wrong, and the mixed fallback is the least
+    wrong answer available.
+    """
+    if draw_date is not None:
+        trio = MBW_UPLIFT_BY_WEEKDAY.get(draw_date.weekday())
+        if trio:
+            return trio
+    return (MBW_SALES_UPLIFT, MBW_SALES_UPLIFT_P25, MBW_SALES_UPLIFT_P75)
 
 
 def match_probability(k: int) -> float:
@@ -322,6 +354,7 @@ class DrawConditions:
     ticket_price: float = TICKET_PRICE
     prizes: FixedPrizes = field(default_factory=FixedPrizes)
     rollover_count: int = 0               # consecutive rollovers so far (feed)
+    draw_date: date | None = None         # picks the day-specific sales uplift
 
 
 def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
@@ -365,27 +398,33 @@ def sales_sensitivity(cond: DrawConditions, threshold: float = 0.0,
     draw is not Must-Be-Won.
 
     On a roll-down draw the EV is dominated by J / N, so the whole verdict turns
-    on one estimated number. `MBW_SALES_UPLIFT` is a median over 89 historical
-    roll-downs with quartiles 1.07 / 1.69 - real spread, not noise around a
-    known value. Reporting only the central figure is what let a verdict
-    sitting 3.2% from break-even read as a clean PLAY. `robust` is the honest
-    headline: does this draw still pay if it sells like the busier roll-downs?
+    on one estimated number. The uplift is a median over historical roll-downs
+    with real quartile spread - not noise around a known value. Reporting only
+    the central figure is what let a verdict sitting 3.2% from break-even read
+    as a clean PLAY. `robust` is the honest headline: does this draw still pay
+    if it sells like the busier roll-downs?
+
+    Uses the day-specific uplift when `cond.draw_date` is set - the quartiles
+    within one weekday are much tighter than the mixed ones, so the range
+    reported here stops spanning day-level differences that a dated forecast
+    does not actually face.
     """
     if not cond.roll_down:
         return None
     line = list(line) if line is not None else best_unpopular_reference_line()
-    baseline = cond.tickets_sold / MBW_SALES_UPLIFT
+    up_mid, up_p25, up_p75 = mbw_uplift(cond.draw_date)
+    baseline = cond.tickets_sold / up_mid
 
     def ev_at(uplift: float) -> float:
         return line_ev(line, replace(cond, tickets_sold=max(int(baseline * uplift), 1)))
 
-    low, high = ev_at(MBW_SALES_UPLIFT_P75), ev_at(MBW_SALES_UPLIFT_P25)
+    low, high = ev_at(up_p75), ev_at(up_p25)
     return {
         "ev_low": low,            # busier draw (p75 uplift) - the pessimistic case
         "ev_high": high,          # quieter draw (p25 uplift)
-        "tickets_low": int(baseline * MBW_SALES_UPLIFT_P25),
-        "tickets_high": int(baseline * MBW_SALES_UPLIFT_P75),
-        "uplift": MBW_SALES_UPLIFT,
+        "tickets_low": int(baseline * up_p25),
+        "tickets_high": int(baseline * up_p75),
+        "uplift": up_mid,
         "robust": low >= threshold,
     }
 
@@ -462,7 +501,8 @@ def rolldown_draw_numbers(tiers_df) -> set:
 
 
 def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
-                          roll_down: bool = False) -> int | None:
+                          roll_down: bool = False,
+                          draw_date: date | None = None) -> int | None:
     """Estimate lines sold for the UPCOMING draw from observed winner counts.
 
     For fixed-prize tiers the expected winner count is N x P(tier), so each
@@ -470,18 +510,24 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
     least distorted by jackpot-sharing) over recent draws, both rounds, and
     takes the median to damp popularity-of-drawn-numbers noise.
 
-    Two steps, because the answer depends on WHICH draw is being forecast:
+    Three steps, because the answer depends on WHICH draw is being forecast:
 
     1. Measure the ordinary-draw sales level, excluding any roll-down draws in
        the window. With a full 20-draw window one or two roll-downs barely move
        a median, but the collected file started at 3190 - a roll-down - and with
        6 draws on record that single draw was 1/6 of the sample and pulled the
        estimate up 10% (6,574,552 vs 5,913,930).
-    2. If the upcoming draw is Must-Be-Won, scale by MBW_SALES_UPLIFT. Skipping
-       this was the bug found 2026-08-06: the 2026-08-08 alert priced a
-       Must-Be-Won draw at ordinary-draw sales and reported EV +GBP 0.038 when
-       break-even sat only 3.2% away in N. The one Must-Be-Won draw with full
-       data, 3190, returned GBP 1.586 per GBP 2 line.
+    2. Restrict the baseline to the target's own weekday when `draw_date` is
+       given: Saturdays sell ~1.59x Wednesdays (data/sales_history.csv), which
+       is by far the largest systematic factor in N - larger than the
+       Must-Be-Won effect itself. A mixed-day median is a number for a draw
+       that never happens.
+    3. If the upcoming draw is Must-Be-Won, scale by the day-specific uplift
+       (see MBW_UPLIFT_BY_WEEKDAY). Skipping the uplift entirely was the bug
+       found 2026-08-06: the 2026-08-08 alert priced a Must-Be-Won draw at
+       ordinary-draw sales and reported EV +GBP 0.038 when break-even sat only
+       3.2% away in N. The one Must-Be-Won draw with full data, 3190, returned
+       GBP 1.586 per GBP 2 line.
     """
     if tiers_df is None or len(tiers_df) == 0:
         return None
@@ -503,11 +549,27 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
     if len(sample) == 0:
         sample = window
 
+    # Same-weekday half of the window. Falls back to the mixed sample when the
+    # frame carries no dates or the filter would empty it (a fresh collection
+    # file may hold only a handful of draws, all on the other day).
+    if draw_date is not None and "draw_date" in sample.columns:
+        weekdays = _column_weekdays(sample["draw_date"])
+        same_day = sample[weekdays == draw_date.weekday()]
+        if len(same_day) >= 3:
+            sample = same_day
+
     estimates = sorted(
         row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
     )
     baseline = estimates[len(estimates) // 2]
-    return int(baseline * (MBW_SALES_UPLIFT if roll_down else 1.0))
+    uplift = mbw_uplift(draw_date)[0] if roll_down else 1.0
+    return int(baseline * uplift)
+
+
+def _column_weekdays(dates):
+    """Weekday (Mon=0) for a column of ISO date strings, NaN-safe."""
+    import pandas as pd
+    return pd.to_datetime(dates, errors="coerce").dt.weekday
 
 
 # UK Lotto pays the jackpot out at the latest on the 6th draw of a roll:
