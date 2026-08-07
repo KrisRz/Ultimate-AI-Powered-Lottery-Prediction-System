@@ -31,7 +31,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from lottery.ev import DrawConditions, kelly_stake, should_play, upcoming_draw_date  # noqa: E402
+from lottery.ev import (  # noqa: E402
+    DrawConditions,
+    default_portfolio_seed,
+    kelly_stake,
+    mbw_type,
+    should_play,
+    upcoming_draw_date,
+)
 from lottery.portfolio import build_portfolio  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
@@ -47,10 +54,11 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
 
     lines = []
     try:
-        # Same draw -> same lines, so a retry run cannot contradict the first
-        # email with a different portfolio.
+        # Same draw -> same lines: the retry run cannot contradict the first
+        # email, and (same seed in ev_play) latest.json proposes the SAME
+        # portfolio this email carries.
         portfolio = build_portfolio(n_lines, cond,
-                                    seed=int(draw_date.strftime("%Y%m%d")))
+                                    seed=default_portfolio_seed(draw_date))
         lines = [p["line"] for p in portfolio]
         picks = "\n".join(
             f"  {' '.join(f'{n:2d}' for n in p['line'])}    EV £{p['ev']:+.3f}"
@@ -108,7 +116,8 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         f"The next UK Lotto draw clears your EV threshold.\n\n"
         f"Draw:                 {draw_date}\n"
         f"Jackpot (event pool): £{cond.jackpot:,.0f}\n"
-        f"Must-Be-Won:          {'YES' if cond.roll_down else 'no'}\n"
+        f"Must-Be-Won:          "
+        f"{f'YES ({mbw_type(cond.roll_down, cond.rollover_count)})' if cond.roll_down else 'no'}\n"
         f"Estimated lines sold: {cond.tickets_sold:,}\n"
         f"Best-line EV:         £{verdict['ev_best_line']:+.2f} "
         f"(per £{cond.ticket_price:.0f} ticket, both rounds)\n"
