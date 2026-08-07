@@ -43,6 +43,42 @@ Testy: 143 → **194 zielone**. Próba generalna kolektora w chmurze przeszła 0
 Poza checklistą jedyna odłożona rzecz z „miną": model klastrowy B&M 2011 — wróci sam,
 gdy test ogona w `calibrate_popularity.py` krzyknie „TAIL DIVERGES".
 
+### Testy e2e całej aplikacji — 2026-08-07 wieczorem ✅
+
+Przetestowana każda funkcjonalność na realnych danych, po kolei:
+
+| # | Ścieżka | Wynik |
+|---|---|---|
+| 1 | `make test` | 194/194 zielone |
+| 2 | `make play` na żywo | SKIP −£0,36, N=9,71M (sobota ×1,27), spójne z chmurą |
+| 3 | What-ify: `--jackpot --roll-down --ordinary --seed --lines --bankroll` | wszystkie działają; Kelly, ekran A&G i portfel renderują się poprawnie |
+| 4 | Ochrona `latest.json` | what-if **nie nadpisuje** (md5 przed/po identyczne) |
+| 5 | `make dashboard` | 25 kafli, „SKIP" + „Must-Be-Won (cap-driven)" widoczne |
+| 6 | `make backtest` (186 losowań) | uczciwe „no edge over random" na wszystkich metodach (p=0,23–0,53) |
+| 7 | Ledger pełny cykl: `add` → `settle` → `report` (piaskownica na realnych wynikach 3190, potem sprzątnięte) | 2 linie rozliczone poprawnie z obu rund, ROI −100% (1 trafienie/linia = brak nagrody — zgodnie z tabelą) |
+| 8 | `ev_alert` | `SKIP (EV £-0.36) - no alert sent` — bez fałszywego maila |
+| 9 | `post_mbw_validation` | poprawnie milczy (3195 nie było roll-downem) |
+| 10 | Watchdog | OK — 3195 obecne, 72 wiersze tier |
+| 11 | `make nightly` | przechodzi, zapisuje best_ensemble.json |
+| 12 | `make sales` + walidacja | 3 195 losowań, mediana zgodności 1,052 — odtwarza się |
+| 13 | `calibrate_mbw_uplift` | sekcja day-aware odtwarza zainstalowane stałe (Sat 1,270, Wed 1,440) |
+| 14 | `calibrate_popularity` + 3 walidacje | χ²=9,0 adekwatny, OOS installed 0,509 — odtwarza się |
+| 15 | Legacy `./predict_tonight.sh` | działa (10 linii ensemble; trzymane wyłącznie jako sanity-check — backtest wyżej mówi „no edge") |
+| 16 | `post_draw.sh` — pełna rutyna lokalna | wszystkie kroki po kolei: fetch (JSON) → scorecard → settle → dashboard → werdykt → alert; zero błędów |
+| 17 | Kolektor w chmurze (dress rehearsal, run 31203761207) | JSON + scorecard + `[ev-alert] SKIP` — przeszedł w Actions ~17:45 UTC |
+| 18 | Higiena repo po testach | `git status` czysty — artefakty testów w gitignore albo idempotentne |
+
+**Znaleziska (nic zepsutego, dwie obserwacje):**
+1. `--force` bez argumentów what-if **zapisuje wymuszony portfel do `latest.json` w dzień
+   SKIP** — więc `roi_ledger add --from-latest` po `--force` zapisałby linie losowania,
+   którego advisor nie poleca. To zachowanie zamierzone (`--force` = „gram mimo wszystko"),
+   ale warto pamiętać: po zabawie z `--force` odpal zwykłe `make play`, żeby przywrócić
+   prawdziwy werdykt do pliku.
+2. Sekcja day-aware w `calibrate_mbw_uplift.py` widzi 27 środowych roll-downów, wcześniejsza
+   analiza 31 — różnica z metody detekcji (moda vs mediana bazy Match 3). Stałe wychodzą
+   identyczne w granicach zaokrąglenia, więc bez zmian; odnotowane, gdyby przy przyszłej
+   rekalibracji liczby się nie zgadzały.
+
 ---
 
 ## 0. Werdykt z researchu — gdzie jesteśmy naprawdę
