@@ -154,8 +154,11 @@ ale dokładna reguła daje:
   puli jest ~9% optymistyczny. **Rozstrzygnąć na najbliższym MBW**: porównać
   ogłoszone 8 391 429 z kwotą realnie rozdzieloną po 08.08. Outlier: 3131
   (specjalne świąteczne MBW 24.12.2025) ma w archiwum ewidentnie błędną pulę.
-- [ ] Dashboard: odróżniać cap-driven MBW od specjalnych (flaga łapie oba typy;
-  `forecast_must_be_won` prognozuje tylko cap-driven).
+- [x] **Dashboard i advisor odróżniają typy MBW (2026-08-07):** `mbw_type()` —
+  „cap-driven" przy liczniku ≥ 5, „special-event" gdy flaga roll-down przyszła
+  bez pełnego licznika (świąteczne ~£15M, jak 3131). Advisor, mail i dashboard
+  nazywają typ; nowy `--ordinary` w `ev_play` pozwala też zapytać o zwykłe
+  losowanie, gdy feed flaguje roll-down (dotąd nie dało się).
 
 ## 4. PRIORYTET 1 — Endogeniczny model sprzedaży zamiast stałej 1,38 📊
 
@@ -237,8 +240,16 @@ mógł racjonalnie stawiać sześciocyfrowe kwoty na Cash WinFall
   „edge jest realny, ale każda linia to stawka rozrywkowa, nie wzrostowa".
   To zamyka spór „ile grać": budżet £10–20/MBW jest w pełni racjonalny jako
   rozrywka z dodatnim EV, nie jako inwestycja.
-- [ ] Szybki test analityczny Abrams & Garibaldi (`s(p,N) = [1−(1−p)^N]/N`, reguła
-  `N < J/5`) jako niezależny sanity-check werdyktu —
+- [x] **Ekran A&G wdrożony (2026-08-07)** — `abrams_garibaldi_screen()`, druga
+  opinia TYLKO dla zwykłych losowań (ich twierdzenia wyceniają pari-mutuel
+  jackpot, nie roll-down — dla MBW zwraca None zamiast się mylić). Jest
+  celowo surowszy niż nasz dokładny próg: ich warunek to +EV **odporne na
+  dowolną sprzedaż** (dla UK ≈ £200M puli — oba warunki naraz), gdy nasz
+  break-even £30,2M zakłada bieżące N. Uczciwy wniosek z ekranu: rekord ery
+  to £52,9M, więc **żadne zwykłe losowanie UK Lotto nigdy nie było odpornie
+  dobrym zakładem** — cała przewaga żyje w roll-downach, zgodnie z naszym
+  modelem. Zastrzeżenie: ich twierdzenie zakłada F≥0,8, UK ma ~0,64 — progi
+  są orientacyjne, co dla drugiej opinii wystarcza.
   [Finding good bets in the lottery](https://arxiv.org/abs/2507.01993).
 
 ## 7. PRIORYTET 2 — Higiena i operacje 🧹

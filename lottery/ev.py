@@ -720,6 +720,66 @@ def calibrate_fixed_prizes(tiers_df, last_n_draws: int = 30,
     )
 
 
+def default_portfolio_seed(draw_date: date | None) -> int | None:
+    """One seed per draw date - the SINGLE source of truth for both the
+    advisor (latest.json, which `roi_ledger add --from-latest` records) and
+    the alert email. Two seeds here once meant the email proposed one set of
+    lines while the ledger recorded another; nobody noticed only because the
+    verdict that day was SKIP."""
+    if draw_date is None:
+        return None
+    return int(draw_date.strftime("%Y%m%d"))
+
+
+def mbw_type(roll_down: bool, rollover_count: int) -> str | None:
+    """Why the upcoming draw is Must-Be-Won, or None if it is not.
+
+    'cap-driven': the rollover count hit the cap, the ~9/year case the
+    forecast counts down to. 'special-event': the operator scheduled it
+    (e.g. ~GBP 15M holiday draws) without 5 rollovers - same roll-down
+    mechanics, but it arrives unannounced by the rollover counter, and its
+    historical pools are recorded less reliably (draw 3131's archive pool is
+    plainly wrong), so it deserves its own label wherever a human reads the
+    verdict."""
+    if not roll_down:
+        return None
+    return "cap-driven" if int(rollover_count) >= ROLLOVER_CAP else "special-event"
+
+
+def abrams_garibaldi_screen(cond: DrawConditions) -> dict | None:
+    """Independent second opinion for ORDINARY draws, after Abrams &
+    Garibaldi, "Finding good bets in the lottery, and why you shouldn't take
+    them" (Amer. Math. Monthly 117(1), 2010).
+
+    Their decision rules assume the edge lives in the pari-mutuel jackpot of
+    a single-pool game - an ordinary UK draw, and exactly NOT a Must-Be-Won
+    roll-down - so this returns None for roll-downs instead of misapplying
+    the theorem.
+
+    The screen is deliberately MORE conservative than our exact EV: their
+    jackpot cutoff is a sufficient condition for +EV that is robust to any
+    sales level, while `break_even_jackpot` is exact at the current sales
+    estimate. Passing here means the edge does not depend on the sales
+    estimate at all; failing while our EV is positive means the edge is real
+    but rests on N. Caveat: their theorem assumes the jackpot-plus-overhead
+    fraction F >= 0.8 of the ticket; UK Lotto's F is ~0.64, so the cutoffs
+    are indicative, not exact - which is fine for a second opinion.
+    """
+    if cond.roll_down:
+        return None
+    entries = cond.tickets_sold * cond.rounds
+    j_entries = cond.jackpot / cond.ticket_price   # jackpot in ticket units
+    f_fraction = 1.0 - cond.rounds * cond.prizes.ev_per_round() / cond.ticket_price
+    cutoff = 1.4 * f_fraction * TOTAL_COMBOS * cond.ticket_price
+    return {
+        "n_over_j": entries / j_entries if j_entries > 0 else float("inf"),
+        "sales_ok": entries < j_entries / 5.0,     # their N < J/5
+        "jackpot_cutoff": cutoff,                  # their J > 1.4 * F * t
+        "jackpot_ok": cond.jackpot > cutoff,
+        "robust_good_bet": entries < j_entries / 5.0 and cond.jackpot > cutoff,
+    }
+
+
 def rolldown_tier_boosts(cond: DrawConditions) -> dict:
     """Exact Must-Be-Won split: GBP 5 to every Match 2 winner first, the
     remainder shared among Match 3 winners (official game procedures, per

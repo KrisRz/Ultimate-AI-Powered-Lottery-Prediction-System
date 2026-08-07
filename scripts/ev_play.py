@@ -25,10 +25,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     DEFAULT_TICKETS_SOLD,
+    abrams_garibaldi_screen,
     calibrate_fixed_prizes,
+    default_portfolio_seed,
     estimate_tickets_sold,
     forecast_must_be_won,
     kelly_stake,
+    mbw_type,
     mbw_uplift,
     should_play,
     upcoming_draw_date,
@@ -39,14 +42,19 @@ PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 OUT_DIR = Path("outputs/predictions")
 
 
-def next_draw_conditions(force_roll_down: bool = False) -> DrawConditions:
+def next_draw_conditions(force_roll_down: bool = False,
+                         force_ordinary: bool = False) -> DrawConditions:
     """Best known conditions for the upcoming draw, from collected data.
 
-    `force_roll_down` belongs here rather than in the caller because the sales
-    estimate DEPENDS on it - a Must-Be-Won draw sells ~1.38x an ordinary one.
-    Setting `cond.roll_down` after the fact would leave a what-if `--roll-down`
-    run priced at ordinary-draw sales, which is the same mistake that made the
-    2026-08-08 alert read +EV.
+    The roll-down overrides belong here rather than in the caller because the
+    sales estimate DEPENDS on the flag - a Must-Be-Won draw sells ~1.27x
+    (Sat) / 1.44x (Wed) an ordinary one. Setting `cond.roll_down` after the
+    fact would leave a what-if run priced at the wrong sales level, which is
+    the same mistake that made the 2026-08-08 alert read +EV.
+
+    `force_ordinary` is the mirror of `force_roll_down`: while the live feed
+    flags a roll-down, every what-if inherits it, so "what would an ordinary
+    draw at this jackpot be worth?" was unaskable.
     """
     cond = DrawConditions()
     # The draw being priced is the one a ticket bought NOW would enter; its
@@ -61,8 +69,8 @@ def next_draw_conditions(force_roll_down: bool = False) -> DrawConditions:
                 cond.jackpot = float(last["next_jackpot_estimate"])
             # bool(NaN) is True - a missing flag must never fake a Must-Be-Won
             flag = last.get("next_jackpot_roll_down")
-            cond.roll_down = force_roll_down or (
-                pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1"))
+            cond.roll_down = not force_ordinary and (force_roll_down or (
+                pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1")))
             if pd.notna(last.get("rollover_count")):
                 cond.rollover_count = int(last["rollover_count"])
             estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down,
@@ -81,6 +89,8 @@ def main() -> None:
     parser.add_argument("--jackpot", type=float, default=None,
                         help="Override jackpot (event pool, shared across rounds)")
     parser.add_argument("--roll-down", action="store_true", help="Force Must-Be-Won roll-down")
+    parser.add_argument("--ordinary", action="store_true",
+                        help="Force an ordinary (non-roll-down) draw in what-if runs")
     parser.add_argument("--tickets", type=int, default=None,
                         help=f"Assumed lines sold per draw (default: estimated from "
                              f"prize_tiers.csv, else {DEFAULT_TICKETS_SOLD:,})")
@@ -93,8 +103,10 @@ def main() -> None:
                         help="Build a portfolio even when the draw is below threshold")
     args = parser.parse_args()
 
-    cond = next_draw_conditions(force_roll_down=args.roll_down)
-    what_if = args.jackpot is not None or args.roll_down or args.tickets is not None
+    cond = next_draw_conditions(force_roll_down=args.roll_down,
+                                force_ordinary=args.ordinary)
+    what_if = (args.jackpot is not None or args.roll_down or args.ordinary
+               or args.tickets is not None)
     if args.jackpot is not None:
         cond.jackpot = args.jackpot
     if args.tickets is not None:
@@ -107,7 +119,8 @@ def main() -> None:
     print("=" * 64)
     print(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
     print(f"Rounds per ticket:    {cond.rounds}")
-    print(f"Must-Be-Won:          {'YES' if cond.roll_down else 'no'}")
+    kind = mbw_type(cond.roll_down, cond.rollover_count)
+    print(f"Must-Be-Won:          {f'YES ({kind})' if kind else 'no'}")
     mbw = forecast_must_be_won(cond.rollover_count)
     if not cond.roll_down:
         print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
@@ -122,6 +135,16 @@ def main() -> None:
     print(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{args.threshold:+.2f})")
     print(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
           f"{' (roll-down)' if cond.roll_down else ''}")
+    ag = abrams_garibaldi_screen(cond)
+    if ag:
+        # Second opinion for ordinary draws (Abrams & Garibaldi 2010). Their
+        # cutoffs are sufficient conditions robust to ANY sales level, so
+        # passing is much rarer than our exact break-even.
+        status = ("robust +EV even if sales surge" if ag["robust_good_bet"]
+                  else "any edge would rest on the sales estimate")
+        print(f"A&G second opinion:   entries/jackpot {ag['n_over_j']:.2f} "
+              f"(<0.2 wanted), robust cutoff £{ag['jackpot_cutoff'] / 1e6:,.0f}M "
+              f"- {status}")
     # On a roll-down the verdict lives or dies on the sales estimate, so show
     # what it does across the plausible range instead of one tidy number.
     sens = verdict.get("sales_sensitivity")
@@ -157,7 +180,11 @@ def main() -> None:
         else:
             print("VERDICT: below threshold (forced portfolio):")
 
-        portfolio = build_portfolio(args.lines, cond, seed=args.seed)
+        # Same default seed as the alert email: latest.json (what the ledger
+        # records via --from-latest) and the mail must propose the SAME lines.
+        seed = (args.seed if args.seed is not None
+                else default_portfolio_seed(cond.draw_date))
+        portfolio = build_portfolio(args.lines, cond, seed=seed)
         total_ev = sum(p["ev"] for p in portfolio)
         for i, p in enumerate(portfolio, 1):
             nums = " ".join(f"{n:2d}" for n in p["line"])
