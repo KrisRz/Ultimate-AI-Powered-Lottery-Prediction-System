@@ -720,6 +720,149 @@ def calibrate_fixed_prizes(tiers_df, last_n_draws: int = 30,
     )
 
 
+def rolldown_tier_boosts(cond: DrawConditions) -> dict:
+    """Exact Must-Be-Won split: GBP 5 to every Match 2 winner first, the
+    remainder shared among Match 3 winners (official game procedures, per
+    lottery.co.uk/lotto/must-be-won-draws and TNL's own statements).
+
+    EV-equivalent to the uniform J/N term in `line_ev` - ANY rule that pays
+    the whole pool out to lower-tier winners gives a uniformly random ticket
+    J/N in expectation, which is why the J/N approximation validated to 2% on
+    draw 3190. What the split determines is the DISTRIBUTION: to see the
+    boost your line must actually hit Match 2 (p ~ 1/10) or Match 3
+    (p ~ 1/96), and that concentration is what sizes the Kelly stake.
+
+    Expected-count basis: realized per-winner boosts differ when the drawn
+    set's popularity moves the winner counts (3190 paid +14 on Match 3
+    against ~17 expected because it drew popular numbers).
+    """
+    entries = max(cond.tickets_sold, 1) * cond.rounds
+    e_w2 = entries * P_MATCH_2
+    e_w3 = entries * P_MATCH_3
+    m2_boost = max(5.0 - cond.prizes.match_2, 0.0)
+    remainder = max(cond.jackpot - m2_boost * e_w2, 0.0)
+    return {
+        "match_2_boost": m2_boost,
+        "match_3_boost": remainder / e_w3 if e_w3 > 0 else 0.0,
+        "expected_match_2_winners": e_w2,
+        "expected_match_3_winners": e_w3,
+    }
+
+
+def line_return_distribution(line: Sequence[int], cond: DrawConditions) -> List[tuple]:
+    """(payout, probability) over one draw EVENT for `line`, all rounds.
+
+    Exact enumeration: per-round outcomes (miss, match 2..4, match 5 split by
+    bonus, jackpot) convolved over the independent rounds. Jackpot payout is
+    the pool discounted by expected co-winners. A Must-Be-Won draw is a
+    MIXTURE: with P(no entry hits 6) - about 65% at Saturday roll-down sales,
+    a real branch, not a technicality - Match 3 / Match 2 carry the
+    `rolldown_tier_boosts`; otherwise the tiers pay base rates. Dropping the
+    mixture and pricing the boost unconditionally would overstate the
+    roll-down edge by ~1/3, which then inflates the Kelly stake built on it.
+    """
+    prizes = cond.prizes
+
+    def convolve(per_round) -> dict:
+        dist: dict = {}
+        if cond.rounds == 1:
+            pairs = iter(per_round)
+        else:
+            pairs = ((p1 + p2, pr1 * pr2)
+                     for p1, pr1 in per_round for p2, pr2 in per_round)
+        for payout, prob in pairs:
+            dist[payout] = dist.get(payout, 0.0) + prob
+        return dist
+
+    def per_round_outcomes(m3: float, m2: float) -> list:
+        jackpot_share = cond.jackpot * expected_cowinner_share(
+            line, cond.tickets_sold * cond.rounds)
+        return [
+            (jackpot_share, P_JACKPOT),
+            (prizes.match_5_bonus, P_MATCH_5_BONUS),
+            (prizes.match_5, P_MATCH_5),
+            (prizes.match_4, P_MATCH_4),
+            (m3, P_MATCH_3),
+            (m2, P_MATCH_2),
+            (0.0, 1.0 - P_ANY_CASH),
+        ]
+
+    base = convolve(per_round_outcomes(prizes.match_3, prizes.match_2))
+    if not cond.roll_down:
+        return sorted(base.items())
+
+    boosts = rolldown_tier_boosts(cond)
+    boosted = convolve(per_round_outcomes(
+        prizes.match_3 + boosts["match_3_boost"],
+        prizes.match_2 + boosts["match_2_boost"],
+    ))
+    p_no_jackpot = exp(-cond.tickets_sold * cond.rounds * P_JACKPOT)
+    dist: dict = {}
+    for payout, prob in base.items():
+        dist[payout] = dist.get(payout, 0.0) + (1.0 - p_no_jackpot) * prob
+    for payout, prob in boosted.items():
+        dist[payout] = dist.get(payout, 0.0) + p_no_jackpot * prob
+    return sorted(dist.items())
+
+
+def kelly_stake(cond: DrawConditions, bankroll: float,
+                line: Sequence[int] | None = None) -> dict:
+    """Kelly-optimal stake for one draw, from the exact return distribution.
+
+    EXACT Kelly, not the f* ~= E[r]/E[r^2] approximation: for lottery-shaped
+    returns the quadratic shortcut is badly wrong, because the jackpot's
+    positive fat tail inflates E[r^2] while the actual downside is bounded at
+    the ticket price - the approximation reads a bounded-loss bet as if the
+    tail could ruin you and understates f* by orders of magnitude. Instead
+    the derivative of E[log(1 + f r)], which is monotone decreasing in f, is
+    bisected to its root.
+
+    Why this is worth printing at all (MacLean-Ziemba-Blazenko 1992): where
+    the edge LIVES decides whether it is playable. An edge carried by the
+    jackpot at p ~ 1e-8 supports a negligible fraction of any human bankroll,
+    while a Must-Be-Won roll-down carries its edge in Match 3 / Match 2 at
+    p ~ 1/96 and 1/10, where the growth-optimal stake is real money. This is
+    the number that turns PLAY/SKIP into "how much".
+
+    Half-Kelly is reported alongside: ~75% of the growth at ~half the
+    variance, the standard practitioner's discount for parameter error (and
+    N here is estimated, not known).
+    """
+    line = list(line) if line is not None else best_unpopular_reference_line()
+    dist = line_return_distribution(line, cond)
+    cost = cond.ticket_price
+    rs = [(x / cost - 1.0, p) for x, p in dist]
+    mean = sum(r * p for r, p in rs)
+
+    def growth_slope(f: float) -> float:
+        return sum(p * r / (1.0 + f * r) for r, p in rs)
+
+    # A miss loses the whole stake (r = -1), so log-growth dives to -inf as
+    # f -> 1: all-in is never optimal and the root always lies in (0, 1).
+    cap = 1.0 - 1e-9
+    if mean <= 0:
+        frac = 0.0
+    elif growth_slope(cap) > 0:
+        frac = cap
+    else:
+        lo, hi = 0.0, cap
+        for _ in range(60):           # bisection: slope is monotone in f
+            mid = (lo + hi) / 2
+            if growth_slope(mid) > 0:
+                lo = mid
+            else:
+                hi = mid
+        frac = (lo + hi) / 2
+    stake = frac * bankroll
+    return {
+        "kelly_fraction": frac,
+        "stake_full": stake,
+        "lines_full": int(stake // cost),
+        "lines_half": int(stake / 2 // cost),
+        "edge_per_line": mean * cost,
+    }
+
+
 def break_even_jackpot(cond: DrawConditions,
                        line: Sequence[int] | None = None) -> float:
     """Jackpot pool at which `line` breaks even under `cond`'s other terms.

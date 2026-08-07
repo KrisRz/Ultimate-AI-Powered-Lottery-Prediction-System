@@ -57,6 +57,7 @@ data/ledger.csv
 # Fetcher state - rewritten on every fetch, never worth versioning
 data/.download_state.json
 data/lotto-latest.xml
+data/lotto-latest.json
 
 # Build artifacts
 *.egg-info/
