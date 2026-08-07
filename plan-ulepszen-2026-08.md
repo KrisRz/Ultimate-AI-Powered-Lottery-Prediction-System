@@ -151,9 +151,14 @@ ale dokładna reguła daje:
   w 61/88**, człon M3 odtwarza się z medianowym błędem **−9%, systematycznym**.
   ⚠️ Hipoteza: kolumna `Jackpot` archiwum to ogłoszony estymat, a realnie
   rozdzielana pula biega ~9% niżej — jeśli tak, człon J/N liczony na ogłoszonej
-  puli jest ~9% optymistyczny. **Rozstrzygnąć na najbliższym MBW**: porównać
-  ogłoszone 8 391 429 z kwotą realnie rozdzieloną po 08.08. Outlier: 3131
-  (specjalne świąteczne MBW 24.12.2025) ma w archiwum ewidentnie błędną pulę.
+  puli jest ~9% optymistyczny. Outlier: 3131 (specjalne świąteczne MBW
+  24.12.2025) ma w archiwum ewidentnie błędną pulę.
+  **Zautomatyzowane 2026-08-07:** `scripts/monitoring/post_mbw_validation.py`
+  odpala się po każdej kolekcji (collect.yml + post_draw.sh); po roll-downie
+  liczy zmierzone N vs prognozę (żywy scorecard upliftu 1,27/1,44), ogłoszoną
+  pulę vs realnie rozdzieloną (rozstrzyga hipotezę −9%), akumuluje wyniki w
+  `data/mbw_validation.csv` (commitowane z danymi) i wysyła mail. Pierwszy
+  wpis pojawi się sam po sobocie 08.08.
 - [x] **Dashboard i advisor odróżniają typy MBW (2026-08-07):** `mbw_type()` —
   „cap-driven" przy liczniku ≥ 5, „special-event" gdy flaga roll-down przyszła
   bez pełnego licznika (świąteczne ~£15M, jak 3131). Advisor, mail i dashboard
