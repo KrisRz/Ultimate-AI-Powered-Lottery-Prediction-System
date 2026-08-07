@@ -28,6 +28,7 @@ make setup                 # create the conda env (environment.yml)
 conda activate lotto-predict
 
 make backfill              # full draw history since 1994 (Merseyworld archive)
+make sales                 # per-draw ticket sales since 1994 + cross-validation
 make play                  # EV verdict for the next draw + portfolio
 make dashboard             # generate + open outputs/dashboard.html
 ```
