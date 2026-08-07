@@ -55,15 +55,18 @@ def main() -> int:
 
     msg = (
         f"Lotto data collection FAILED: {problem}.\n\n"
-        f"The official XML only serves the latest draw, so act before the next "
-        f"one:\n"
+        f"Since 2026-08 a rerun self-heals gaps: the JSON API serves every "
+        f"draw of the last ~180 days by number, and the collector backfills "
+        f"anything missing since the last collected draw. So:\n"
         f"  1. PYTHONPATH=. python -c "
         f"'from scripts.fetch_data import download_fresh_data; download_fresh_data()'\n"
-        f"  2. Missed that window? Winner counts for {expected} are still "
-        f"recoverable from the archive scraper:\n"
+        f"  2. Still missing (API dead / gap older than 180 days)? The archive "
+        f"scraper recovers winner counts:\n"
         f"     PYTHONPATH=. python scripts/backfill_prize_tiers.py\n"
         f"     (writes data/prize_tiers_history.csv - note its prize amounts "
         f"carry roll-down boosts, so trust the winner counts, not the prizes)\n"
+        f"An alert firing at all now means BOTH the draw-night run and this "
+        f"morning's self-heal failed - look at the workflow logs, not just the data.\n"
     )
     print(f"[watchdog] ALERT - {problem}")
     maybe_send_email("LOTTO COLLECTION FAILURE", msg)

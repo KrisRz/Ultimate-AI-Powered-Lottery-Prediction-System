@@ -82,3 +82,36 @@ class TestSalesTrend:
         # With popularity held flat, the recovered multiplier must sit at ~1.
         assert out["multiplier"].median() == pytest.approx(1.0, rel=0.02)
         assert out["multiplier"].std() < 0.05
+
+
+class TestMatchDegreeUndamping:
+    """The un-damp factor is 6/k: a tier matching k of the drawn 6 sees only
+    k/6 of the drawn set's log-weight sum. Synthetic multipliers built with a
+    known k must recover the same weights for every tier."""
+
+    def _synthetic(self, k: int, n: int = 4000, seed: int = 7) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        rows = []
+        for _ in range(n):
+            line = sorted(rng.choice(np.arange(1, 60), size=6, replace=False))
+            logsum = sum(math.log(_weight(int(x))) for x in line)
+            mult = math.exp((k / 6) * logsum)
+            rows.append({**{c: v for c, v in zip(NUMBER_COLS, line)},
+                         "multiplier": mult})
+        return pd.DataFrame(rows)
+
+    @pytest.mark.parametrize("k", [2, 3, 4])
+    def test_recovers_weights_for_each_match_degree(self, k):
+        from scripts.calibrate_popularity import fit_bucket_weights
+        b = fit_bucket_weights(self._synthetic(k), match_degree=k)
+        assert b["low12"] == pytest.approx(W_LOW, rel=0.02)
+        assert b["mid"] == pytest.approx(W_MID, rel=0.02)
+        assert b["high"] == pytest.approx(W_HIGH, rel=0.02)
+
+    def test_wrong_degree_biases_the_spread(self):
+        """Un-damping a Match-2 signal with the Match-3 factor must understate
+        the weight spread - the failure mode this parameter exists to avoid."""
+        from scripts.calibrate_popularity import fit_bucket_weights
+        b = fit_bucket_weights(self._synthetic(2), match_degree=3)
+        assert b["low12"] < W_LOW * 0.99
+        assert b["high"] > W_HIGH * 1.01

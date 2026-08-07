@@ -1248,6 +1248,7 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
 # the XML: per-winner prize AND per-tier fund, plus per-tier roll-down flags.
 # Window is only ~180 days - the git-committed CSVs remain the full archive.
 API_JSON_URL = "https://api-dfe.national-lottery.co.uk/draw-game/results/1/latest"
+API_DRAW_URL = "https://api-dfe.national-lottery.co.uk/draw-game/results/6/{draw}"
 LATEST_JSON_FILE = DATA_DIR / "lotto-latest.json"
 
 _JSON_TIER_BY_LABEL = {
@@ -1405,14 +1406,56 @@ def _ingest_official_json(payload: dict, forward: dict | None = None) -> None:
             logger.info(f"Appended draw {draw_number} ({len(rounds)} rounds) to {FULL_HISTORY_FILE}")
 
 
+def recover_missing_draws(session, headers, latest_drawno: int,
+                          max_back: int = 20) -> int:
+    """Backfill any draws missing between the last collected one and `latest`.
+
+    The XML era made a missed collection window a permanent loss - the feed
+    only ever served the latest draw, and the watchdog existed to catch that
+    within ~72h. The JSON API serves every draw of the last ~180 days by
+    number, so a gap is now self-healing: fetch it, ingest it, move on.
+    Forward-looking fields are left to derivation (the flag only matters for
+    the NEWEST row anyway - older rows are followed by real data).
+
+    Returns the number of draws recovered. Never raises: a recovery failure
+    must not take down the primary collection that just succeeded.
+    """
+    if not PRIZE_TIERS_FILE.exists():
+        return 0
+    try:
+        have = set(pd.read_csv(PRIZE_TIERS_FILE)["draw_number"].astype(int))
+    except Exception as exc:
+        logger.warning(f"Recovery skipped - could not read {PRIZE_TIERS_FILE}: {exc}")
+        return 0
+    if not have:
+        return 0
+    missing = [n for n in range(max(have) + 1, latest_drawno) if n not in have]
+    if len(missing) > max_back:
+        logger.warning(f"{len(missing)} draws missing; recovering only the last {max_back}")
+        missing = missing[-max_back:]
+    recovered = 0
+    for n in missing:
+        try:
+            resp = session.get(API_DRAW_URL.format(draw=n), headers=headers, timeout=20)
+            resp.raise_for_status()
+            _ingest_official_json(resp.json())
+            recovered += 1
+            logger.info(f"Recovered missed draw {n} from the JSON API")
+        except Exception as exc:
+            logger.warning(f"Could not recover draw {n}: {exc}")
+    return recovered
+
+
 def download_fresh_data() -> bool:
     """
     Download fresh lottery data from the official source.
 
     Primary: the api-dfe JSON (per-winner prizes, per-tier funds, roll-down
     markers), plus a best-effort XML read for the forward-looking jackpot
-    fields. Fallback: the legacy XML/CSV endpoint exactly as before, so a
-    broken JSON API degrades to the collection quality we had before it.
+    fields; any gap since the last collected draw is backfilled from the
+    API's ~180-day window. Fallback: the legacy XML/CSV endpoint exactly as
+    before, so a broken JSON API degrades to the collection quality we had
+    before it.
 
     Returns:
         Boolean indicating whether the download was successful
@@ -1455,15 +1498,17 @@ def download_fresh_data() -> bool:
             try:
                 if delay:
                     _time.sleep(delay)
-                resp = session.get(API_JSON_URL,
-                                   headers={"User-Agent": headers["User-Agent"]},
-                                   timeout=20)
+                ua = {"User-Agent": headers["User-Agent"]}
+                resp = session.get(API_JSON_URL, headers=ua, timeout=20)
                 resp.raise_for_status()
                 payload = resp.json()
                 with open(LATEST_JSON_FILE, 'wb') as f:
                     f.write(resp.content)
-                forward = _forward_fields_from_xml(
-                    session, {"User-Agent": headers["User-Agent"]})
+                # Heal any gap BEFORE ingesting the latest draw, so files
+                # stay ordered and the newest row keeps the forward fields.
+                recover_missing_draws(session, ua,
+                                      int(payload["drawResult"]["drawNo"]))
+                forward = _forward_fields_from_xml(session, ua)
                 _ingest_official_json(payload, forward)
                 logger.info("Successfully collected the latest draw from the JSON API")
                 return True

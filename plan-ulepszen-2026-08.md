@@ -124,8 +124,12 @@ Zweryfikowane żywcem 2026-08-07:
   losowań). Pola wyprzedzające (`next_jackpot_estimate/roll_down`) dociągane
   z XML best-effort; gdy XML martwy, flaga MBW wyprowadzana z capu rolloverów
   (5) — alert przeżyje śmierć przekierowania. Zweryfikowane na żywo na 3195.
-- [ ] Watchdog: sprawdzać oba źródła (api-dfe + Merseyworld archive) zanim uzna
-  losowanie za stracone.
+- [x] **Lepiej niż watchdog z drugim źródłem — kolektor sam się leczy (2026-08-07):**
+  `recover_missing_draws()` dociąga każdą lukę między ostatnim zebranym a
+  najnowszym losowaniem z okna ~180 dni JSON API (per numer,
+  `/draw-game/results/6/{n}`), zanim zingestuje najnowsze. Przegapione okno
+  przestało być trwałą stratą; alert watchdoga znaczy teraz „padły oba
+  przebiegi", nie „straciliśmy dane". Scraper archiwum zostaje trzecią linią.
 
 ## 3. PRIORYTET 1 — Dokładna reguła roll-downu zamiast J/N 🎯
 
@@ -191,10 +195,24 @@ które już mamy (1 126+ losowań winner counts per tier):
   jeśli zostajemy przy wagach per liczba — rozkład po kombinacjach powinien być
   maksymalno-entropijny przy zadanych marginesach (zasada, nie heurystyka).
 
-**Zadania:**
-- [ ] Refit wag z likelihoodem NB + łączna inferencja z M2/M3/M4 (dane są).
-- [ ] Prototyp modelu klastrowego B&M 2011; porównanie out-of-sample z obecnym
-  (metryka: log-likelihood winner-counts na hold-oucie, nie „ładność”).
+**Wykonane 2026-08-07 — wynik: walidacja zamiast podmiany.** Trzy nowe sekcje
+w `calibrate_popularity.py` (uruchamiają się przy każdej pełnej kalibracji):
+
+- [x] **Spójność między tierami** — fit per tier z un-dampingiem 6/k daje
+  M4: 1,228/1,094/0,838 · M3: 1,230/1,100/0,834 · M2: 1,205/1,092/0,850 —
+  trzy niezależne stopnie dopasowania odzyskują te same wagi. To odpowiedź na
+  zarzut B&M o modele per liczba: na naszej precyzji model JEST adekwatny.
+  Naiwny łączny fit ważony wariancją **przegrał out-of-sample** z M3-only
+  (przeważa M2, najsłabszy sygnał na jednostkę szumu) — świadomie nie wszedł.
+- [x] **Test ogona współzwycięzców** (bezpośredni test `expected_cowinner_share`):
+  obserwowane 963/158/21/3/2 zwycięzców jackpotu (0/1/2/3/4+) na 1 147
+  rundach vs model 942/179/22/2,7/0,4 — χ²=9,0, model adekwatny. Jedyny ślad
+  klastrów Simona: 2 losowania z 4+ zwycięzcami vs 0,4 oczekiwane — poniżej
+  istotności; klastrowa korekta B&M 2011 jest poniżej progu wykrywalności
+  przy naszej wielkości próby. Wagi 1,23/1,10/0,83 **zostają** (remis OOS
+  z refitem: corr 0,509 vs 0,507).
+- [ ] Model klastrowy B&M 2011 — wrócić, jeśli ogon 4+ zacznie się powtarzać
+  (test χ² w raporcie krzyknie „TAIL DIVERGES").
 - [ ] Do werdyktu dodać **rozkład dzielenia**, nie tylko średnią: P(jackpot dzielony),
   kwantyle zwrotu linii (Matheson & Grote: różnica 1% vs 11% okazji to wyłącznie
   człon dzielenia — [In Search of a Fair Bet](https://web.williams.edu/Economics/wp/mathesonlottery.pdf)).
