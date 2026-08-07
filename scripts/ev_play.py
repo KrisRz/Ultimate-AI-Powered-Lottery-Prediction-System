@@ -25,11 +25,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     DEFAULT_TICKETS_SOLD,
-    MBW_SALES_UPLIFT,
     calibrate_fixed_prizes,
     estimate_tickets_sold,
     forecast_must_be_won,
+    mbw_uplift,
     should_play,
+    upcoming_draw_date,
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
 
@@ -47,6 +48,10 @@ def next_draw_conditions(force_roll_down: bool = False) -> DrawConditions:
     2026-08-08 alert read +EV.
     """
     cond = DrawConditions()
+    # The draw being priced is the one a ticket bought NOW would enter; its
+    # weekday selects the sales baseline and Must-Be-Won uplift (Saturdays
+    # sell ~1.59x Wednesdays).
+    cond.draw_date = upcoming_draw_date()
     if PRIZE_TIERS_FILE.exists():
         tiers = pd.read_csv(PRIZE_TIERS_FILE)
         if len(tiers):
@@ -59,7 +64,8 @@ def next_draw_conditions(force_roll_down: bool = False) -> DrawConditions:
                 pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1"))
             if pd.notna(last.get("rollover_count")):
                 cond.rollover_count = int(last["rollover_count"])
-            estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down)
+            estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down,
+                                              draw_date=cond.draw_date)
             if estimated:
                 cond.tickets_sold = estimated
             # Fixed-tier prizes come from the data too - a hardcoded table is
@@ -104,8 +110,9 @@ def main() -> None:
         print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
               f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
               f"if nobody wins before")
+    day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
     print(f"Assumed lines sold:   {cond.tickets_sold:,}"
-          f"{f' (Must-Be-Won uplift x{MBW_SALES_UPLIFT})' if cond.roll_down else ''}")
+          f"{f' ({day} Must-Be-Won uplift x{mbw_uplift(cond.draw_date)[0]})' if cond.roll_down else ''}")
     p = cond.prizes
     print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
           f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")

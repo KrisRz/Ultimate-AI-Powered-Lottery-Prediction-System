@@ -49,6 +49,7 @@ from lottery.ev import (  # noqa: E402
     MBW_SALES_UPLIFT,
     MBW_SALES_UPLIFT_P25,
     MBW_SALES_UPLIFT_P75,
+    MBW_UPLIFT_BY_WEEKDAY,
     P_MATCH_2,
     P_MATCH_3,
     P_MATCH_4,
@@ -56,6 +57,7 @@ from lottery.ev import (  # noqa: E402
 )
 
 TIERS_HISTORY_FILE = Path("data/prize_tiers_history.csv")
+SALES_HISTORY_FILE = Path("data/sales_history.csv")
 TIER_PROBS = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
 TWO_ROUND_ERA = "2026-06-10"
 BALLS_59_ERA = "2018-11-01"
@@ -146,17 +148,52 @@ def report(df: pd.DataFrame, sales: dict, boosted: set, windows: list) -> None:
         if len(sub) > 2:
             print(f"  {lo}-{hi}: n={len(sub):>3}  median {sub.median():.3f}")
 
-    print("\nInstalled in lottery/ev.py:")
+    print("\nInstalled in lottery/ev.py (mixed-baseline fallback):")
     print(f"  MBW_SALES_UPLIFT      {MBW_SALES_UPLIFT:.3f}   (calibrated {era.median():.3f})")
     print(f"  MBW_SALES_UPLIFT_P25  {MBW_SALES_UPLIFT_P25:.3f}   "
           f"(calibrated {era.quantile(.25):.3f})")
     print(f"  MBW_SALES_UPLIFT_P75  {MBW_SALES_UPLIFT_P75:.3f}   "
           f"(calibrated {era.quantile(.75):.3f})")
-    print("\nNote: this figure does not separate 'Must-Be-Won' from 'big jackpot' -")
-    print("a roll-down always carries the largest pool of its cycle. Splitting them")
-    print("needs per-draw pool sizes, and prize_per_winner is still corrupted for")
-    print("the roll-down draws (backfill_prize_tiers.py --redo-draws).")
+
+    day_aware_report(boosted)
+    print("\nNote: 'Must-Be-Won' vs 'big jackpot' was settled 2026-08-07 with real")
+    print("per-draw sales: pool size does not drive the uplift (log-pool coef -0.016).")
+    print("The weekday does - hence the day-aware section above.")
     print("=" * 70)
+
+
+def day_aware_report(boosted: set) -> None:
+    """Per-weekday uplift in the estimator-matched definition: each roll-down's
+    lines over the median of same-weekday ordinary draws among the 20 draws
+    before it. Real sales (data/sales_history.csv) are the measurement of
+    record here - winner-count sales carry per-draw popularity noise that the
+    same-day split (half the observations) can no longer average away."""
+    if not SALES_HISTORY_FILE.exists():
+        print("\nDay-aware uplift: data/sales_history.csv missing - "
+              "run `make sales` first.")
+        return
+    s = pd.read_csv(SALES_HISTORY_FILE, parse_dates=["draw_date"])
+    s = s.dropna(subset=["draw_number"]).sort_values("draw_number").reset_index(drop=True)
+    s["draw_number"] = s["draw_number"].astype(int)
+    s["dow"] = s["draw_date"].dt.weekday
+    s["is_rd"] = s["draw_number"].isin(boosted)
+
+    print("\nDay-aware uplift (same-weekday baseline, 20-draw window, real sales):")
+    print(f"  {'day':>9} {'n':>4} {'median':>8} {'p25':>7} {'p75':>7}   installed")
+    for dow, label in ((5, "Saturday"), (2, "Wednesday")):
+        ratios = []
+        for i, row in s[s["is_rd"] & (s["dow"] == dow)].iterrows():
+            win = s[s.index < i].tail(20)
+            win = win[(~win["is_rd"]) & (win["dow"] == dow)]
+            if len(win) >= 4:
+                ratios.append(row["lines_sold"] / win["lines_sold"].median())
+        if len(ratios) < 3:
+            print(f"  {label:>9}: not enough observations")
+            continue
+        r = pd.Series(ratios)
+        inst = MBW_UPLIFT_BY_WEEKDAY.get(dow)
+        print(f"  {label:>9} {len(r):>4} {r.median():>8.3f} {r.quantile(.25):>7.3f} "
+              f"{r.quantile(.75):>7.3f}   {inst}")
 
 
 def main() -> int:
