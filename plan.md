@@ -273,6 +273,16 @@ Reszta planu: naprawa zepsutego kodu, radykalne odchudzenie, przebudowa celu z �
 - ✅ **Naprawione:** `MBW_SALES_UPLIFT = 1,38` (+ kwartyle) w `lottery/ev.py` z pełną proweniencją; `estimate_tickets_sold(..., roll_down=)` **wycina roll-downy z bazy** (`rolldown_draw_numbers()`, sygnatura podbitego Match 3 — flaga `next_jackpot_roll_down` opisuje losowanie *po* wierszu, więc nie klasyfikuje najstarszego w pliku, czyli akurat 3190) i dopiero potem mnoży przez uplift. `next_draw_conditions(force_roll_down=)` — inaczej what-if `--roll-down` wyceniałby się po sprzedaży zwykłego losowania, czyli tym samym błędem. Nowe `sales_sensitivity()` liczy EV na kwartylach uplistu i daje flagę `robust`; advisor i **mail** pokazują teraz zakres i wprost mówią, czy werdykt przeżywa górny koniec sprzedaży. Nowy `scripts/calibrate_mbw_uplift.py` (raportuje, nie edytuje `ev.py` — jak `calibrate_popularity.py`). **+31 testów, razem 136**, w tym regresja na 08.08.
 - ⚠️ **Konsekwencja dla tezy projektu — „97% MBW przebija próg" było liczone tą samą zaniżoną sprzedażą.** Przeliczone uczciwie: dla każdego historycznego MBW brana jest **jego własna zmierzona sprzedaż** i realna pula, wyceniane w dzisiejszych zasadach. Populacja odtwarza się dobrze (65 losowań napędzanych capem 2019-01-30 → 2026-07-18, **8,7/rok**, mediana puli £12,07M ≈ ustalone £12,18M). Wynik: **+EV jest tylko 27 z 65 = 42%**, mediana EV **−£0,139**, kwartyle −0,31 / +0,14. Czyli **~3,6 realnych okazji rocznie, nie ~8,7**. Ta sama próbka wyceniona po staremu (stałe N = 6–7,5M) dawała 91% i medianę +£0,78 — stąd brała się nadmierna obietnica. **Must-Be-Won to warunek konieczny, nie wystarczający**; decyduje werdykt advisora, nie kalendarz. Zastrzeżenie: to kontrfaktyk (stare losowania w dzisiejszych zasadach dwururundowych), więc traktować jako rząd wielkości, nie jako pomiar.
 
+**Realizacja 2026-08-07 — cały plan ulepszeń wykonany w jeden dzień (PR #13–#18).**
+Szczegóły, tabela PR-ów i **checklista na niedzielę 09.08** (scorecard MBW: uplift 1,27
+na żywo, hipoteza −9% puli) w `plan-ulepszen-2026-08.md` na górze. Skrót: sprzedaż per
+losowanie od 1994 + walidacja krzyżowa; day-aware N (sobota 1,27/środa 1,44 — werdykt
+08.08 to **SKIP −£0,36 przy N=9,71M**); kolektor na JSON api-dfe z samonaprawą luk;
+93 roll-downy przeparsowane; dokładna reguła roll-downu (EV-równoważna J/N) + dokładny
+Kelly; model popularności zwalidowany 3 drogami (wagi zostają); wspólne ziarno
+mail↔latest.json; typy MBW; ekran A&G; automatyczny scorecard po każdym MBW
+(`data/mbw_validation.csv` + mail). Testy 143 → 194.
+
 **Czeka na rozstrzygnięcie (stan 2026-08-05 22:30):**
 - ~~**Pierwsze realne Must-Be-Won.** Rollover 4/5 po losowaniu 3194 (01.08).~~ **Rozstrzygnięte 2026-08-06:** 3195 bez szóstki → 08.08 jest Must-Be-Won z pulą £8,391,429, ale po naprawce sprzedaży to **SKIP (EV −£0,203)**, nie PLAY. Przewidywanie „pula £9–10M, tuż nad progiem" było zresztą optymistyczne w obie strony: pula wyszła niżej (£8,39M), a próg wyżej (£9,99M, nie £9,14M). Szczegóły w audycie 2026-08-06 wyżej.
 - **Ledger nadal ma 0 kuponów** — ścieżka PLAY nigdy nie przeszła na prawdziwych pieniądzach. Sobota jest pierwszą okazją.

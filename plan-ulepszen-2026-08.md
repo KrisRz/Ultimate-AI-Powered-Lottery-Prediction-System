@@ -7,6 +7,44 @@ niczego z niego nie unieważnia.
 
 ---
 
+## STATUS 2026-08-07 wieczorem — CAŁY PLAN WYKONANY (PR #13–#18, jeden dzień)
+
+| PR | Co weszło |
+|---|---|
+| #13 | sprzedaż per losowanie od 1994 (Merseyworld) + walidacja krzyżowa dwóch estymatorów N (zgodność 5%) |
+| #14 | day-aware sprzedaż: baza tego samego dnia tygodnia, uplift sobota 1,27 / środa 1,44; werdykt 08.08 → SKIP −£0,36 przy N=9,71M |
+| #15 | kolektor JSON (api-dfe) jako główny tor; 93 roll-downy przeparsowane; dokładna reguła podziału (EV-równoważna J/N → weszła do rozkładu, nie średniej); dokładny Kelly (uczciwy wynik: grosze przy detalicznym bankrollu) |
+| #16 | model popularności zwalidowany 3 drogami (spójność między tierami, ogon współzwycięzców χ²=9,0, OOS-remis → wagi zostają); kolektor sam leczy luki (okno 180 dni) |
+| #17 | wspólne ziarno portfela mail↔latest.json (realny bug przed pierwszym PLAY); typy MBW cap-driven/special-event; ekran Abrams–Garibaldi (2. opinia dla zwykłych losowań); `--ordinary` |
+| #18 | automatyczny scorecard po każdym MBW (N vs prognoza, pula ogłoszona vs rozdzielona) → `data/mbw_validation.csv` + mail |
+
+Testy: 143 → **194 zielone**. Próba generalna kolektora w chmurze przeszła 07.08 ~17:45 UTC
+(JSON + scorecard + `[ev-alert] SKIP (EV £-0.36)`).
+
+### CHECKLISTA — niedziela 2026-08-09 (albo sobota po ~23:45)
+
+1. `git pull` — kolektor commituje dane losowania 3196 ~23:40 BST (cron chodzi ~1 h
+   późno; niedzielny retry 06:00 UTC ~2,5 h późno domyka awarie).
+2. **Mail „LOTTO MBW scorecard: draw 3196"** (też w logu collect.yml; pierwszy wiersz
+   w `data/mbw_validation.csv`). Jak czytać:
+   - `uplift_measured` vs 1,27 — pierwsza żywa walidacja sobotniego uplistu;
+     w widełkach 1,19–1,31 (kwartyle) = stała trzyma.
+   - `pool_ratio` — test hipotezy −9% (ogłoszona pula > realnie rozdzielona).
+     Jeśli na żywo też ~0,91 → człon J/N jest ~9% optymistyczny i `cond.jackpot`
+     zasługuje na haircut w `line_ev` — **to jest następna zmiana modelu**.
+   - `n_error` — prognoza N vs pomiar; margines SKIP to £3,3M w puli, więc tylko
+     gigantyczna pomyłka odwróciłaby werdykt wstecznie.
+3. Maila PLAY **ma nie być** (SKIP poprawny). Jeśli przyjdzie — bug do diagnozy.
+4. Jeśli ktoś trafił szóstkę (~35% szans) — roll-downu nie było, scorecard poprawnie
+   milczy, licznik wraca do 0, następne MBW za ~5–6 tygodni.
+5. Przy 3–4 wierszach w `mbw_validation.csv` (kilka miesięcy): przeliczyć
+   `scripts/calibrate_mbw_uplift.py` i zrewidować 1,27/1,44.
+
+Poza checklistą jedyna odłożona rzecz z „miną": model klastrowy B&M 2011 — wróci sam,
+gdy test ogona w `calibrate_popularity.py` krzyknie „TAIL DIVERGES".
+
+---
+
 ## 0. Werdykt z researchu — gdzie jesteśmy naprawdę
 
 **Ten projekt już robi dokładnie te dwie rzeczy, które według recenzowanej literatury
