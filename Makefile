@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest backfill nightly test roi roi-settle post-draw install-cron
+.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -24,6 +24,9 @@ predict:
 
 backfill:
 	PYTHONPATH=. $(PY) scripts/backfill_history.py
+
+sales:
+	PYTHONPATH=. $(PY) scripts/fetch_sales.py --validate
 
 backtest:
 	PYTHONPATH=. $(PY) scripts/validations/backtest.py --lookback 200 --step 5 --method frequency --compare random,probmap --seed 42 --offline
