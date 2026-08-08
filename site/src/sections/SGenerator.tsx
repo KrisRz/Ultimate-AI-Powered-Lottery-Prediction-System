@@ -79,9 +79,9 @@ export function SGenerator({
         </p>
       </div>
 
-      <div className="slips" role="list">
+      <ol className="slips">
         {lines.map(({ line, ratio }, index) => (
-          <article className="slip-card" role="listitem" key={`${nonce}-${index}`}>
+          <li className="slip-card" key={`${nonce}-${index}`}>
             <header className="slip-card-head">
               <span className="slip-index num">{String(index + 1).padStart(2, '0')}</span>
               <span className="slip-share small">
@@ -96,9 +96,9 @@ export function SGenerator({
                 </li>
               ))}
             </ol>
-          </article>
+          </li>
         ))}
-      </div>
+      </ol>
 
       <div className="generator-actions">
         <button type="button" className="button" onClick={() => setNonce((n) => n + 1)}>
