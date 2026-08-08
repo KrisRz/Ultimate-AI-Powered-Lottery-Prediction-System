@@ -17,3 +17,18 @@ jobs:
         run: pip install pandas numpy requests pytest
       - name: Run tests
         run: PYTHONPATH=. python -m pytest -q
+
+      # The public page quotes this model, so a change to it must not land
+      # while the page keeps publishing the old figures. The exporter is
+      # deterministic, so any difference here is real.
+      #
+      # Pull requests only, and that restriction is the whole point. The
+      # collector pushes new draw data straight to main twice a week; a new
+      # draw legitimately moves the snapshot, and checking it on those pushes
+      # would turn every draw night into a red build. Data going stale is a
+      # freshness problem, handled by regenerating and committing. Model drift
+      # is a correctness problem, and this is where it gets caught - in the
+      # change that causes it, with a human reading the diff.
+      - name: Site data snapshot is current
+        if: github.event_name == 'pull_request'
+        run: PYTHONPATH=. python scripts/export_site_data.py --check

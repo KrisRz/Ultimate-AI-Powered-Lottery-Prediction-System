@@ -1,0 +1,387 @@
+{
+  "ev": {
+    "fixed_prizes": {
+      "ev_per_round": 0.3645,
+      "match_2": 1.0,
+      "match_3": 10.0,
+      "match_4": 50.0,
+      "match_5": 1000.0,
+      "match_5_bonus": 1000000.0,
+      "source": "observed (6 draws)"
+    },
+    "live": {
+      "break_even_jackpot": 11723277,
+      "draw_date": "2026-08-08",
+      "ev_best_line": -0.3612,
+      "jackpot_gbp": 8391429,
+      "mbw_type": "cap-driven",
+      "robust": false,
+      "roll_down": true,
+      "rollover_cap": 5,
+      "rollover_count": 5,
+      "tickets_sold": 9710793,
+      "verdict": "SKIP"
+    },
+    "mbw_sales_band": {
+      "p25": {
+        "a": -1.2710166131372567,
+        "b": 1.1505699464079391e-07,
+        "break_even_jackpot": 11046843,
+        "tickets_sold": 9099089,
+        "uplift": 1.19
+      },
+      "p75": {
+        "a": -1.2710166131372567,
+        "b": 1.0541328670780222e-07,
+        "break_even_jackpot": 12057461,
+        "tickets_sold": 10016644,
+        "uplift": 1.31
+      }
+    },
+    "reference_line": [
+      32,
+      34,
+      37,
+      39,
+      41,
+      43
+    ],
+    "reference_popularity": 0.3158,
+    "regimes": [
+      {
+        "a": -1.2710166131372567,
+        "b": 4.209201991349038e-08,
+        "break_even_jackpot": 30196142,
+        "key": "ordinary",
+        "label": "Ordinary draw",
+        "roll_down": false,
+        "rounds": 2,
+        "tickets_sold": 7646293
+      },
+      {
+        "a": -1.2710166131372567,
+        "b": 1.0841820450634876e-07,
+        "break_even_jackpot": 11723277,
+        "key": "mbw",
+        "label": "Must-Be-Won roll-down",
+        "roll_down": true,
+        "rounds": 2,
+        "tickets_sold": 9710793
+      }
+    ],
+    "slider": {
+      "max_gbp": 50000000,
+      "min_gbp": 2000000,
+      "step_gbp": 100000
+    }
+  },
+  "hook": {
+    "n_balls": 59,
+    "n_pick": 6,
+    "odds": [
+      {
+        "key": "jackpot",
+        "label": "Match 6",
+        "one_in": 45057474.0,
+        "probability": 2.2194e-08
+      },
+      {
+        "key": "match_5_bonus",
+        "label": "Match 5 + bonus",
+        "one_in": 7509579.0,
+        "probability": 1.33163e-07
+      },
+      {
+        "key": "match_5",
+        "label": "Match 5",
+        "one_in": 144415.0,
+        "probability": 6.924489e-06
+      },
+      {
+        "key": "match_4",
+        "label": "Match 4",
+        "one_in": 2179.8,
+        "probability": 0.000458747421
+      },
+      {
+        "key": "match_3",
+        "label": "Match 3",
+        "one_in": 96.2,
+        "probability": 0.010398274879
+      },
+      {
+        "key": "match_2",
+        "label": "Match 2",
+        "one_in": 10.3,
+        "probability": 0.09748382699
+      }
+    ],
+    "rounds_per_draw": 2,
+    "ticket_price_gbp": 2.0,
+    "total_combinations": 45057474
+  },
+  "popularity": {
+    "examples": [
+      {
+        "line": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "note": "consecutive run and an arithmetic line",
+        "ratio": 42.8077
+      },
+      {
+        "line": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30
+        ],
+        "note": "arithmetic, all birthday-range",
+        "ratio": 27.3825
+      },
+      {
+        "line": [
+          7,
+          14,
+          21,
+          28,
+          35,
+          42
+        ],
+        "note": "arithmetic, the 7 times table",
+        "ratio": 8.7139
+      },
+      {
+        "line": [
+          3,
+          7,
+          11,
+          19,
+          23,
+          31
+        ],
+        "note": "all birthday-range, no pattern",
+        "ratio": 3.8273
+      },
+      {
+        "line": [
+          1,
+          7,
+          13,
+          25,
+          31,
+          42
+        ],
+        "note": "mixed",
+        "ratio": 1.6142
+      },
+      {
+        "line": [
+          32,
+          34,
+          37,
+          39,
+          41,
+          43
+        ],
+        "note": "the reference line this model plays",
+        "ratio": 0.3158
+      }
+    ],
+    "installed_step": [
+      {
+        "from": 1,
+        "to": 12,
+        "weight": 1.23
+      },
+      {
+        "from": 13,
+        "to": 31,
+        "weight": 1.1
+      },
+      {
+        "from": 32,
+        "to": 59,
+        "weight": 0.83
+      }
+    ],
+    "least_played": [
+      {
+        "number": 53,
+        "weight": 0.5978
+      },
+      {
+        "number": 50,
+        "weight": 0.6556
+      },
+      {
+        "number": 57,
+        "weight": 0.6701
+      },
+      {
+        "number": 51,
+        "weight": 0.6704
+      },
+      {
+        "number": 59,
+        "weight": 0.6776
+      },
+      {
+        "number": 58,
+        "weight": 0.6864
+      }
+    ],
+    "match3_multiplier_by_low31": [
+      {
+        "draws": 12,
+        "mean_multiplier": 0.7498,
+        "n_low31": 0
+      },
+      {
+        "draws": 87,
+        "mean_multiplier": 0.7816,
+        "n_low31": 1
+      },
+      {
+        "draws": 243,
+        "mean_multiplier": 0.9161,
+        "n_low31": 2
+      },
+      {
+        "draws": 399,
+        "mean_multiplier": 1.0019,
+        "n_low31": 3
+      },
+      {
+        "draws": 271,
+        "mean_multiplier": 1.2032,
+        "n_low31": 4
+      },
+      {
+        "draws": 120,
+        "mean_multiplier": 1.5167,
+        "n_low31": 5
+      },
+      {
+        "draws": 15,
+        "mean_multiplier": 1.8396,
+        "n_low31": 6
+      }
+    ],
+    "model": {
+      "arithmetic_mult": 8.0,
+      "birthday_max": 31,
+      "birthday_mult": 1.6,
+      "consecutive_mult": 1.8,
+      "consecutive_run": 3,
+      "mean_weight": 0.9983,
+      "normalization": 1.046
+    },
+    "most_played": [
+      {
+        "number": 9,
+        "weight": 1.3648
+      },
+      {
+        "number": 7,
+        "weight": 1.3339
+      },
+      {
+        "number": 11,
+        "weight": 1.2989
+      },
+      {
+        "number": 6,
+        "weight": 1.2925
+      },
+      {
+        "number": 17,
+        "weight": 1.2435
+      },
+      {
+        "number": 8,
+        "weight": 1.2378
+      }
+    ],
+    "n_observations": 1147,
+    "recovered": [
+      1.1128,
+      1.1288,
+      1.2116,
+      1.1197,
+      1.167,
+      1.2925,
+      1.3339,
+      1.2378,
+      1.3648,
+      1.2313,
+      1.2989,
+      1.1923,
+      1.1735,
+      1.1395,
+      1.0945,
+      1.0518,
+      1.2435,
+      1.1057,
+      1.2278,
+      0.9408,
+      1.0665,
+      1.072,
+      1.1221,
+      1.1649,
+      1.0773,
+      1.0923,
+      1.0678,
+      1.0488,
+      1.0784,
+      1.0689,
+      0.9553,
+      0.9746,
+      1.0076,
+      0.8796,
+      0.8907,
+      0.923,
+      0.8599,
+      0.8952,
+      0.8335,
+      0.9191,
+      0.8861,
+      0.9217,
+      0.9462,
+      1.1424,
+      0.8656,
+      0.9342,
+      1.0443,
+      0.858,
+      0.8617,
+      0.6556,
+      0.6704,
+      0.7676,
+      0.5978,
+      0.7393,
+      0.6877,
+      0.7213,
+      0.6701,
+      0.6864,
+      0.6776
+    ],
+    "recovered_range": [
+      0.5978,
+      1.3648
+    ]
+  },
+  "schema_version": 1,
+  "snapshot": {
+    "as_of_draw_date": "2026-08-08",
+    "data_through": "2026-08-05",
+    "draws_59_ball_era": 1130,
+    "draws_all_time": 3195
+  }
+}

@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron
+.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -11,6 +11,15 @@ play:
 dashboard:
 	PYTHONPATH=. $(PY) scripts/dashboard.py
 	open outputs/dashboard.html 2>/dev/null || true
+
+# The public site's committed data snapshot. Run by a human, never by the
+# collector bot: collect.yml pushes twice per draw, and wiring the exporter in
+# there would publish unreviewed claims on a schedule.
+site-data:
+	PYTHONPATH=. $(PY) scripts/export_site_data.py
+
+site-data-check:
+	PYTHONPATH=. $(PY) scripts/export_site_data.py --check
 
 setup:
 	conda env create -f environment.yml || conda env update -f environment.yml

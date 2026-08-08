@@ -15,7 +15,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -43,7 +43,8 @@ OUT_DIR = Path("outputs/predictions")
 
 
 def next_draw_conditions(force_roll_down: bool = False,
-                         force_ordinary: bool = False) -> DrawConditions:
+                         force_ordinary: bool = False,
+                         now: datetime | date | None = None) -> DrawConditions:
     """Best known conditions for the upcoming draw, from collected data.
 
     The roll-down overrides belong here rather than in the caller because the
@@ -55,12 +56,17 @@ def next_draw_conditions(force_roll_down: bool = False,
     `force_ordinary` is the mirror of `force_roll_down`: while the live feed
     flags a roll-down, every what-if inherits it, so "what would an ordinary
     draw at this jackpot be worth?" was unaskable.
+
+    `now` pins the moment the conditions are priced at. Callers that must be
+    reproducible pass one derived from the data rather than the clock - the
+    site exporter does, because its output is committed and diffed in CI, and
+    a wall-clock read would rewrite the file every time the draw date rolls.
     """
     cond = DrawConditions()
     # The draw being priced is the one a ticket bought NOW would enter; its
     # weekday selects the sales baseline and Must-Be-Won uplift (Saturdays
     # sell ~1.59x Wednesdays).
-    cond.draw_date = upcoming_draw_date()
+    cond.draw_date = upcoming_draw_date(now)
     if PRIZE_TIERS_FILE.exists():
         tiers = pd.read_csv(PRIZE_TIERS_FILE)
         if len(tiers):
