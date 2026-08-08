@@ -66,17 +66,14 @@ export function SGenerator({
 
   return (
     <section id="panel-a" className="generator" aria-labelledby="panel-a-title">
+      {/* Heading, then the numbers. The explanation goes underneath them: a
+          reader who came for a slip should not have to get through a paragraph
+          to reach one, and the paragraph makes more sense once they have. */}
       <div className="generator-head">
         <p className="eyebrow">Panel A &middot; your slip</p>
         <h2 className="h-section" id="panel-a-title">
           Five lines nobody else is playing
         </h2>
-        <p className="lede prose">
-          Six numbers from {hook.n_balls}, drawn to avoid the dates, the lucky
-          sevens and the diagonal patterns that most tickets carry. Same chance of
-          coming up as any other line — but if one does come up, you are sharing it
-          with far fewer people.
-        </p>
       </div>
 
       <ol className="slips">
@@ -110,6 +107,13 @@ export function SGenerator({
           is sent anywhere.
         </p>
       </div>
+
+      <p className="lede prose generator-lede">
+        Six numbers from {hook.n_balls}, drawn to avoid the dates, the lucky sevens and
+        the diagonal patterns most tickets carry. Exactly the same chance of coming up as
+        any other line — but if one does come up, you are sharing it with far fewer
+        people.
+      </p>
 
       <aside className="payoff">
         <p className="eyebrow">What that is worth</p>
