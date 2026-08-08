@@ -40,8 +40,13 @@ check "nosniff is set"              "nosniff"                 "$(grep -i '^x-con
 
 # Brotli proves compress=true on the behaviour; without it the page ships
 # roughly four times the bytes.
+#
+# A GET with the body discarded, not a HEAD: CloudFront does not compress
+# HEAD responses, so `curl -I` reports no content-encoding on a distribution
+# that is compressing perfectly well. This assertion failed on the very first
+# deploy for exactly that reason.
 check "brotli is negotiated" "br" \
-  "$(curl -sS -I --max-time 20 -H 'Accept-Encoding: br' "${BASE}/" | tr -d '\r' | grep -i '^content-encoding:' || true)"
+  "$(curl -sS -o /dev/null -D - --max-time 20 -H 'Accept-Encoding: br' "${BASE}/" | tr -d '\r' | grep -i '^content-encoding:' || true)"
 
 # A hashed asset must be immutable, or every visit re-downloads the bundle.
 asset="$(curl -sS --max-time 20 "${BASE}/" | grep -o '/_next/static/[^"]*\.js' | head -1 || true)"
