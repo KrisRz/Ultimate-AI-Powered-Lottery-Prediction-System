@@ -70,6 +70,7 @@ from scripts.calibrate_popularity import (  # noqa: E402
     load_joined,
     per_number_regression,
 )
+from scripts.dashboard import _cumavg  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 
 SCHEMA_VERSION = 1
@@ -77,7 +78,16 @@ SCHEMA_VERSION = 1
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 MERGED_FILE = Path("data/merged_lottery_data.csv")
 FULL_HISTORY_FILE = Path("data/lotto_full_history.csv")
+VALIDATION_DIR = Path("outputs/validation")
 OUT_FILE = Path("site/public/data/site.json")
+
+# The backtest's source lives under outputs/, which is gitignored, so CI could
+# not regenerate this file's backtest section from a fresh clone. Rather than
+# make the whole export unreproducible for one block, the validation runs are
+# pruned to the fields the page actually uses (2.1 MB of four runs becomes
+# ~20 KB) and that extract is committed. Refresh it with --refresh-backtest
+# after `make backtest`.
+BACKTEST_SRC = Path("site/data-src/backtest.json")
 
 # Rounding. Model coefficients are exempt: `b` is ~1e-07, so rounding it to the
 # general 4 dp would collapse it to zero and put break-even at infinity.
@@ -156,6 +166,121 @@ def build_hook() -> dict:
             {"key": key, "label": label, "probability": p, "one_in": round(1.0 / p, 1)}
             for key, label, p in tiers
         ],
+    }
+
+
+# --- section 2: can you predict the numbers? ---------------------------------
+
+def refresh_backtest() -> dict:
+    """Prune the newest validation run per method into the committed extract.
+
+    One entry per method plus the random baseline, each carrying its
+    significance block and its per-draw match counts. Everything else in a
+    validation file - the plot path, the per-method metrics the page does not
+    show - is dropped.
+    """
+    runs = sorted(VALIDATION_DIR.glob("validation_*.json"),
+                  key=lambda p: p.stat().st_mtime, reverse=True)
+
+    newest: dict[str, dict] = {}
+    for path in runs:
+        run = json.loads(path.read_text())
+        if not (run.get("significance") and run.get("series")):
+            continue
+        newest.setdefault(run["method"], run)
+
+    if not newest:
+        raise SystemExit(f"No usable validation runs in {VALIDATION_DIR} - run `make backtest`")
+
+    canonical = newest[sorted(newest)[0]]
+    dates = [point["date"] for point in canonical["series"]["random"]]
+
+    methods: dict[str, dict] = {}
+    for name, run in sorted(newest.items()):
+        # Every run must be scored on the same draws, or the chart would put
+        # four differently-shaped lines on one axis and invite a comparison
+        # that is not there.
+        for series_name, series in run["series"].items():
+            if [p["date"] for p in series] != dates:
+                raise SystemExit(
+                    f"{name}'s {series_name} series is on a different draw grid; "
+                    "re-run all methods over one window before refreshing")
+        methods[name] = {
+            "significance": run["significance"][name],
+            "matches": [int(p["matches"]) for p in run["series"][name]],
+        }
+
+    # The random baseline comes from the canonical run. Each validation file
+    # carries its own, and they differ - they are independent draws from the
+    # same null. Picking one keeps the page's baseline a single honest series
+    # rather than an average of four.
+    methods["random"] = {
+        "significance": canonical["significance"]["random"],
+        "matches": [int(p["matches"]) for p in canonical["series"]["random"]],
+    }
+
+    extract = {
+        "steps": canonical["steps"],
+        "lookback": canonical["lookback"],
+        "n_sim": canonical["significance"]["random"]["n_sim"],
+        "expected_random_avg": canonical["significance"]["random"]["expected_random_avg"],
+        "dates": dates,
+        "methods": methods,
+    }
+
+    BACKTEST_SRC.parent.mkdir(parents=True, exist_ok=True)
+    BACKTEST_SRC.write_text(serialize(extract))
+    return extract
+
+
+def build_backtest() -> dict:
+    """The finding that has to land before any of the arithmetic matters.
+
+    Four prediction methods, walk-forward over the same 930 draws, against the
+    no-skill mean of 36/59. Every one of them sits inside the baseline's own
+    confidence interval. The page shows the cumulative averages tangled
+    together because that picture is harder to argue with than a p-value.
+    """
+    if not BACKTEST_SRC.exists():
+        raise SystemExit(
+            f"{BACKTEST_SRC} is missing - run "
+            "`python scripts/export_site_data.py --refresh-backtest`")
+
+    src = json.loads(BACKTEST_SRC.read_text())
+    expected = src["expected_random_avg"]
+
+    methods = []
+    for name, entry in sorted(src["methods"].items()):
+        sig = entry["significance"]
+        low, high = sig["observed_avg_ci95"]
+        methods.append({
+            "name": name,
+            "is_baseline": name == "random",
+            "observed_avg": sig["observed_avg"],
+            "ci95": [low, high],
+            "p_value_avg": sig["p_value_avg"],
+            "rate_3plus": sig["observed_3plus_rate"],
+            "p_value_3plus": sig["p_value_3plus"],
+            # The honest reading of a p-value this size: the method's score is
+            # what the null model produces anyway.
+            "beats_random": sig["p_value_avg"] < 0.05,
+        })
+
+    return {
+        "steps": src["steps"],
+        "lookback": src["lookback"],
+        "n_sim": src["n_sim"],
+        "expected_random_avg": expected,
+        "date_from": src["dates"][0],
+        "date_to": src["dates"][-1],
+        "methods": methods,
+        "series": {
+            "dates": src["dates"],
+            "cumulative_avg": {
+                name: _cumavg(entry["matches"])
+                for name, entry in sorted(src["methods"].items())
+            },
+        },
     }
 
 
@@ -345,6 +470,7 @@ def build_payload() -> dict:
             "draws_59_ball_era": int(len(merged)),
         },
         "hook": build_hook(),
+        "backtest": build_backtest(),
         "ev": build_ev(live, ordinary, mbw),
         "popularity": build_popularity(),
     }
@@ -354,7 +480,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true",
                         help="Exit 1 if the snapshot on disk is out of date")
+    parser.add_argument("--refresh-backtest", action="store_true",
+                        help=f"Rebuild {BACKTEST_SRC} from outputs/validation "
+                             "(needs a local `make backtest`), then export")
     args = parser.parse_args()
+
+    if args.refresh_backtest:
+        extract = refresh_backtest()
+        print(f"Wrote {BACKTEST_SRC} "
+              f"({len(extract['methods'])} methods x {extract['steps']} draws)")
 
     text = serialize(build_payload())
 

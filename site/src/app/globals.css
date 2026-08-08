@@ -488,6 +488,266 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* --- charts --------------------------------------------------------------
+   One vocabulary for every figure on the page. Series are ink, not a palette:
+   where the finding is that several things are indistinguishable, giving them
+   distinct colours would argue the opposite. */
+
+.chart {
+  margin: 0;
+  width: min(100%, 40rem);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+text.axis,
+.axis text {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-expected {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.rule-zero {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+/* Forest plot */
+
+.forest-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  fill: var(--ink);
+}
+
+.forest-p {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+
+.forest-ci {
+  stroke: var(--random);
+  stroke-width: 2;
+}
+
+.forest-cap {
+  stroke: var(--random);
+  stroke-width: 1.5;
+}
+
+.forest-dot {
+  fill: var(--ink);
+}
+
+/* The baseline is the same measurement, so it is the same grey - dashed only
+   so the reader can find it, not to rank it. */
+.forest-baseline .forest-ci {
+  stroke-dasharray: 4 3;
+}
+
+.forest-baseline .forest-dot {
+  fill: var(--ink-2);
+}
+
+.forest-baseline .forest-label {
+  fill: var(--ink-2);
+}
+
+/* Running averages */
+
+.score-line {
+  fill: none;
+  stroke: var(--random);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.score-line-random {
+  stroke-dasharray: 4 3;
+}
+
+/* EV */
+
+.ev-profit {
+  fill: var(--mark);
+  opacity: 0.07;
+}
+
+.ev-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ev-regime-ordinary .ev-line {
+  stroke: var(--random);
+  stroke-dasharray: 5 4;
+}
+
+.ev-label {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  font-stretch: 110%;
+  fill: var(--ink-2);
+}
+
+.ev-regime-mbw .ev-label {
+  fill: var(--ink);
+}
+
+.ev-crossing {
+  fill: var(--mark);
+}
+
+.ev-crossing-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--mark);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-cursor {
+  stroke: var(--ink);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+/* --- workbench (panel C) -------------------------------------------------
+   A stop in the rhythm after two sticky panels: the reader stops being shown
+   things and starts moving one. */
+
+.workbench {
+  padding: clamp(3rem, 8vh, 5rem) 0;
+}
+
+.workbench-head {
+  max-width: var(--measure);
+  margin-bottom: clamp(2rem, 5vh, 3rem);
+}
+
+.workbench-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: start;
+}
+
+.controls {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.control-label {
+  font-family: var(--display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-stretch: 125%;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.control-value {
+  font-family: var(--mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls input[type='range'] {
+  width: 100%;
+  margin: 0.5rem 0 1rem;
+  accent-color: var(--mark);
+}
+
+.results {
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.results > div {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.6rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.results dt {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.results dd {
+  margin: 0;
+}
+
+.results dd.num {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The accent appears only when the arithmetic says buy. */
+.results > div[data-positive='true'] dd.num,
+.verdict-line[data-positive='true'] {
+  color: var(--mark);
+}
+
+.verdict-line {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-2);
+}
+
+.workbench-notes {
+  margin-top: clamp(2rem, 5vh, 3rem);
+  max-width: 46rem;
+  columns: 2;
+  column-gap: 3rem;
+}
+
+.workbench-notes p {
+  break-inside: avoid;
+  margin: 0 0 0.85rem;
+}
+
+@media (max-width: 62rem) {
+  .workbench-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workbench-notes {
+    columns: 1;
+  }
+}
+
 /* --- reduced motion ------------------------------------------------------
    Kill motion, keep state. Scroll-linked *position* is content here: the
    sections still change as you scroll. What goes is the tweening, the canvas

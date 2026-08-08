@@ -30,6 +30,31 @@ export interface Hook {
   odds: Odds[];
 }
 
+export interface BacktestMethod {
+  name: string;
+  is_baseline: boolean;
+  observed_avg: number;
+  ci95: [number, number];
+  p_value_avg: number;
+  rate_3plus: number;
+  p_value_3plus: number;
+  beats_random: boolean;
+}
+
+export interface Backtest {
+  steps: number;
+  lookback: number;
+  n_sim: number;
+  expected_random_avg: number;
+  date_from: string;
+  date_to: string;
+  methods: BacktestMethod[];
+  series: {
+    dates: string[];
+    cumulative_avg: Record<string, number[]>;
+  };
+}
+
 /** EV(J) = a + b*J. Exact, not a sampled curve - see `affine` in the exporter. */
 export interface Regime {
   key: 'ordinary' | 'mbw';
@@ -108,6 +133,7 @@ export interface SiteData {
   schema_version: number;
   snapshot: Snapshot;
   hook: Hook;
+  backtest: Backtest;
   ev: Ev;
   popularity: Popularity;
 }
