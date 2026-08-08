@@ -17,3 +17,10 @@ jobs:
         run: pip install pandas numpy requests pytest
       - name: Run tests
         run: PYTHONPATH=. python -m pytest -q
+
+      # The public page quotes this model. Regenerating the snapshot here and
+      # diffing it is what stops a recalibration from landing while the page
+      # keeps publishing the old figures - the exporter is deterministic, so
+      # any difference is real drift rather than noise.
+      - name: Site data snapshot is current
+        run: PYTHONPATH=. python scripts/export_site_data.py --check

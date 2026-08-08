@@ -1,0 +1,39 @@
+name: Infra check
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-plan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.1"
+
+      - name: Formatting
+        run: terraform fmt -check -recursive infra
+
+      # No credentials and no plan on purpose. A plan needs read access to
+      # live infrastructure, and this repo grants CI exactly one power -
+      # publishing built files - so that it cannot be talked into more.
+      # Applies happen from a laptop, with a human reading the diff.
+      - name: Validate
+        run: |
+          cd infra/live
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Validate bootstrap
+        run: |
+          cd infra/bootstrap
+          terraform init -backend=false -input=false
+          terraform validate

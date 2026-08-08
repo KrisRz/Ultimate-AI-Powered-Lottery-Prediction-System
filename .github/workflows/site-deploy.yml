@@ -1,0 +1,87 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'scripts/export_site_data.py'
+      - '.github/workflows/site-deploy.yml'
+  workflow_dispatch:
+
+# Never cancel a half-finished sync: the bucket would be left holding new
+# assets and old HTML, or worse, the reverse.
+concurrency:
+  group: site-deploy
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # mint the OIDC token
+  contents: read    # and nothing else
+
+env:
+  AWS_REGION: eu-west-2
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: site/.nvmrc
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_COMMIT: ${{ github.sha }}
+
+      - name: First-load budget
+        run: npm run size
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: site-deploy-${{ github.run_id }}
+
+      # Two passes rather than one filtered sync. `--exclude`/`--include`
+      # applies to source and destination at once, and its interaction with
+      # `--delete` is subtle enough to get wrong quietly; this is duller and
+      # obviously correct.
+      #
+      # Assets go first so freshly uploaded HTML never references an object
+      # that is not there yet. They are content-hashed, hence the year.
+      - name: Upload assets
+        run: |
+          aws s3 sync out "s3://${{ vars.SITE_BUCKET }}" --delete \
+            --cache-control 'public,max-age=31536000,immutable'
+
+      # Then rewrite only the HTML headers. Between the two passes the HTML is
+      # briefly marked immutable, which is harmless: the invalidation has not
+      # run, so CloudFront is still serving the previous version from cache.
+      - name: Fix HTML cache headers
+        run: |
+          aws s3 cp "s3://${{ vars.SITE_BUCKET }}" "s3://${{ vars.SITE_BUCKET }}" \
+            --recursive --exclude '*' --include '*.html' \
+            --metadata-directive REPLACE \
+            --content-type 'text/html; charset=utf-8' \
+            --cache-control 'public,max-age=0,must-revalidate'
+
+      # A single /* counts as one path against the 1,000 free paths a month.
+      - name: Invalidate
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.SITE_DISTRIBUTION_ID }}" \
+            --paths '/*'
+
+      - name: Smoke test
+        run: bash scripts/smoke.sh "https://${{ vars.SITE_DOMAIN }}" "${{ vars.SITE_BUCKET }}" "$AWS_REGION"
