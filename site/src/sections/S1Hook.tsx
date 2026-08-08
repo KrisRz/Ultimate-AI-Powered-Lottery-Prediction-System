@@ -69,7 +69,7 @@ export function S1Hook({ hook, ev }: { hook: Hook; ev: Ev }) {
   const coverEverything = total * hook.ticket_price_gbp;
 
   return (
-    <section id="panel-a" aria-labelledby="panel-a-title">
+    <section id="panel-c" aria-labelledby="panel-a-title">
       <div className="scrolly" ref={container}>
         <div className="scrolly-graphic">
           <figure className="field">
@@ -84,8 +84,8 @@ export function S1Hook({ hook, ev }: { hook: Hook; ev: Ev }) {
         </div>
 
         <div className="scrolly-steps">
-          <p className="eyebrow">Panel A &middot; the denominator</p>
-          <h2 className="h-section" id="panel-a-title">
+          <p className="eyebrow">Panel C &middot; the denominator</p>
+          <h2 className="h-section" id="panel-c-title">
             Six numbers from fifty&#8209;nine
           </h2>
 
@@ -131,12 +131,13 @@ export function S1Hook({ hook, ev }: { hook: Hook; ev: Ev }) {
           </div>
 
           <div className="step" ref={stepRef(3)} data-active={active === 3}>
-            <h3 className="h-step">So what is left to decide?</h3>
+            <h3 className="h-step">Which is why the sharing matters</h3>
             <p className="prose">
-              The numbers are drawn uniformly at random and no one can predict
-              them. But a player still controls two things: <em>whether</em> to
-              buy a ticket at all, and <em>which</em> line to put on it. This
-              page is about how much those two are worth.
+              Against a number this size, nothing you do moves your chance of
+              winning. That is also why the two levers above are the whole game:
+              they are not about winning more often, they are about what the win
+              is worth and whether the ticket was priced fairly in the first
+              place.
             </p>
           </div>
         </div>

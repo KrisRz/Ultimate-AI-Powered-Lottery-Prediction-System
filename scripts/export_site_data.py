@@ -89,11 +89,17 @@ OUT_FILE = Path("site/public/data/site.json")
 # after `make backtest`.
 BACKTEST_SRC = Path("site/data-src/backtest.json")
 
-# Rounding. Model coefficients are exempt: `b` is ~1e-07, so rounding it to the
-# general 4 dp would collapse it to zero and put break-even at infinity.
+# Rounding, with model coefficients exempt. Two different reasons:
+#
+#   a, b                     `b` is ~1e-07, so 4 dp would collapse it to zero
+#                            and put break-even at infinity.
+#   mean_weight,             the browser divides by these once per number when
+#   normalization            it scores a line, so a rounded copy compounds into
+#                            a visibly different popularity. The golden
+#                            fixtures caught exactly that.
 DP = 4
 PROB_DP = 12
-EXACT_KEYS = frozenset({"a", "b"})
+EXACT_KEYS = frozenset({"a", "b", "mean_weight", "normalization"})
 PROB_KEYS = frozenset({"probability"})
 
 
@@ -445,6 +451,67 @@ def build_popularity() -> dict:
     }
 
 
+# --- golden fixtures ---------------------------------------------------------
+
+def write_golden_fixtures() -> int:
+    """Pin the browser's copy of the model to this one.
+
+    The page generates lines in the visitor's browser, which means
+    `popularity_ratio` exists twice: here in Python, and again in TypeScript.
+    Nothing else stops the two drifting apart - recalibrate `number_weight`
+    and the page would keep scoring lines by the old model while every figure
+    around it moved.
+
+    So Python writes the answers and the TypeScript test suite checks itself
+    against them. Change the model, and the fixtures change with it in the
+    same commit; forget to update the port, and Vitest goes red.
+
+    Lines are chosen deterministically and cover the cases that actually
+    exercise the multipliers - arithmetic runs, consecutive runs, all-birthday
+    lines, all-high lines - rather than a random sample that might miss them.
+    """
+    lines: list[list[int]] = [
+        [1, 2, 3, 4, 5, 6],             # arithmetic and consecutive and birthday
+        [5, 10, 15, 20, 25, 30],        # arithmetic, birthday
+        [7, 14, 21, 28, 35, 42],        # arithmetic, spans the 31 boundary
+        [2, 4, 6, 8, 10, 12],           # arithmetic, all in the heaviest band
+        [1, 2, 3, 20, 40, 55],          # consecutive run of 3 only
+        [1, 2, 4, 20, 40, 55],          # a pair, but no run of 3
+        [3, 7, 11, 19, 23, 31],         # all birthday, no pattern
+        [32, 34, 37, 39, 41, 43],       # the reference line
+        [54, 55, 56, 57, 58, 59],       # all high, consecutive
+        [1, 12, 13, 31, 32, 59],        # one from each band boundary
+    ]
+    # A systematic sweep on top of the hand-picked cases: every sixth number,
+    # walked across the whole range, so no band goes unrepresented.
+    for start in range(1, 54, 4):
+        line = sorted({min(start + offset * 9, N_BALLS) for offset in range(N_PICK)})
+        if len(line) == N_PICK:
+            lines.append(line)
+
+    fixture = {
+        "note": "Written by scripts/export_site_data.py. Do not edit by hand.",
+        "model": {
+            "mean_weight": MEAN_WEIGHT,
+            "normalization": POPULARITY_NORMALIZATION,
+        },
+        "cases": [
+            {"line": line, "ratio": popularity_ratio(line)}
+            for line in lines
+        ],
+        "weights": [number_weight(n) for n in range(1, N_BALLS + 1)],
+    }
+
+    # Full precision, unlike the public snapshot: the point is to catch a port
+    # that is subtly wrong, and 4 decimal places would hide exactly that. Safe
+    # to leave unrounded because none of this passes through numpy - it is
+    # products of constants, identical on every platform.
+    path = Path("site/src/__fixtures__/popularity-golden.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(fixture, indent=2, sort_keys=True) + "\n")
+    return len(lines)
+
+
 # --- assembly ---------------------------------------------------------------
 
 def build_payload() -> dict:
@@ -489,6 +556,10 @@ def main() -> int:
         extract = refresh_backtest()
         print(f"Wrote {BACKTEST_SRC} "
               f"({len(extract['methods'])} methods x {extract['steps']} draws)")
+
+    if not args.check:
+        cases = write_golden_fixtures()
+        print(f"Wrote popularity fixtures ({cases} lines)")
 
     text = serialize(build_payload())
 

@@ -9,7 +9,8 @@
     "serve": "npx --yes serve out",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "size": "node scripts/size-budget.mjs"
+    "size": "node scripts/size-budget.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "16.3.0",
@@ -22,6 +23,7 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.0",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "vitest": "^4.1.10"
   }
 }
