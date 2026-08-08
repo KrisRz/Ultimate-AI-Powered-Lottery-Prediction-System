@@ -140,8 +140,11 @@ export default function Page() {
   return (
     <main className="page">
       <Masthead />
-      <Summary />
+      {/* The tool comes before the explanation. It used to sit 1,600px down,
+          behind the summary, which meant the first thing a visitor met was a
+          wall of prose about a product they had not seen yet. */}
       <SGenerator popularity={popularity} hook={hook} ev={ev} seed={seed} />
+      <Summary />
       <SWhyNumbers popularity={popularity} hook={hook} ev={ev} />
       <S3Ev ev={ev} asOf={snapshot.as_of_draw_date} ticketPrice={hook.ticket_price_gbp} />
       <SRolldown rolldown={rolldown} />

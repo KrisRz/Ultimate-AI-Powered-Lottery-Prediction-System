@@ -508,7 +508,12 @@ body {
 
 .generator-head {
   max-width: var(--measure);
-  margin-bottom: clamp(2rem, 5vh, 2.75rem);
+  margin-bottom: clamp(1rem, 2.5vh, 1.5rem);
+}
+
+/* Sits below the slips, not above them. */
+.generator-lede {
+  margin: clamp(1.5rem, 4vh, 2.25rem) 0 0;
 }
 
 .slips {
