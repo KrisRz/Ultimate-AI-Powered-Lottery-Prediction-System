@@ -43,11 +43,11 @@ export function S3Ev({
     `a Must-Be-Won draw returns ${gbpPence(evMbw)}.`;
 
   return (
-    <section id="panel-b" className="workbench" aria-labelledby="panel-c-title">
+    <section id="panel-c" className="workbench" aria-labelledby="panel-c-title">
       <hr className="perf" />
       <div className="workbench-head">
-        <p className="eyebrow">Panel B &middot; when to play</p>
-        <h2 className="h-section" id="panel-b-title">
+        <p className="eyebrow">Panel C &middot; when to play</p>
+        <h2 className="h-section" id="panel-c-title">
           And which draws are worth it
         </h2>
         <p className="lede prose">

@@ -2,8 +2,10 @@ import { S1Hook } from '@/sections/S1Hook';
 import { S2Predict } from '@/sections/S2Predict';
 import { S3Ev } from '@/sections/S3Ev';
 import { SGenerator } from '@/sections/SGenerator';
+import { SMoney } from '@/sections/SMoney';
+import { SWhyNumbers } from '@/sections/SWhyNumbers';
 import { count, gbp, gbpPence, longDate } from '@/data/format';
-import { backtest, ev, hook, popularity, snapshot } from '@/data/siteData';
+import { backtest, ev, hook, lastDraw, ledger, popularity, snapshot } from '@/data/siteData';
 
 /**
  * The masthead leads with what the toolkit gives you, not with what it refuses
@@ -126,8 +128,10 @@ export default function Page() {
       <Masthead />
       <Summary />
       <SGenerator popularity={popularity} hook={hook} ev={ev} seed={seed} />
+      <SWhyNumbers popularity={popularity} hook={hook} ev={ev} />
       <S3Ev ev={ev} asOf={snapshot.as_of_draw_date} ticketPrice={hook.ticket_price_gbp} />
       <S1Hook hook={hook} ev={ev} />
+      <SMoney ledger={ledger} lastDraw={lastDraw} verdictWas={ev.live.verdict} />
       <S2Predict backtest={backtest} />
     </main>
   );

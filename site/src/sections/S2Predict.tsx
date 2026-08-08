@@ -28,7 +28,7 @@ export function S2Predict({ backtest }: { backtest: Backtest }) {
   const methodCount = backtest.methods.filter((m) => !m.is_baseline).length;
 
   return (
-    <section id="panel-d" aria-labelledby="panel-b-title">
+    <section id="panel-f" aria-labelledby="panel-b-title">
       <hr className="perf" />
       <div className="scrolly" data-side="left" ref={container}>
         <div className="scrolly-graphic">
@@ -36,8 +36,8 @@ export function S2Predict({ backtest }: { backtest: Backtest }) {
         </div>
 
         <div className="scrolly-steps">
-          <p className="eyebrow">Panel D &middot; the check</p>
-          <h2 className="h-section" id="panel-d-title">
+          <p className="eyebrow">Panel F &middot; the check</p>
+          <h2 className="h-section" id="panel-f-title">
             We tested prediction too. It does not work.
           </h2>
 

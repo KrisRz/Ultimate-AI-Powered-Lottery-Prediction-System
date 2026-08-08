@@ -129,6 +129,30 @@ export interface Popularity {
   }[];
 }
 
+export interface LastDraw {
+  draw_number: number;
+  draw_date: string;
+  numbers: number[];
+  bonus: number | null;
+  jackpot_winners: number;
+  jackpot_per_winner_gbp: number;
+  jackpot_total_gbp: number;
+  was_shared: boolean;
+}
+
+export interface Ledger {
+  first_ticket_date: string;
+  last_draw_date: string;
+  lines: number;
+  settled: number;
+  spent_gbp: number;
+  won_gbp: number;
+  net_gbp: number;
+  roi: number | null;
+  match_histogram: Record<string, number>;
+  source: string;
+}
+
 export interface SiteData {
   schema_version: number;
   snapshot: Snapshot;
@@ -136,4 +160,6 @@ export interface SiteData {
   backtest: Backtest;
   ev: Ev;
   popularity: Popularity;
+  last_draw: LastDraw;
+  ledger: Ledger | null;
 }

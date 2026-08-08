@@ -69,7 +69,7 @@ export function S1Hook({ hook, ev }: { hook: Hook; ev: Ev }) {
   const coverEverything = total * hook.ticket_price_gbp;
 
   return (
-    <section id="panel-c" aria-labelledby="panel-a-title">
+    <section id="panel-d" aria-labelledby="panel-a-title">
       <div className="scrolly" ref={container}>
         <div className="scrolly-graphic">
           <figure className="field">
@@ -84,8 +84,8 @@ export function S1Hook({ hook, ev }: { hook: Hook; ev: Ev }) {
         </div>
 
         <div className="scrolly-steps">
-          <p className="eyebrow">Panel C &middot; the denominator</p>
-          <h2 className="h-section" id="panel-c-title">
+          <p className="eyebrow">Panel D &middot; the denominator</p>
+          <h2 className="h-section" id="panel-d-title">
             Six numbers from fifty&#8209;nine
           </h2>
 

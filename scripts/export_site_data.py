@@ -89,6 +89,14 @@ OUT_FILE = Path("site/public/data/site.json")
 # after `make backtest`.
 BACKTEST_SRC = Path("site/data-src/backtest.json")
 
+# The ledger is real money and .gitignore keeps it local-only, deliberately.
+# The page publishes totals, never the individual lines - those add nothing the
+# wheel section does not already show, and the stake is the honest part anyway.
+# Same committed-extract pattern as the backtest, for the same reason: CI has
+# no access to the source.
+LEDGER_FILE = Path("data/ledger.csv")
+LEDGER_SRC = Path("site/data-src/ledger.json")
+
 # Rounding, with model coefficients exempt. Two different reasons:
 #
 #   a, b                     `b` is ~1e-07, so 4 dp would collapse it to zero
@@ -451,6 +459,88 @@ def build_popularity() -> dict:
     }
 
 
+# --- sections 7 and 8: real money, and what the last draw actually did -------
+
+def refresh_ledger() -> dict:
+    """Totals from the local ledger, and nothing else.
+
+    No per-line detail: which lines were played is already on the page in the
+    wheel section, and the interesting part is the money. What survives is what
+    a reader needs to check the claim - how much went in, how much came back,
+    and whether the model had said to play at all.
+    """
+    if not LEDGER_FILE.exists():
+        raise SystemExit(f"{LEDGER_FILE} is missing - nothing to publish")
+
+    rows = pd.read_csv(LEDGER_FILE)
+    settled = rows[rows["settled"] == True]  # noqa: E712
+    spent = float(rows["cost"].sum())
+    won = float(settled["prize"].fillna(0).sum())
+
+    matches = (
+        settled["matches_r1"].dropna().astype(int).value_counts().sort_index()
+        if "matches_r1" in settled and len(settled) else pd.Series(dtype=int)
+    )
+
+    extract = {
+        "first_ticket_date": str(rows["draw_date"].min()),
+        "last_draw_date": str(rows["draw_date"].max()),
+        "lines": int(len(rows)),
+        "settled": int(len(settled)),
+        "spent_gbp": spent,
+        "won_gbp": won,
+        "net_gbp": won - spent,
+        "roi": (won - spent) / spent if spent else None,
+        "match_histogram": {str(k): int(v) for k, v in matches.items()},
+        "source": "wheel_portfolio",
+    }
+    LEDGER_SRC.parent.mkdir(parents=True, exist_ok=True)
+    LEDGER_SRC.write_text(serialize(extract))
+    return extract
+
+
+def build_ledger() -> dict | None:
+    if not LEDGER_SRC.exists():
+        return None
+    return json.loads(LEDGER_SRC.read_text())
+
+
+def build_last_draw(tiers: pd.DataFrame, merged: pd.DataFrame) -> dict:
+    """What happened at the most recent draw, jackpot tier included.
+
+    Here because it is the argument for unpopular lines, made by the game
+    rather than by a model: when a jackpot is won by more than one ticket it
+    gets split, and the split is the entire difference between the two figures
+    the generator quotes.
+    """
+    draw_number = int(tiers["draw_number"].max())
+    rows = tiers[tiers["draw_number"] == draw_number]
+    draw_date = str(rows["draw_date"].iloc[0])
+
+    balls = merged[merged["Draw Date"] == draw_date]
+    numbers = (
+        sorted(int(balls.iloc[0][f"Number_{i}"]) for i in range(1, N_PICK + 1))
+        if len(balls) else []
+    )
+    bonus = int(balls.iloc[0]["Bonus"]) if len(balls) else None
+
+    jackpot_rows = rows[rows["tier"] == 1]
+    winners = int(jackpot_rows["winners"].sum())
+    per_winner = float(jackpot_rows[jackpot_rows["winners"] > 0]["prize_per_winner"].max()) \
+        if winners else 0.0
+
+    return {
+        "draw_number": draw_number,
+        "draw_date": draw_date,
+        "numbers": numbers,
+        "bonus": bonus,
+        "jackpot_winners": winners,
+        "jackpot_per_winner_gbp": gbp(per_winner) if winners else 0,
+        "jackpot_total_gbp": gbp(per_winner * winners) if winners else 0,
+        "was_shared": winners > 1,
+    }
+
+
 # --- golden fixtures ---------------------------------------------------------
 
 def write_golden_fixtures() -> int:
@@ -540,6 +630,8 @@ def build_payload() -> dict:
         "backtest": build_backtest(),
         "ev": build_ev(live, ordinary, mbw),
         "popularity": build_popularity(),
+        "last_draw": build_last_draw(tiers, merged),
+        "ledger": build_ledger(),
     }
 
 
@@ -550,12 +642,20 @@ def main() -> int:
     parser.add_argument("--refresh-backtest", action="store_true",
                         help=f"Rebuild {BACKTEST_SRC} from outputs/validation "
                              "(needs a local `make backtest`), then export")
+    parser.add_argument("--refresh-ledger", action="store_true",
+                        help=f"Rebuild {LEDGER_SRC} from the local {LEDGER_FILE}, "
+                             "then export")
     args = parser.parse_args()
 
     if args.refresh_backtest:
         extract = refresh_backtest()
         print(f"Wrote {BACKTEST_SRC} "
               f"({len(extract['methods'])} methods x {extract['steps']} draws)")
+
+    if args.refresh_ledger:
+        led = refresh_ledger()
+        print(f"Wrote {LEDGER_SRC} "
+              f"({led['settled']}/{led['lines']} lines settled, net GBP{led['net_gbp']:.2f})")
 
     if not args.check:
         cases = write_golden_fixtures()

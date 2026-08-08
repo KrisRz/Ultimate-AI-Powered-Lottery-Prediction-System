@@ -13,4 +13,4 @@ import type { SiteData } from './types';
 
 export const site = raw as unknown as SiteData;
 
-export const { snapshot, hook, backtest, ev, popularity } = site;
+export const { snapshot, hook, backtest, ev, popularity, last_draw: lastDraw, ledger } = site;

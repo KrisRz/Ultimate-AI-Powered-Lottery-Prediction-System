@@ -5791,6 +5791,39 @@
     "ticket_price_gbp": 2.0,
     "total_combinations": 45057474
   },
+  "last_draw": {
+    "bonus": 43,
+    "draw_date": "2026-08-08",
+    "draw_number": 3196,
+    "jackpot_per_winner_gbp": 4267573,
+    "jackpot_total_gbp": 8535146,
+    "jackpot_winners": 2,
+    "numbers": [
+      14,
+      18,
+      26,
+      45,
+      50,
+      53
+    ],
+    "was_shared": true
+  },
+  "ledger": {
+    "first_ticket_date": "2026-08-08",
+    "last_draw_date": "2026-08-08",
+    "lines": 10,
+    "match_histogram": {
+      "0": 4,
+      "1": 1,
+      "2": 5
+    },
+    "net_gbp": -15.0,
+    "roi": -0.75,
+    "settled": 10,
+    "source": "wheel_portfolio",
+    "spent_gbp": 20.0,
+    "won_gbp": 5.0
+  },
   "popularity": {
     "examples": [
       {

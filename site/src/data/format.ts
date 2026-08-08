@@ -36,6 +36,12 @@ export const gbpShort = (n: number): string => {
 export const oneIn = (n: number): string =>
   `1 in ${Math.round(n).toLocaleString(LOCALE)}`;
 
+/** "−75%". A real minus sign, matching gbpPence rather than a hyphen. */
+export const percent = (fraction: number, digits = 0): string => {
+  const sign = fraction < 0 ? '−' : '';
+  return `${sign}${(Math.abs(fraction) * 100).toFixed(digits)}%`;
+};
+
 /** "×0.32" - popularity relative to an average player. */
 export const times = (n: number): string => `×${n.toFixed(2)}`;
 

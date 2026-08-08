@@ -1,0 +1,16 @@
+{
+  "first_ticket_date": "2026-08-08",
+  "last_draw_date": "2026-08-08",
+  "lines": 10,
+  "match_histogram": {
+    "0": 4,
+    "1": 1,
+    "2": 5
+  },
+  "net_gbp": -15.0,
+  "roi": -0.75,
+  "settled": 10,
+  "source": "wheel_portfolio",
+  "spent_gbp": 20.0,
+  "won_gbp": 5.0
+}
