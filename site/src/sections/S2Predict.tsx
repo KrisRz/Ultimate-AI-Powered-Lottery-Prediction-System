@@ -28,7 +28,7 @@ export function S2Predict({ backtest }: { backtest: Backtest }) {
   const methodCount = backtest.methods.filter((m) => !m.is_baseline).length;
 
   return (
-    <section id="panel-b" aria-labelledby="panel-b-title">
+    <section id="panel-d" aria-labelledby="panel-b-title">
       <hr className="perf" />
       <div className="scrolly" data-side="left" ref={container}>
         <div className="scrolly-graphic">
@@ -36,9 +36,9 @@ export function S2Predict({ backtest }: { backtest: Backtest }) {
         </div>
 
         <div className="scrolly-steps">
-          <p className="eyebrow">Panel B &middot; the premise</p>
-          <h2 className="h-section" id="panel-b-title">
-            No, you cannot predict them
+          <p className="eyebrow">Panel D &middot; the check</p>
+          <h2 className="h-section" id="panel-d-title">
+            We tested prediction too. It does not work.
           </h2>
 
           <div className="step" ref={stepRef(0)} data-active={active === 0}>

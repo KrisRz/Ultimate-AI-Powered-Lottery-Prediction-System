@@ -488,6 +488,157 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* --- the generator (panel A) ---------------------------------------------
+   The product, and the first thing on the page. The slip cards are where the
+   playslip motif stops being decoration: these are the numbers you would mark. */
+
+.generator {
+  padding: clamp(2.5rem, 7vh, 4.5rem) 0 clamp(2rem, 5vh, 3rem);
+}
+
+.generator-head {
+  max-width: var(--measure);
+  margin-bottom: clamp(2rem, 5vh, 2.75rem);
+}
+
+.slips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.slip-card {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  padding: 0.85rem 0.9rem 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.slip-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.5rem;
+}
+
+.slip-index {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+.slip-share {
+  color: var(--ink-2);
+  text-align: right;
+}
+
+.slip-share strong {
+  color: var(--mark);
+  font-weight: 700;
+}
+
+.slip-numbers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.3rem;
+}
+
+/* A marked cell on a slip: filled, not outlined. This is the one place the
+   accent means "you chose this". */
+.slip-ball {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--mark);
+  color: var(--mark-ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.generator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.button {
+  font-family: var(--display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 0.7rem 1.4rem;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.button:hover {
+  background: var(--mark);
+  border-color: var(--mark);
+  color: var(--mark-ink);
+}
+
+.generator-note {
+  flex: 1 1 18rem;
+  margin: 0;
+}
+
+/* The number that makes the case. */
+.payoff {
+  margin-top: clamp(2rem, 5vh, 3rem);
+  border-top: 2px solid var(--ink);
+  padding-top: 1.1rem;
+}
+
+.payoff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem 2.5rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.payoff-label {
+  margin: 0 0 0.15rem;
+  color: var(--ink-2);
+}
+
+.payoff-value {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.payoff-grid > div[data-highlight='true'] .payoff-value {
+  color: var(--mark);
+}
+
+.payoff-note {
+  margin: 0;
+  max-width: 46rem;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.payoff-note strong {
+  color: var(--ink);
+}
+
 /* --- charts --------------------------------------------------------------
    One vocabulary for every figure on the page. Series are ink, not a palette:
    where the finding is that several things are indistinguishable, giving them
