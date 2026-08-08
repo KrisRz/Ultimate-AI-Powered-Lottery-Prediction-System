@@ -32,6 +32,11 @@ Testy: 194 → 207 zielone (13 nowych). Werdykt bez zmian: wheel to rozrywka o t
 samym EV co quick pick, z ładniejszym kształtem wygranych; prawdziwa gra zostaje
 w `ev_play.py` i czeka na MBW.
 
+**Tego samego dnia w południe: pierwsze PRAWDZIWE linie w ledgerze.** 10 linii wheela
+zagrane za £20 na dzisiejsze MBW 3196 (świadomie wbrew SKIP — rozrywka, nie inwestycja).
+Zapisane przez `roi_ledger add --draw-date 2026-08-08`; rozliczenie = punkt 6 checklisty
+niżej. Milestone „pętla na werdykcie PLAY" pozostaje otwarty.
+
 ## STATUS 2026-08-07 wieczorem — CAŁY PLAN WYKONANY (PR #13–#18, jeden dzień)
 
 | PR | Co weszło |
@@ -64,6 +69,11 @@ Testy: 143 → **194 zielone**. Próba generalna kolektora w chmurze przeszła 0
    milczy, licznik wraca do 0, następne MBW za ~5–6 tygodni.
 5. Przy 3–4 wierszach w `mbw_validation.csv` (kilka miesięcy): przeliczyć
    `scripts/calibrate_mbw_uplift.py` i zrewidować 1,27/1,44.
+6. **Rozliczyć realny kupon** (10 linii wheela, £20, w prywatnym `data/ledger.csv`):
+   po pull-u z wynikami 3196 → `roi_ledger settle` (obie rundy) → `roi_ledger report`.
+   Pierwsze prawdziwe rozliczenie w historii ledgera. Kontrola gwarancji wheela:
+   jeśli ≥4 wylosowane numery ∈ {32,34,36,39,41,43,46,48,50,53,55,57}, przynajmniej
+   jedna linia MUSI mieć Match 3+ (backtest: 14/14).
 
 Poza checklistą jedyna odłożona rzecz z „miną": model klastrowy B&M 2011 — wróci sam,
 gdy test ogona w `calibrate_popularity.py` krzyknie „TAIL DIVERGES".
