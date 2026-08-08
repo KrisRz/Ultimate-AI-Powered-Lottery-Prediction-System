@@ -26,11 +26,11 @@ export function SMoney({
   verdictWas: string;
 }) {
   return (
-    <section id="panel-e" className="money" aria-labelledby="panel-e-title">
+    <section id="panel-f" className="money" aria-labelledby="panel-f-title">
       <hr className="perf" />
       <div className="money-head">
-        <p className="eyebrow">Panel E &middot; real money</p>
-        <h2 className="h-section" id="panel-e-title">
+        <p className="eyebrow">Panel F &middot; real money</p>
+        <h2 className="h-section" id="panel-f-title">
           What it cost to find out
         </h2>
       </div>

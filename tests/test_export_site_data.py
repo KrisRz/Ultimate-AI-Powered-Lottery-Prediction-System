@@ -16,6 +16,7 @@ import json
 from dataclasses import replace
 from datetime import date
 from math import comb
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -243,6 +244,86 @@ class TestPopularity:
     def test_high_numbers_are_the_under_played_ones(self, payload):
         least = [x["number"] for x in payload["popularity"]["least_played"]]
         assert all(n > 31 for n in least)
+
+
+class TestRolldown:
+    def test_the_split_accounts_for_the_whole_pool(self, payload):
+        """A roll-down redistributes the pool; the page's two ribbons have to
+        add up to it, or they are drawing a story rather than the money."""
+        split = payload["rolldown"]["split"]
+        total = split["match_2_total_gbp"] + split["match_3_total_gbp"]
+        assert total == pytest.approx(split["jackpot_gbp"], rel=0.01)
+
+    def test_match_2_takes_the_larger_share(self, payload):
+        """The counter-intuitive part, and the reason the ribbons are sized by
+        pounds rather than by winners: a fiver each to a million and a half
+        Match-2 winners outweighs everything Match 3 receives."""
+        split = payload["rolldown"]["split"]
+        assert split["expected_match_2_winners"] > split["expected_match_3_winners"]
+        assert split["match_2_total_gbp"] > split["match_3_total_gbp"] * 0.5
+
+    def test_history_is_labelled_a_counterfactual(self, payload):
+        history = payload["rolldown"]["history"]
+        assert "counterfactual" in history["caveat"].lower()
+        assert history["detected"] == history["cap_driven"] + history["special_event"]
+
+    def test_most_rolldowns_still_are_not_worth_playing(self, payload):
+        history = payload["rolldown"]["history"]
+        assert history["positive_ev_share"] < 0.5
+        assert history["median_ev"] < 0
+
+
+class TestWheel:
+    def test_the_guarantee_held_on_real_draws(self, payload):
+        assert payload["wheel"]["backtest"]["guarantee_violations"] == 0
+
+    def test_it_is_not_an_edge(self, payload):
+        """The section says the wheel returns what random returns. UK Lotto
+        pays back roughly half, and a ten-line slip lands near a fifth; if this
+        ever drifted far from that the copy would be wrong."""
+        assert 0.1 < payload["wheel"]["backtest"]["return_pct"] < 0.35
+
+    def test_every_line_is_drawn_from_the_pool(self, payload):
+        pool = set(payload["wheel"]["pool"])
+        for line in payload["wheel"]["lines"]:
+            assert set(line) <= pool
+            assert len(set(line)) == N_PICK
+
+    def test_the_lines_are_deeply_unpopular(self, payload):
+        assert payload["wheel"]["line_popularity"] < 0.5
+
+
+class TestBuiltMakesNoFalseClaims:
+    """The infrastructure section is the one a hiring engineer will check
+    against the repository. Anything here that is not true of it is worse than
+    saying nothing, so the forbidden words are enforced rather than trusted."""
+
+    FORBIDDEN = [
+        "docker", "kubernetes", "k8s", "lambda", "serverless",
+        "coverage", "99.9", "on time", "real-time", "terraform cloud",
+    ]
+
+    def test_no_infrastructure_that_does_not_exist(self, payload):
+        blob = json.dumps(payload["built"]).lower()
+        found = [word for word in self.FORBIDDEN if word in blob]
+        assert found == [], f"the built section claims {found}, which this repo has not"
+
+    def test_the_test_count_is_derived_not_typed(self, payload):
+        """It was already stale in the project's notes before the page existed."""
+        counted = payload["built"]["tests"]["count"]
+        actual = sum(
+            1
+            for path in Path("tests").glob("test_*.py")
+            for line in path.read_text().splitlines()
+            if line.strip().startswith("def test_")
+        )
+        assert counted == actual
+
+    def test_the_awkward_caveats_survive(self, payload):
+        built = payload["built"]
+        assert "drift" in built["scheduler_caveat"].lower()
+        assert "cached" in built["freshness_gate"].lower()
+        assert built["hosting"]["compute"] == "none"
 
 
 class TestLiveVerdict:

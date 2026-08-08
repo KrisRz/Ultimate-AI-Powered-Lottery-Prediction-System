@@ -162,4 +162,77 @@ export interface SiteData {
   popularity: Popularity;
   last_draw: LastDraw;
   ledger: Ledger | null;
+  rolldown: Rolldown;
+  wheel: Wheel;
+  built: Built;
+}
+
+export interface Rolldown {
+  rule: string;
+  rollover_cap: number;
+  split: {
+    basis: string;
+    jackpot_gbp: number;
+    tickets_sold: number;
+    rounds: number;
+    match_2_boost: number;
+    match_3_boost: number;
+    expected_match_2_winners: number;
+    expected_match_3_winners: number;
+    match_2_total_gbp: number;
+    match_3_total_gbp: number;
+  };
+  history: {
+    detected: number;
+    cap_driven: number;
+    special_event: number;
+    window: [string, string];
+    per_year: number;
+    positive_ev: number;
+    positive_ev_share: number;
+    median_ev: number;
+    ev_quartiles: [number, number];
+    median_pool_gbp: number;
+    median_tickets: number;
+    caveat: string;
+    draws: {
+      draw_number: number;
+      date: string;
+      pool_gbp: number;
+      tickets_sold: number;
+      cap_driven: boolean;
+      ev: number;
+    }[];
+  };
+}
+
+export interface Wheel {
+  pool: number[];
+  pool_size: number;
+  lines: number[][];
+  line_popularity: number;
+  guarantees: Record<string, number>;
+  line_ev: number;
+  backtest: {
+    draws: number;
+    hits_total: number;
+    hits_by_tier: Record<string, number>;
+    cash_gbp: number;
+    cost_gbp: number;
+    return_pct: number | null;
+    guarantee_violations: number;
+    draws_with_win: number;
+    clump_variance: number;
+  };
+}
+
+export interface Built {
+  workflows: { name: string; file: string; schedule: string[]; does: string }[];
+  tests: { count: number; files: number };
+  datastore: string;
+  alerts: { transport: string; default: string; fires_on: string };
+  self_healing: { window_days: number; how: string };
+  freshness_gate: string;
+  scheduler_caveat: string;
+  hosting: Record<string, string>;
 }
