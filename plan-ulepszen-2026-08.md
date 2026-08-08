@@ -7,6 +7,31 @@ niczego z niego nie unieważnia.
 
 ---
 
+## 2026-08-08 — wheel generator (side-play na czas oczekiwania na maile MBW)
+
+Jednorazowy generator skróconego wheela na puli 12 najmniej granych numerów —
+zabawka „w międzyczasie", dopóki scorecardy MBW nie zaczną przychodzić; NIE zmienia
+EV i nie dotyka `latest.json` ani ledgera.
+
+- `scripts/wheel_play.py` — greedy covering design celujący w „3 if 4"; gwarancje
+  **mierzone wyczerpująco** na wygenerowanych kuponach, nie przepisane z tabelki.
+  Pula = pasmo remisowe najniższej wagi popularności, rozrzucone (nie ciągłe),
+  żeby filtr 3-kolejnych miał kandydatów. Domyślnie 10 linii / pula 12.
+- `scripts/backtest_wheel.py` — backtest na całej erze 6/59 (1 147 losowań,
+  realne nagrody per losowanie z `prize_tiers_history.csv`). Wyniki 2026-08-08:
+  - gwarancja „3 if 4" trzyma w 14/14 przypadków t≥4, zero naruszeń;
+  - 136 trafień M3+ vs 124,6 oczekiwanych (85. percentyl randomu = fart, nie edge);
+    zwrot 21,3% vs ~20% mediany losowych portfeli — **EV identyczne z randomem**;
+  - clumping realny: wariancja wygranych/losowanie 0,22 vs 0,11 u randomu z 59;
+    wygrane rzadziej (87 vs 118 losowań), ale seriami po 2–4 kupony;
+  - χ²=38,1 (krytyczne 76,8) i test hot/cold (k=5/10/20) → losowania jednostajne,
+    **żadna metoda prawdopodobieństwa nie poprawi trafień** — potwierdza §8;
+  - jedyna gałka: `--pool-size` (12 → t≥4 ~1,3×/rok; 14 → ~2,5×/rok; tabela w skrypcie).
+
+Testy: 194 → 207 zielone (13 nowych). Werdykt bez zmian: wheel to rozrywka o tym
+samym EV co quick pick, z ładniejszym kształtem wygranych; prawdziwa gra zostaje
+w `ev_play.py` i czeka na MBW.
+
 ## STATUS 2026-08-07 wieczorem — CAŁY PLAN WYKONANY (PR #13–#18, jeden dzień)
 
 | PR | Co weszło |
