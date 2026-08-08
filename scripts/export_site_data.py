@@ -27,8 +27,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import sys
+from dataclasses import replace
 from datetime import timedelta
 from math import exp
 from pathlib import Path
@@ -60,9 +62,23 @@ from lottery.ev import (  # noqa: E402
     expected_cowinner_share,
     mbw_type,
     mbw_uplift,
+    line_ev,
     number_weight,
     popularity_ratio,
+    rolldown_tier_boosts,
     should_play,
+)
+from scripts.backtest_wheel import (  # noqa: E402
+    guarantee_violations,
+    load_draws,
+    load_prizes,
+    run_portfolio,
+)
+from scripts.rolldown_history import replay_rolldowns, summarise  # noqa: E402
+from scripts.wheel_play import (  # noqa: E402
+    build_wheel as build_wheel_lines,
+    measure_guarantees,
+    unpopular_pool,
 )
 from scripts.calibrate_popularity import (  # noqa: E402
     add_multiplier,
@@ -459,6 +475,180 @@ def build_popularity() -> dict:
     }
 
 
+# --- the roll-down, the wheel, and the machinery -----------------------------
+
+def build_rolldown(mbw: DrawConditions) -> dict:
+    """Where an unclaimed jackpot actually goes.
+
+    The split is the counter-intuitive part and the reason a Must-Be-Won is
+    worth anything: GBP 5 goes to every Match 2 winner first, and there are
+    nearly two million of them, so the great majority of a headline jackpot
+    ends up in the smallest tier. What is left goes to Match 3.
+    """
+    rows = replay_rolldowns()
+    stats = summarise(rows)
+
+    # Illustrate the split at a pool a Must-Be-Won actually carries, not at
+    # whatever the next draw happens to hold. A roll-down only occurs after the
+    # jackpot has rolled to the cap, by which point the pool is eight figures;
+    # forcing the flag onto a freshly reset GBP 2m base produces a split where
+    # Match 2 alone owes more than the whole pool.
+    illustrative_pool = float(stats["median_pool_gbp"] or mbw.jackpot)
+    illustrative = replace(mbw, jackpot=illustrative_pool)
+    boosts = rolldown_tier_boosts(illustrative)
+
+    return {
+        "rule": ("£5 to every Match 2 winner first; whatever remains is shared "
+                 "among the Match 3 winners"),
+        "rollover_cap": ROLLOVER_CAP,
+        "split": {
+            "basis": "median historical roll-down pool",
+            "jackpot_gbp": gbp(illustrative_pool),
+            "tickets_sold": int(mbw.tickets_sold),
+            "rounds": mbw.rounds,
+            "match_2_boost": boosts["match_2_boost"],
+            "match_3_boost": boosts["match_3_boost"],
+            "expected_match_2_winners": int(round(boosts["expected_match_2_winners"])),
+            "expected_match_3_winners": int(round(boosts["expected_match_3_winners"])),
+            "match_2_total_gbp": gbp(min(
+                boosts["match_2_boost"] * boosts["expected_match_2_winners"],
+                illustrative_pool)),
+            "match_3_total_gbp": gbp(boosts["match_3_boost"]
+                                     * boosts["expected_match_3_winners"]),
+        },
+        "history": {
+            **{k: v for k, v in stats.items() if k != "window"},
+            "window": stats["window"],
+            "median_pool_gbp": gbp(stats["median_pool_gbp"] or 0),
+            "median_tickets": int(stats["median_tickets"] or 0),
+            "draws": [
+                {
+                    "draw_number": r["draw_number"],
+                    "date": r["date"],
+                    "pool_gbp": gbp(r["pool_gbp"]),
+                    "tickets_sold": r["tickets_sold"],
+                    "cap_driven": r["cap_driven"],
+                    "ev": r["ev"],
+                }
+                for r in rows
+            ],
+        },
+    }
+
+
+def build_wheel(mbw: DrawConditions) -> dict:
+    """The ten-line slip, and what an honest backtest says about it.
+
+    Worth its own section precisely because the finding is negative in the way
+    that matters: the guarantee is real and measured, the return is identical
+    to random, and the only thing that changes is when the wins arrive. A tool
+    that sold this as an edge would be lying by omission.
+    """
+    pool = unpopular_pool(12)
+    tickets = build_wheel_lines(pool, 10)
+    guarantees = measure_guarantees(pool, tickets)
+
+    draws = load_draws()
+    prizes = load_prizes()
+    result = run_portfolio(tickets, draws, prizes)
+    violations, _ = guarantee_violations(pool, tickets, draws)
+
+    hits = int(sum(result["tiers"].values()))
+    cost = len(draws) * len(tickets) * TICKET_PRICE
+    cash = float(result["cash"])
+
+    return {
+        "pool": pool,
+        "pool_size": len(pool),
+        "lines": [sorted(t) for t in tickets],
+        "line_popularity": popularity_ratio(tickets[0]),
+        "guarantees": {str(k): v for k, v in sorted(guarantees.items())},
+        "backtest": {
+            "draws": len(draws),
+            "hits_total": hits,
+            "hits_by_tier": {str(k): int(v) for k, v in sorted(result["tiers"].items())},
+            "cash_gbp": gbp(cash),
+            "cost_gbp": gbp(cost),
+            "return_pct": cash / cost if cost else None,
+            "draws_with_win": int(result["draws_with_win"]),
+            "clump_variance": float(result["clump_variance"]),
+            "guarantee_violations": int(violations),
+        },
+        "line_ev": line_ev(tickets[0], mbw),
+    }
+
+
+def count_tests() -> dict:
+    """Walk the test suite rather than trust a number typed into a page.
+
+    The figure in this project's own notes was already stale by the time the
+    site was built, which is the whole argument for deriving it.
+    """
+    total = 0
+    files = sorted(Path("tests").glob("test_*.py"))
+    for path in files:
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and node.name.startswith("test_"):
+                total += 1
+    return {"count": total, "files": len(files)}
+
+
+def build_built() -> dict:
+    """How the thing runs. Every claim here is checkable in this repo, and the
+    caveats are first-class copy rather than footnotes - a page about honest
+    arithmetic that oversold its own uptime would be self-refuting."""
+    return {
+        "workflows": [
+            {"name": "Collect draw data", "file": ".github/workflows/collect.yml",
+             "schedule": ["Wed/Sat evening", "Thu/Sun morning retry"],
+             "does": "fetch the official feed, assert it is fresh, score a "
+                     "Must-Be-Won, commit the CSVs, email only on a PLAY verdict"},
+            {"name": "Collection watchdog", "file": ".github/workflows/watchdog.yml",
+             "schedule": ["Thu/Sun midday"],
+             "does": "an independent check that the draw actually landed"},
+            {"name": "CI", "file": ".github/workflows/ci.yml",
+             "schedule": ["every push and pull request"],
+             "does": "the Python suite, plus a drift check on this snapshot"},
+            {"name": "Deploy site", "file": ".github/workflows/site-deploy.yml",
+             "schedule": ["every push to main touching the site"],
+             "does": "build, assume an AWS role over OIDC, upload, invalidate, smoke test"},
+        ],
+        "tests": count_tests(),
+        "datastore": "git",
+        "alerts": {
+            "transport": "SMTP",
+            "default": "silent",
+            "fires_on": "a PLAY verdict, a collection failure, or a Must-Be-Won scorecard",
+        },
+        "self_healing": {
+            "window_days": 180,
+            "how": "the feed serves every draw of the last ~180 days by number, "
+                   "so a missed collection is backfilled on the next run",
+        },
+        "freshness_gate": (
+            "the collector returns success when it falls back to cached data, so a "
+            "separate step asserts the expected draw is present - a silent no-op "
+            "becomes a red build"
+        ),
+        "scheduler_caveat": (
+            "GitHub's cron is best-effort and has drifted by up to two and a half "
+            "hours on this repo. Two runs per draw plus an independent watchdog is "
+            "the answer to that, not punctuality"
+        ),
+        "hosting": {
+            "cdn": "CloudFront",
+            "origin": "private S3, reached through Origin Access Control",
+            "tls": "ACM in us-east-1",
+            "dns": "Route 53",
+            "iac": "Terraform",
+            "deploy": "GitHub Actions assuming a role over OIDC - no long-lived keys",
+            "compute": "none",
+        },
+    }
+
+
 # --- sections 7 and 8: real money, and what the last draw actually did -------
 
 def refresh_ledger() -> dict:
@@ -630,8 +820,11 @@ def build_payload() -> dict:
         "backtest": build_backtest(),
         "ev": build_ev(live, ordinary, mbw),
         "popularity": build_popularity(),
+        "rolldown": build_rolldown(mbw),
+        "wheel": build_wheel(mbw),
         "last_draw": build_last_draw(tiers, merged),
         "ledger": build_ledger(),
+        "built": build_built(),
     }
 
 
