@@ -28,6 +28,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+
+      # The browser has its own copy of the popularity model, because the
+      # generator runs client-side. These fixtures are written by Python and
+      # are the only thing that stops the two drifting apart.
+      - run: npm test
+
       - run: npm run build
 
       # Guards the part of the bundle this project controls. The framework
