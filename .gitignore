@@ -116,3 +116,24 @@ test_env/
 
 # Local HTML cache for backfill_prize_tiers.py
 .tier_cache/
+
+# Public site (site/). Build output only - the source and the committed data
+# snapshot site/public/data/site.json are tracked. Note `lib/` above would
+# swallow site/lib/, which is why the app's code lives in site/src/.
+site/node_modules/
+site/.next/
+site/out/
+site/next-env.d.ts
+site/*.tsbuildinfo
+site/.eslintcache
+
+# Terraform. The lock file IS tracked - it pins provider hashes, which is the
+# point of it. State never is: live/ keeps it in S3, and bootstrap/ keeps its
+# own on disk because the bucket holding every other state file cannot store
+# its own.
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfplan
+infra/**/.terraform.tfstate.lock.info
+infra/**/*.auto.tfvars
