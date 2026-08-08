@@ -121,6 +121,51 @@ class TestRounding:
             assert regime["b"] != round(regime["b"], DP)
 
 
+class TestBacktest:
+    def test_every_method_shares_one_draw_grid(self, payload):
+        """Four lines on one axis invite a comparison, so they had better be
+        scored on the same draws."""
+        series = payload["backtest"]["series"]
+        n = len(series["dates"])
+        assert n == payload["backtest"]["steps"]
+        for name, values in series["cumulative_avg"].items():
+            assert len(values) == n, name
+
+    def test_the_baseline_is_present_and_labelled(self, payload):
+        methods = payload["backtest"]["methods"]
+        baselines = [m for m in methods if m["is_baseline"]]
+        assert [m["name"] for m in baselines] == ["random"]
+        assert len(methods) >= 4
+
+    def test_no_skill_mean_is_36_over_59(self, payload):
+        assert payload["backtest"]["expected_random_avg"] == pytest.approx(36 / 59, abs=1e-4)
+
+    def test_p_values_are_probabilities(self, payload):
+        for method in payload["backtest"]["methods"]:
+            assert 0.0 <= method["p_value_avg"] <= 1.0, method["name"]
+            assert 0.0 <= method["p_value_3plus"] <= 1.0, method["name"]
+
+    def test_nothing_beats_random(self, payload):
+        """The page's headline claim, asserted rather than asserted-in-prose.
+        If a method ever does clear this, the copy in panel B is wrong and this
+        test is the thing that says so."""
+        winners = [m["name"] for m in payload["backtest"]["methods"] if m["beats_random"]]
+        assert winners == []
+
+    def test_every_interval_contains_the_no_skill_mean(self, payload):
+        """The stronger form of the same finding, and the one the chart draws:
+        each method's CI95 straddles 36/59."""
+        expected = payload["backtest"]["expected_random_avg"]
+        for method in payload["backtest"]["methods"]:
+            low, high = method["ci95"]
+            assert low <= expected <= high, f"{method['name']} excludes the no-skill mean"
+
+    def test_cumulative_average_settles_near_the_no_skill_mean(self, payload):
+        expected = payload["backtest"]["expected_random_avg"]
+        for name, values in payload["backtest"]["series"]["cumulative_avg"].items():
+            assert values[-1] == pytest.approx(expected, abs=0.05), name
+
+
 class TestEvIsAffine:
     """EV(J) = a + b*J is what lets the site's slider be exact rather than a
     49-point interpolation. If line_ev ever stops being linear in the jackpot,

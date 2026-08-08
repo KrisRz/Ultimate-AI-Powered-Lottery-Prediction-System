@@ -1,6 +1,8 @@
 import { S1Hook } from '@/sections/S1Hook';
+import { S2Predict } from '@/sections/S2Predict';
+import { S3Ev } from '@/sections/S3Ev';
 import { count, gbp, gbpPence, longDate } from '@/data/format';
-import { ev, hook, popularity, snapshot } from '@/data/siteData';
+import { backtest, ev, hook, popularity, snapshot } from '@/data/siteData';
 
 /**
  * The masthead states the thesis by showing the product's own output: on
@@ -130,6 +132,8 @@ export default function Page() {
       <Masthead />
       <Summary />
       <S1Hook hook={hook} ev={ev} />
+      <S2Predict backtest={backtest} />
+      <S3Ev ev={ev} asOf={snapshot.as_of_draw_date} ticketPrice={hook.ticket_price_gbp} />
     </main>
   );
 }
