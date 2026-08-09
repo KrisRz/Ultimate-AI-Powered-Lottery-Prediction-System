@@ -115,6 +115,8 @@ def validate(tiers: pd.DataFrame) -> dict | None:
     advertised = (float(prev["next_jackpot_estimate"])
                   if pd.notna(prev.get("next_jackpot_estimate")) else None)
     redistributed = redistributed_sum(rows, calibrate_fixed_prizes(before))
+    jackpot_rows = rows[rows["tier"] == 1]
+    jackpot_winners = int(jackpot_rows["winners"].sum()) if len(jackpot_rows) else None
 
     up_installed = mbw_uplift(draw_date)[0]
     baseline = predicted / up_installed if predicted else None
@@ -128,9 +130,13 @@ def validate(tiers: pd.DataFrame) -> dict | None:
         "uplift_installed": up_installed,
         "uplift_measured": measured / baseline if measured and baseline else None,
         "advertised_pool": advertised,
+        "jackpot_winners": jackpot_winners,
         "redistributed": redistributed,
+        # `is not None`, not truthiness: a measured zero means the jackpot was
+        # won outright and nothing rolled down, which is a complete answer.
+        # Treating it as missing data lost the one fact that explains the row.
         "pool_ratio": redistributed / advertised
-        if redistributed and advertised else None,
+        if redistributed is not None and advertised else None,
     }
 
 
@@ -141,6 +147,37 @@ def append_scorecard(result: dict, path: Path = VALIDATION_FILE) -> None:
         row = pd.concat([old, row], ignore_index=True)
         row = row.drop_duplicates(subset="draw_number", keep="last")
     row.sort_values("draw_number").to_csv(path, index=False)
+
+
+def _pool_line(r: dict) -> str:
+    """What happened to the pool - and there are three answers, not two.
+
+    A roll-down that paid out; a jackpot won outright so nothing rolled down;
+    or tier data that could not be read. The middle case used to report as
+    "redistribution data incomplete", which reads like a failure when it is
+    in fact the most informative outcome the scorecard can carry - it is the
+    reason the roll-down never happened.
+    """
+    def pct(x):
+        return f"{x:+.1%}" if x is not None else "n/a"
+
+    advertised = r.get("advertised_pool")
+    redistributed = r.get("redistributed")
+
+    if redistributed is None:
+        return "Pool:         tier data unavailable - could not measure"
+
+    if not redistributed:
+        won = r.get("jackpot_winners")
+        who = (f"{won} ticket{'' if won == 1 else 's'} matched six"
+               if won else "the jackpot was claimed")
+        pool = f"£{advertised:,.0f} " if advertised else ""
+        return (f"Pool:         nothing rolled down - {who}, so the {pool}"
+                "pool was paid out as a jackpot")
+
+    return (f"Pool:         advertised £{advertised:,.0f}, actually "
+            f"redistributed £{redistributed:,.0f} "
+            f"({pct((r.get('pool_ratio') or 1) - 1)})")
 
 
 def format_report(r: dict) -> str:
@@ -157,9 +194,7 @@ def format_report(r: dict) -> str:
         f"Sales uplift: measured x{r['uplift_measured']:.3f} vs installed "
         f"x{r['uplift_installed']:.2f}"
         if r["uplift_measured"] else "Sales uplift: n/a",
-        f"Pool:         advertised £{r['advertised_pool']:,.0f}, actually "
-        f"redistributed £{r['redistributed']:,.0f} ({pct((r['pool_ratio'] or 1) - 1)})"
-        if r["pool_ratio"] else "Pool:         redistribution data incomplete",
+        _pool_line(r),
         "",
         f"Scorecard history: {VALIDATION_FILE} - at 3-4 live entries, re-run "
         f"scripts/calibrate_mbw_uplift.py and reconsider the constants.",
