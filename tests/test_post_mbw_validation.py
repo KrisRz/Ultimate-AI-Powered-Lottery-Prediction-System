@@ -5,6 +5,7 @@ import pytest
 
 from lottery.ev import P_MATCH_2, P_MATCH_3, P_MATCH_4
 from scripts.monitoring.post_mbw_validation import (
+    _pool_line,
     append_scorecard,
     format_report,
     latest_draw_was_rolldown,
@@ -105,3 +106,48 @@ class TestAccumulation:
         out = pd.read_csv(path)
         assert len(out) == 1
         assert out.iloc[0]["measured_lines"] == 1
+
+
+class TestPoolOutcome:
+    """Three things can happen to a Must-Be-Won pool, and the scorecard has to
+    tell them apart. It used to report two of them identically."""
+
+    BASE = {
+        "draw_number": 3196,
+        "draw_date": "2026-08-08",
+        "advertised_pool": 8_391_429.0,
+        "pool_ratio": None,
+    }
+
+    def test_outright_win_is_reported_as_such(self):
+        """The regression. Draw 3196's jackpot went to two tickets, so nothing
+        rolled down - a complete answer that read as 'redistribution data
+        incomplete' because a measured zero is falsy."""
+        line = _pool_line({**self.BASE, "redistributed": 0.0, "jackpot_winners": 2,
+                           "pool_ratio": 0.0})
+        assert "nothing rolled down" in line
+        assert "2 tickets matched six" in line
+        assert "incomplete" not in line
+        assert "unavailable" not in line
+
+    def test_a_single_winner_reads_grammatically(self):
+        line = _pool_line({**self.BASE, "redistributed": 0.0, "jackpot_winners": 1})
+        assert "1 ticket matched six" in line
+
+    def test_a_real_rolldown_reports_the_ratio(self):
+        line = _pool_line({**self.BASE, "redistributed": 9_400_000.0,
+                           "jackpot_winners": 0, "pool_ratio": 0.983})
+        assert "redistributed" in line
+        assert "nothing rolled down" not in line
+
+    def test_missing_tier_data_is_distinguished_from_zero(self):
+        line = _pool_line({**self.BASE, "redistributed": None, "jackpot_winners": None})
+        assert "unavailable" in line
+        assert "nothing rolled down" not in line
+
+    def test_a_measured_zero_yields_a_ratio_not_a_none(self):
+        """`if redistributed` treated a genuine 0.0 as missing, which is what
+        threw the information away in the first place."""
+        redistributed, advertised = 0.0, 8_391_429.0
+        ratio = redistributed / advertised if redistributed is not None and advertised else None
+        assert ratio == 0.0
