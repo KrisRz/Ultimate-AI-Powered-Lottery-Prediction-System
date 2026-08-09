@@ -18,7 +18,6 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 
@@ -69,7 +68,9 @@ def main() -> int:
         f"morning's self-heal failed - look at the workflow logs, not just the data.\n"
     )
     print(f"[watchdog] ALERT - {problem}")
-    maybe_send_email("LOTTO COLLECTION FAILURE", msg)
+    # Not emailed. Exiting non-zero reds the workflow run, and GitHub already
+    # notifies on a failed run - a second message about the same failure only
+    # trains you to ignore both.
     return 1
 
 

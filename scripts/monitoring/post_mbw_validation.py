@@ -41,7 +41,6 @@ from lottery.ev import (  # noqa: E402
     TIER_MATCH_2,
     TIER_MATCH_3,
 )
-from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 VALIDATION_FILE = Path("data/mbw_validation.csv")
@@ -214,8 +213,10 @@ def main() -> int:
     append_scorecard(result)
     report = format_report(result)
     print(report)
-    maybe_send_email(
-        f"LOTTO MBW scorecard: draw {result['draw_number']}", report)
+# Deliberately not emailed. The inbox is reserved for a PLAY verdict, so that
+    # a message arriving always means "act". The scorecard is a post-mortem of a
+    # draw already settled - it belongs in data/mbw_validation.csv, which it is,
+    # and in the workflow log above.
     return 0
 
 

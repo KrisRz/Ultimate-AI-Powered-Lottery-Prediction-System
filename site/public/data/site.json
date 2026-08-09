@@ -5673,8 +5673,9 @@
   "built": {
     "alerts": {
       "default": "silent",
-      "fires_on": "a PLAY verdict, a collection failure, or a Must-Be-Won scorecard",
-      "transport": "SMTP"
+      "fires_on": "a PLAY verdict, and nothing else - roughly nine draws a year",
+      "transport": "SMTP",
+      "why": "Everything else writes to a file or reds a workflow run, which GitHub already notifies about. An inbox that only ever says 'act' is one you still read a year later"
     },
     "datastore": "git",
     "freshness_gate": "the collector returns success when it falls back to cached data, so a separate step asserts the expected draw is present - a silent no-op becomes a red build",

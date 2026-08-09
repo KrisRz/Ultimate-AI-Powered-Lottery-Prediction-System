@@ -110,7 +110,8 @@ def main() -> int:
             )
             with open(alert_path, 'w') as a:
                 a.write(body)
-            maybe_send_email(subject='Lotto Backtest Alert', body=body)
+            # Silenced with the rest: only a PLAY verdict earns the inbox.
+            # The alert file in outputs/monitoring/alerts/ still lands.
 
     print(f"Best ensemble method: {best} (saved to {best_path})")
     return 0

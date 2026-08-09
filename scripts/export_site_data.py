@@ -620,7 +620,10 @@ def build_built() -> dict:
         "alerts": {
             "transport": "SMTP",
             "default": "silent",
-            "fires_on": "a PLAY verdict, a collection failure, or a Must-Be-Won scorecard",
+            "fires_on": "a PLAY verdict, and nothing else - roughly nine draws a year",
+            "why": ("Everything else writes to a file or reds a workflow run, "
+                    "which GitHub already notifies about. An inbox that only "
+                    "ever says 'act' is one you still read a year later"),
         },
         "self_healing": {
             "window_days": 180,

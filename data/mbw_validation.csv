@@ -1,2 +1,2 @@
-draw_number,draw_date,measured_lines,predicted_lines,n_error,uplift_installed,uplift_measured,advertised_pool,redistributed,pool_ratio
-3196,2026-08-08,10923134,9710793,-0.11098838483534121,1.27,1.4285527639194862,8391429.0,0.0,
+draw_number,draw_date,measured_lines,predicted_lines,n_error,uplift_installed,uplift_measured,advertised_pool,redistributed,pool_ratio,jackpot_winners
+3196,2026-08-08,10923134,9710793,-0.11098838483534121,1.27,1.4285527639194862,8391429.0,0.0,0.0,2.0
