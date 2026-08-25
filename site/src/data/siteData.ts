@@ -4,8 +4,10 @@
  * There is no runtime fetch on purpose: the page is objects in S3 with no
  * backend, and a build-time import means the numbers cannot fail to load, go
  * stale mid-session, or disagree between two components on the same page.
- * Refreshing them is `make site-data` plus a commit, which is also what makes
- * the CI drift check possible.
+ * Refreshing them is the collector's job: it regenerates this file after every
+ * draw and dispatches the deploy. `make site-data` does the same by hand when
+ * the model changed. Either way it is a commit, which is what makes the CI
+ * drift check possible.
  */
 
 import raw from '../../public/data/site.json';

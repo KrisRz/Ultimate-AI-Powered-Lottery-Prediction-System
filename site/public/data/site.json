@@ -5699,7 +5699,7 @@
     },
     "workflows": [
       {
-        "does": "fetch the official feed, assert it is fresh, score a Must-Be-Won, commit the CSVs, email only on a PLAY verdict",
+        "does": "fetch the official feed, assert it is fresh, score a Must-Be-Won, refresh this snapshot, commit the CSVs, email only on a PLAY verdict",
         "file": ".github/workflows/collect.yml",
         "name": "Collect draw data",
         "schedule": [
@@ -5728,7 +5728,8 @@
         "file": ".github/workflows/site-deploy.yml",
         "name": "Deploy site",
         "schedule": [
-          "every push to main touching the site"
+          "every push to main touching the site",
+          "dispatched by the collector when a draw moves this file"
         ]
       }
     ]

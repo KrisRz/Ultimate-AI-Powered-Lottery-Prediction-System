@@ -604,7 +604,8 @@ def build_built() -> dict:
             {"name": "Collect draw data", "file": ".github/workflows/collect.yml",
              "schedule": ["Wed/Sat evening", "Thu/Sun morning retry"],
              "does": "fetch the official feed, assert it is fresh, score a "
-                     "Must-Be-Won, commit the CSVs, email only on a PLAY verdict"},
+                     "Must-Be-Won, refresh this snapshot, commit the CSVs, "
+                     "email only on a PLAY verdict"},
             {"name": "Collection watchdog", "file": ".github/workflows/watchdog.yml",
              "schedule": ["Thu/Sun midday"],
              "does": "an independent check that the draw actually landed"},
@@ -612,7 +613,8 @@ def build_built() -> dict:
              "schedule": ["every push and pull request"],
              "does": "the Python suite, plus a drift check on this snapshot"},
             {"name": "Deploy site", "file": ".github/workflows/site-deploy.yml",
-             "schedule": ["every push to main touching the site"],
+             "schedule": ["every push to main touching the site",
+                          "dispatched by the collector when a draw moves this file"],
              "does": "build, assume an AWS role over OIDC, upload, invalidate, smoke test"},
         ],
         "tests": count_tests(),
