@@ -7,6 +7,81 @@ niczego z niego nie unieważnia.
 
 ---
 
+## 2026-08-25 — strona podąża za kolektorem (PR #30)
+
+Pytanie było „czemu nie dostaję maili GRAJ", odpowiedź brzmi **bo nie było czego
+wysyłać** — ale przy okazji wyszła realna awaria obok.
+
+**Maile: sprawne, cisza poprawna.** Kanał SMTP potwierdzony logiem z 05.08
+(`[email] SENT ... LOTTO +EV ALERT: 2026-08-08 draw, EV £+0.04`) i powtórką 06.08 —
+to ten mail, po którym poszedł kupon na 3196. Od tego czasu każdy werdykt to SKIP
+(EV −£1,15), a PR #29 zarezerwował skrzynkę wyłącznie dla PLAY. Zero błędów w
+kolektorze: wszystkie runy zielone, dane komplet do 3200 (22.08).
+
+**Awaria, która nie zgłosiła się sama: strona stała 16 dni.** `site.json` pochodził
+z 09.08, więc `lotto.krisgrzepka.com` reklamował jackpot £2M bez rolloveru, gdy realny
+był £2,87M przy 1 z 5, i wyceniał stałe progi z 7 losowań zamiast 11. Cztery losowania
+(3197–3200) poza publikacją. Dwie niezależne przyczyny:
+
+1. **Snapshot regenerował tylko człowiek** (`make site-data`), a `Makefile` wprost
+   tego zakazywał botowi — „would publish unreviewed claims on a schedule".
+2. **Deploy nie odpalił się ani razu od powstania.** `site-deploy.yml` nasłuchuje na
+   `site/**` i wyglądał na poprawnie podpięty, ale **push zrobiony `GITHUB_TOKEN`-em
+   nie generuje eventu `push`**. Trigger był martwy od pierwszego dnia i nic tego nie
+   sygnalizowało — run po prostu nie powstawał.
+
+**Naprawa (PR #30, zmergowany 25.08).** `collect.yml` regeneruje `site.json` tuż przed
+commitem (jedzie tym samym pushem co CSV-ki) i woła deploy jawnie przez
+`gh workflow run site-deploy.yml` — `workflow_dispatch` i `repository_dispatch` to
+jedyne dwa eventy, które ten token przepuszcza. Deploy startuje tylko gdy strona
+faktycznie się ruszyła (czytane z indeksu, zanim commit go skonsumuje), więc
+niedzielny retry nie pali inwalidacji CloudFronta.
+
+Reguła z `Makefile` została **świadomie nadpisana**, komentarz przepisany zamiast
+skasowany. Argument: to, czego ten przegląd bronił, to dryf **modelu**, a tym zajmuje
+się CI (`export_site_data.py --check` na każdym PR-ze). Bot bez nadzoru regeneruje
+wyłącznie nowe dane losowań — czyli dokładnie to, o czym strona jest. Ręczność nie
+kupowała przeglądu, kupowała nieaktualność. Efekt uboczny: Panel H nosi tytuł
+„Nobody presses anything" i twierdzi, że wszystko publikuje się bez człowieka w pętli
+— to było jedyne nieprawdziwe zdanie na tej stronie i przestało być.
+
+Weryfikacja: eksporter bajt w bajt identyczny w kolejnych przebiegach; obie gałęzie
+warunku `site_changed` przetestowane na prawdziwym indeksie; 260 testów Pythona,
+26 Vitest, `tsc --noEmit` czysto. Produkcja po merge'u serwuje
+`data_through=2026-08-22`, `jackpot=2870240`, `rollover=1`.
+
+### CHECKLISTA — środa 2026-08-26 (~22:00 UTC, pierwszy test nowej ścieżki)
+
+Merge odpalił deploy **z pushu użytkownika**, więc dowiódł tylko, że pipeline działa.
+Ścieżki „kolektor woła deploy" nie przetestował nikt.
+
+1. W logu `Collect draw data` mają być dwa nowe kroki: `Refresh the public site
+   snapshot`, potem `Publish the refreshed site`.
+2. W Actions ma pojawić się **osobny run „Deploy site" z eventem `workflow_dispatch`**.
+   Jeśli go nie ma — założenie o `GITHUB_TOKEN` nie zadziałało w praktyce; fallback to
+   PAT w sekrecie albo trigger `workflow_run` na `site-deploy.yml`.
+3. `curl -s https://lotto.krisgrzepka.com/data/site.json | jq .snapshot.data_through`
+   ma pokazać 2026-08-26.
+4. Maila PLAY **ma nie być** (rollover 2 z 5, EV głęboko ujemne). Jeśli przyjdzie — bug.
+
+### Gdzie jesteśmy naprawdę (stan 25.08)
+
+| | |
+|---|---|
+| Dane | komplet do losowania 3200 (22.08), wszystkie runy zielone |
+| Rollover | **1 z 5** — jackpot padł na 3199 (19.08) |
+| Najbliższe MBW | **~2026-09-09**, jeśli nikt nie trafi w 4 kolejnych losowaniach |
+| Najbliższy możliwy mail PLAY | sobota **05.09 wieczorem** (po 3204) — i tylko jeśli to MBW wyjdzie na plus; historycznie ~45% |
+| Ledger | jeden rozliczony kupon: 3196, £20 → £5, −75% |
+| Testy | 260 Python + 26 Vitest |
+
+Nowa pozycja do §7: **golden fixtures nie mają strażnika dryfu** — `--check` porównuje
+tylko `site.json`, a `write_golden_fixtures()` jest pod nim pomijane. W praktyce
+nieszkodliwe (fixtures zależą od kodu, nie od danych, i przy odświeżeniu 25.08 się nie
+ruszyły), ale to realna dziura w siatce, która ma pilnować rozjazdu Python↔TypeScript.
+
+---
+
 ## 2026-08-08 — wheel generator (side-play na czas oczekiwania na maile MBW)
 
 Jednorazowy generator skróconego wheela na puli 12 najmniej granych numerów —
@@ -371,15 +446,25 @@ mógł racjonalnie stawiać sześciocyfrowe kwoty na Cash WinFall
 - [ ] **Usunąć ścieżkę LSTM na dobre** (`models/checkpoints/*.h5/pkl`, legacy
   `new_predict.py`): research jednostronny (patrz §0), a `README` już mówi prawdę.
   Backtest z p-value zostaje — to nasz dowód uczciwości, nie narzędzie predykcji.
-- [ ] **Ujednolicić linie mail vs `latest.json`** (kamień z plan.md): jedno ziarno
-  `seed=int(YYYYMMDD)` w obu ścieżkach.
+- [x] **Ujednolicić linie mail vs `latest.json`** — zrobione w PR #17
+  (`default_portfolio_seed` w `lottery/ev.py`, używane przez `ev_play.py` i
+  `ev_alert.py`). Checkbox przeoczony przy zamykaniu PR-a; tabela STATUS wyżej
+  odnotowuje to poprawnie.
 - [ ] **`--redo-draws` na 93 roll-downach** (parser naprawiony w PR #11, dane wciąż
   zepsute) — po §1 mniej pilne (sprzedaż przyjdzie z Merseyworld), ale nadal potrzebne
   do walidacji dokładnej reguły roll-downu (§3).
-- [ ] **Cron-y GitHub Actions chodzą ~1–2,5 h późno** (zmierzone w plan.md): przesunąć
-  crony o godzinę wcześniej względem pożądanego czasu i/lub dodać drugi strzał.
+- [ ] **Cron-y GitHub Actions chodzą późno** — przemierzone 25.08 na ostatnich
+  8 runach i jest **lepiej niż zapisane** w plan.md (~1–2,5 h): wieczorny slot
+  (21:45 UTC) spóźnia się 12–39 min, poranny (06:00 UTC) 51 min–1 h 44. Wieczorny
+  przestał być problemem; przesunięcie dotyczy realnie już tylko porannego retry.
+  Niski priorytet — retry i tak ma zapas do 72 h nieodwracalności feedu.
 - [ ] Merseyworld/beatlottery jako **drugie źródło w watchdogu** (dziś podpowiada tylko
   scraper archiwum).
+- [ ] **Golden fixtures bez strażnika dryfu** (znalezione 25.08 przy PR #30):
+  `export_site_data.py --check` porównuje wyłącznie `site.json`, bo
+  `write_golden_fixtures()` jest pod `--check` pomijane. Fixtures są jedyną rzeczą,
+  która pilnuje, żeby przeglądarkowa kopia `popularity_ratio` nie rozjechała się z
+  Pythonem — a same nie są sprawdzane. Fix: objąć je tym samym porównaniem.
 
 ## 8. Czego świadomie nie robimy — z dowodami
 
