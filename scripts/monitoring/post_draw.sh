@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# Post-draw routine - run after each UK Lotto draw (Wed/Sat evening).
+# Post-draw routine - run the morning after each UK Lotto draw (Thu/Sun).
 # Fetches the official result (accumulates prize_tiers.csv for the EV model),
 # settles any played lines in the ledger, refreshes the dashboard, and prints
 # the EV verdict for the NEXT draw.
+#
+# It runs the morning AFTER the draw rather than racing the cloud collector:
+# the old 22:30 slot fired 15 min before collect.yml and left the tracked CSVs
+# dirty on every single draw. GitHub's cron has also been running 2-11 h late
+# since 2026-08-26, so the morning slot is the one that still finds the draw
+# already collected.
 #
 # Install as a launchd job with: make install-cron   (see ops/README)
 set -euo pipefail
@@ -20,12 +26,14 @@ elif command -v conda >/dev/null && conda env list | grep -q "lotto-predict"; th
   conda activate lotto-predict
 fi
 
-# Sync data committed by the cloud collector (GitHub Actions) first.
-# A failed rebase must not leave the repo mid-rebase or every later run
-# would fail on the pull too.
-git pull --rebase --autostash origin main || {
-  git rebase --abort 2>/dev/null || true
-  echo "[post-draw] git pull failed - continuing with local data"
+# Sync data committed by the cloud collector (GitHub Actions) first. The
+# collector owns those files; see sync_collector_data.sh for why merging the
+# local copy instead of discarding it corrupted the CSVs on 2026-09-05.
+# A non-zero exit means the tree is unsound - stop rather than feed the model
+# half-merged data.
+bash "$ROOT_DIR/scripts/monitoring/sync_collector_data.sh" || {
+  echo "[post-draw] refusing to run on an unsound tree - see the [sync] lines above"
+  exit 1
 }
 
 echo "[post-draw] $(date '+%Y-%m-%d %H:%M') fetching latest result..."

@@ -2,8 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  launchd job: run the post-draw routine every Wednesday and Saturday at 22:30
-  (UK Lotto draws happen around 20:00 UK time; results are final well before).
+  launchd job: run the post-draw routine every Thursday and Sunday at 09:00,
+  the morning after each draw.
+
+  Not 22:30 on the draw night itself: that fired 15 min before the cloud
+  collector and left the tracked CSVs dirty every time (see
+  scripts/monitoring/sync_collector_data.sh). launchd also runs a missed job
+  once the Mac wakes, so a closed lid only delays this, it does not skip it.
 
   Install (from the repo root):
     make install-cron
@@ -24,8 +29,8 @@
   </array>
   <key>StartCalendarInterval</key>
   <array>
-    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
-    <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
   </array>
   <key>StandardOutPath</key>
   <string>__REPO__/logs/post_draw.log</string>

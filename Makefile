@@ -68,4 +68,4 @@ install-cron:
 	sed "s|__REPO__|$(CURDIR)|g" ops/com.lotto.postdraw.plist > ~/Library/LaunchAgents/com.lotto.postdraw.plist
 	launchctl unload ~/Library/LaunchAgents/com.lotto.postdraw.plist 2>/dev/null || true
 	launchctl load ~/Library/LaunchAgents/com.lotto.postdraw.plist
-	@echo "Installed: post-draw routine runs Wed/Sat 22:30 (logs/post_draw.log)"
+	@echo "Installed: post-draw routine runs Thu/Sun 09:00 (logs/post_draw.log)"
