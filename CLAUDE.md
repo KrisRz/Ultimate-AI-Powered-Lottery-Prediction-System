@@ -12,8 +12,13 @@ supports is a bug, including in prose.
 PY=./conda-py311/bin/python        # what the Makefile uses; no conda activate needed
 PYTHONPATH=. $PY scripts/ev_play.py
 make test                          # pytest, the whole suite, ~5 s
-cd site && npx vitest run && npx tsc --noEmit
+cd site && npm run lint && npm run typecheck && npm test && npm run build && npm run size
 ```
+
+Run **all five** site commands, in that order — they are exactly what Site CI
+runs, and `lint` is the first. `tsc` and `vitest` alone will miss an ESLint
+error (the React Compiler rules reject things that typecheck fine, such as
+setting state in a mount effect).
 
 `PYTHONPATH=.` is required for every script — they import `lottery.ev` and each
 other. The Makefile sets it; a bare `python scripts/...` will not.
