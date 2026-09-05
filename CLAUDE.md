@@ -65,6 +65,15 @@ to 4%.
 conflicts there with every other one. Resolve by re-running `make site-data`,
 never by editing the JSON.
 
+## After a Must-Be-Won draw
+
+`make uplift`. Its last section measures the uplift on exact pools in the same
+definition `estimate_tickets_sold` uses, which is the only definition whose
+output can be installed. It reports; it never edits `lottery/ev.py`. Lowering
+`MBW_UPLIFT_BY_WEEKDAY` RAISES expected value on every Must-Be-Won draw, so
+that edit wants n >= 4 and at least one observation on the weekday being
+changed — as of 2026-09-05 there are two, both Saturdays.
+
 ## Where the reasoning lives
 
 `audit-2026-09-05.md` is the current state of the analysis and the ranked

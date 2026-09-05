@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check
+.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -44,6 +44,14 @@ backfill:
 
 sales:
 	PYTHONPATH=. $(PY) scripts/fetch_sales.py --validate
+
+# Run this after a Must-Be-Won draw has been collected. The exact-pool section
+# at the end is the one that decides anything: the constants above it are
+# measured on a single-round archive, and the 7 June 2026 redesign moved the
+# sales response. Reports only - installing a figure is a hand edit of
+# MBW_UPLIFT_BY_WEEKDAY, deliberately, because lowering it raises EV.
+uplift:
+	PYTHONPATH=. $(PY) scripts/calibrate_mbw_uplift.py
 
 backtest:
 	PYTHONPATH=. $(PY) scripts/validations/backtest.py --lookback 200 --step 5 --method frequency --compare random,probmap --seed 42 --offline

@@ -47,6 +47,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lottery.ev import (  # noqa: E402
     MBW_SALES_UPLIFT,
+    TWO_ROUND_FIRST_DRAW,
+    exact_lines_sold,
+    exact_sales_baseline,
+    must_be_won_after_cap,
     MBW_SALES_UPLIFT_P25,
     MBW_SALES_UPLIFT_P75,
     MBW_UPLIFT_BY_WEEKDAY,
@@ -58,6 +62,7 @@ from lottery.ev import (  # noqa: E402
 
 TIERS_HISTORY_FILE = Path("data/prize_tiers_history.csv")
 SALES_HISTORY_FILE = Path("data/sales_history.csv")
+DRAW_POOLS_FILE = Path("data/draw_pools.csv")
 TIER_PROBS = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
 TWO_ROUND_ERA = "2026-06-10"
 BALLS_59_ERA = "2018-11-01"
@@ -196,6 +201,89 @@ def day_aware_report(boosted: set) -> None:
               f"{r.quantile(.75):>7.3f}   {inst}")
 
 
+def exact_era_uplifts(pools) -> list:
+    """The two-round era on exact sales, in the estimator's own definition.
+
+    Everything above measures winner-count sales over an archive that is
+    overwhelmingly single-round. That is the right sample for the fallback
+    constants and the wrong one for a decision: the 7 June 2026 licence changed
+    the jackpot's share of sales and the Saturday base, and Combs & Spry (2024)
+    find that every redesign moves the sales response to a jackpot.
+
+    So this section measures only draws since the redesign, and measures them
+    off `data/draw_pools.csv` - `(pool - previous pool) / 8.88%`, an identity -
+    rather than off winner counts, whose +/-15% per-draw noise is exactly what
+    a handful of observations cannot average away.
+
+    The baseline comes from `exact_sales_baseline`, called rather than
+    reimplemented: an uplift is only installable if it was measured against the
+    same baseline the estimator will multiply. Draws it declines to price (too
+    few same-weekday observations before them) are reported as such instead of
+    being quietly measured a different way.
+    """
+    exact = exact_lines_sold(pools)
+    must_be_won = sorted(must_be_won_after_cap(pools))
+    dates = {int(r["draw_number"]): pd.Timestamp(r["draw_date"]).date()
+             for _, r in pools.iterrows()}
+
+    rows = []
+    for draw in must_be_won:
+        when, measured = dates.get(draw), exact.get(draw)
+        if when is None or measured is None:
+            # The first draw after a jackpot is won restarts from the minimum,
+            # so the difference between its pool and the previous one measures
+            # the reset, not any sales.
+            rows.append({"draw": draw, "date": when, "lines": None,
+                         "baseline": None, "uplift": None,
+                         "why": "pool reset - not priceable"})
+            continue
+        baseline = exact_sales_baseline(pools[pools["draw_number"] < draw], when)
+        rows.append({
+            "draw": draw, "date": when, "lines": measured, "baseline": baseline,
+            "uplift": measured / baseline if baseline else None,
+            "why": None if baseline else "too few same-weekday priors",
+        })
+    return rows
+
+
+def exact_era_report() -> None:
+    if not DRAW_POOLS_FILE.exists():
+        print(f"\nExact-pool era report: {DRAW_POOLS_FILE} missing - "
+              "run scripts/backfill_draw_pools.py first.")
+        return
+    rows = exact_era_uplifts(pd.read_csv(DRAW_POOLS_FILE))
+
+    print(f"\nTwo-round era on EXACT sales (draws from {TWO_ROUND_FIRST_DRAW}, "
+          f"identity: delta pool / 8.88%):")
+    print(f"  {'draw':>6} {'date':>12} {'day':>10} {'lines':>12} "
+          f"{'baseline':>12} {'uplift':>8}")
+    by_day: dict = {}
+    for r in rows:
+        day = r["date"].strftime("%A") if r["date"] else ""
+        if r["uplift"] is None:
+            lines = f"{r['lines']:,}" if r["lines"] else "-"
+            print(f"  {r['draw']:>6} {str(r['date'] or ''):>12} {day:>10} "
+                  f"{lines:>12} {r['why']:>25}")
+            continue
+        by_day.setdefault(r["date"].weekday(), []).append(r["uplift"])
+        print(f"  {r['draw']:>6} {r['date']!s:>12} {day:>10} "
+              f"{r['lines']:>12,} {r['baseline']:>12,} {r['uplift']:>8.3f}")
+
+    print(f"\n  {'day':>10} {'n':>4} {'median':>8}   installed")
+    for dow, label in ((5, "Saturday"), (2, "Wednesday")):
+        ratios = by_day.get(dow, [])
+        inst = MBW_UPLIFT_BY_WEEKDAY.get(dow)
+        if not ratios:
+            print(f"  {label:>10} {0:>4} {'-':>8}   {inst}   no live observation")
+            continue
+        r = pd.Series(ratios)
+        print(f"  {label:>10} {len(r):>4} {r.median():>8.3f}   {inst}"
+              f"{'   n < 4: report only, do not install' if len(r) < 4 else ''}")
+    print("\n  Installing a LOWER uplift raises EV on every Must-Be-Won draw, so")
+    print("  the burden of proof sits on the side of the change. Wait for n >= 4,")
+    print("  and for at least one observation on the day being changed.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--windows", type=int, nargs="+", default=[2, 4, 6, 8],
@@ -207,6 +295,7 @@ def main() -> int:
     if not boosted:
         raise SystemExit("No roll-down draws identified - check the archive.")
     report(df, implied_sales(df), boosted, args.windows)
+    exact_era_report()
     return 0
 
 
