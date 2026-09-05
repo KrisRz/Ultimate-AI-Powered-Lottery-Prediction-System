@@ -14,7 +14,7 @@
  * it pays.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { generatePortfolio } from '@/data/generator';
 import { expectedShare, popularityRatio } from '@/data/popularity';
@@ -39,12 +39,23 @@ export function SGenerator({
 }) {
   const [nonce, setNonce] = useState(0);
 
+  // Every visitor used to get the same first slip - the seed is the draw date -
+  // so at any traffic at all this page would have its readers sharing a jackpot
+  // with each other, which is the one thing it tells them to avoid. The server
+  // still renders the deterministic slip, so the committed snapshot and the
+  // golden fixtures still diff; each visitor steps off it once, after
+  // hydration.
+  const [visitorOffset, setVisitorOffset] = useState(0);
+  useEffect(() => {
+    setVisitorOffset(1 + Math.floor(Math.random() * 1_000_000));
+  }, []);
+
   const model = popularity.model;
   const bands = popularity.installed_step;
 
   const lines = useMemo(
-    () => generatePortfolio(LINES, seed + nonce, model, bands, hook.n_balls),
-    [seed, nonce, model, bands, hook.n_balls],
+    () => generatePortfolio(LINES, seed + visitorOffset + nonce, model, bands, hook.n_balls),
+    [seed, visitorOffset, nonce, model, bands, hook.n_balls],
   );
 
   // The comparison that makes the case, at a jackpot big enough to be worth

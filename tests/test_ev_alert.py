@@ -26,6 +26,22 @@ class TestAlertIsSelfContained:
         assert "2026-08-08" in subject
         assert "+0.47" in subject          # the fixture's EV, not a round number
 
+    def test_subject_says_whether_the_edge_survives_the_sales_estimate(self):
+        """Read on a phone, hours before sales close: "+EV whatever it sells"
+        and "+EV only if sales land near the estimate" are different decisions,
+        and the second was twelve lines down the body."""
+        robust, _ = _alert()
+        assert "PLAY (robust)" in robust
+
+        # A pool just over break-even: +EV centrally, gone by the p75 of sales.
+        marginal_cond = DrawConditions(jackpot=9_300_000, roll_down=True,
+                                       tickets_sold=7_399_061,
+                                       draw_date=date(2026, 9, 9))
+        verdict = should_play(marginal_cond)
+        assert verdict["play"] and not verdict["sales_sensitivity"]["robust"]
+        subject, _ = _alert(marginal_cond, date(2026, 9, 9))
+        assert "marginal" in subject and "robust" not in subject
+
     def test_body_carries_the_lines_to_play(self):
         _, body = _alert()
         assert "Lines to play (5 x £2 = £10.00):" in body

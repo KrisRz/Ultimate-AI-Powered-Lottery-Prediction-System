@@ -49,7 +49,19 @@ DEFAULT_LINES = 5
 def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
                 n_lines: int = DEFAULT_LINES) -> tuple:
     """(subject, body) for a PLAY verdict, portfolio included."""
-    subject = (f"LOTTO +EV ALERT: {draw_date} draw, EV "
+    # Whether the edge survives the sales estimate belongs in the SUBJECT, not
+    # twelve lines down the body. This alert arrives on a phone, hours before
+    # sales close, and the difference between "+EV whatever the draw sells" and
+    # "+EV only if sales land near the central estimate" is the difference
+    # between a decision and a coin toss. Draw 3196 was the second kind.
+    sens = verdict.get("sales_sensitivity")
+    if sens and sens.get("robust"):
+        strength = "PLAY (robust)"
+    elif sens:
+        strength = "PLAY - marginal, central estimate only"
+    else:
+        strength = "PLAY"
+    subject = (f"LOTTO +EV ALERT: {strength}, {draw_date} draw, EV "
                f"£{verdict['ev_best_line']:+.2f} per line")
 
     lines = []
@@ -83,7 +95,6 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
     # it is estimated, not observed. The email is read away from the Mac with
     # hours to sales close, so it has to carry the uncertainty itself - a lone
     # "+£0.04" reads as a clean PLAY even when it sits 3% from break-even.
-    sens = verdict.get("sales_sensitivity")
     if sens:
         caveat = (
             f"Across plausible sales: £{sens['ev_low']:+.2f} at "

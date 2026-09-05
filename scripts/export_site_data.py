@@ -102,6 +102,7 @@ PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 MERGED_FILE = Path("data/merged_lottery_data.csv")
 FULL_HISTORY_FILE = Path("data/lotto_full_history.csv")
 DRAW_POOLS_FILE = Path("data/draw_pools.csv")
+GOLDEN_FILE = Path("site/src/__fixtures__/popularity-golden.json")
 VALIDATION_DIR = Path("outputs/validation")
 OUT_FILE = Path("site/public/data/site.json")
 
@@ -812,7 +813,7 @@ def build_last_draw(tiers: pd.DataFrame, merged: pd.DataFrame) -> dict:
 
 # --- golden fixtures ---------------------------------------------------------
 
-def write_golden_fixtures() -> int:
+def golden_fixture_text() -> tuple[str, int]:
     """Pin the browser's copy of the model to this one.
 
     The page generates lines in the visitor's browser, which means
@@ -880,10 +881,14 @@ def write_golden_fixtures() -> int:
     # that is subtly wrong, and 4 decimal places would hide exactly that. Safe
     # to leave unrounded because none of this passes through numpy - it is
     # products of constants, identical on every platform.
-    path = Path("site/src/__fixtures__/popularity-golden.json")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(fixture, indent=2, sort_keys=True) + "\n")
-    return len(lines)
+    return json.dumps(fixture, indent=2, sort_keys=True) + "\n", len(lines)
+
+
+def write_golden_fixtures() -> int:
+    text, cases = golden_fixture_text()
+    GOLDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    GOLDEN_FILE.write_text(text)
+    return cases
 
 
 # --- assembly ---------------------------------------------------------------
@@ -952,12 +957,24 @@ def main() -> int:
     text = serialize(build_payload())
 
     if args.check:
+        stale = []
+        # The fixtures need checking as much as the snapshot does - more, in
+        # fact: they are the only thing pinning the browser's copy of the model
+        # to this one, and --check used to skip them entirely, so a stale
+        # fixture passed CI silently. Found 2026-09-05, when the two-round
+        # co-winner fix had to be made in both languages.
+        golden, _ = golden_fixture_text()
+        if not GOLDEN_FILE.exists() or GOLDEN_FILE.read_text() != golden:
+            stale.append(GOLDEN_FILE)
         current = OUT_FILE.read_text() if OUT_FILE.exists() else ""
         if current != text:
-            print(f"{OUT_FILE} is stale - run `make site-data` and commit the result",
-                  file=sys.stderr)
+            stale.append(OUT_FILE)
+        if stale:
+            for path in stale:
+                print(f"{path} is stale", file=sys.stderr)
+            print("run `make site-data` and commit the result", file=sys.stderr)
             return 1
-        print(f"{OUT_FILE} is up to date")
+        print(f"{OUT_FILE} and {GOLDEN_FILE} are up to date")
         return 0
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
