@@ -81,6 +81,29 @@ class TestPopularity:
         )
         assert 0.0 < expected_cowinner_share(BIRTHDAY_LINE, n) <= 1.0
 
+    def test_other_rounds_share_at_average_popularity(self):
+        """Round two's winners hold round two's numbers, not mine.
+
+        Pricing every round at the line's own popularity - which this did until
+        2026-09-05 - overstated what an unpopular line buys on the jackpot.
+        Half the exposure to sharing does not depend on the slip.
+        """
+        n = 8_000_000
+        one = expected_cowinner_share(UNPOPULAR_LINE, n, rounds=1)
+        two = expected_cowinner_share(UNPOPULAR_LINE, n, rounds=2)
+        assert two < one
+        # An average-popularity line is the one case where the old model was
+        # right, because 1.0 is what the other round is priced at anyway.
+        assert expected_cowinner_share([1, 13, 26, 38, 47, 52], n, rounds=2) \
+            == pytest.approx(expected_cowinner_share([1, 13, 26, 38, 47, 52], n * 2,
+                                                     rounds=1), rel=0.05)
+
+    def test_the_unpopular_advantage_halves_in_a_two_round_game(self):
+        n = 8_000_000
+        average = 0.842      # a popularity-1.0 line at N=8m, both rounds
+        mine = expected_cowinner_share(UNPOPULAR_LINE, n, rounds=2)
+        assert mine / average - 1 == pytest.approx(0.059, abs=0.005)
+
 
 class TestLineEV:
     def test_unpopular_line_has_higher_ev(self):

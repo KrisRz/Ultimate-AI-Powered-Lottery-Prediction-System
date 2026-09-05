@@ -24,7 +24,7 @@ class TestAlertIsSelfContained:
     def test_subject_names_the_draw_and_the_edge(self):
         subject, _ = _alert()
         assert "2026-08-08" in subject
-        assert "+0.50" in subject
+        assert "+0.47" in subject          # the fixture's EV, not a round number
 
     def test_body_carries_the_lines_to_play(self):
         _, body = _alert()

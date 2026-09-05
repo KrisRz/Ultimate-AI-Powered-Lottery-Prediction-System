@@ -51,6 +51,7 @@ export function SGenerator({
   // caring about. Both lines have identical odds of coming up.
   const jackpot = 10_000_000;
   const entries = ev.regimes[0]?.tickets_sold ?? ev.live.tickets_sold;
+  const rounds = ev.regimes[0]?.rounds ?? 1;
   const typicalRatio = useMemo(
     () => popularityRatio(TYPICAL_LINE, model, bands),
     [model, bands],
@@ -58,10 +59,10 @@ export function SGenerator({
 
   const best = lines[0];
   const yourShare = best
-    ? jackpot * expectedShare(best.ratio, entries * 2, hook.total_combinations)
+    ? jackpot * expectedShare(best.ratio, entries, hook.total_combinations, rounds)
     : 0;
   const typicalShare =
-    jackpot * expectedShare(typicalRatio, entries * 2, hook.total_combinations);
+    jackpot * expectedShare(typicalRatio, entries, hook.total_combinations, rounds);
   const difference = yourShare - typicalShare;
 
   return (

@@ -338,7 +338,7 @@ def affine(line, cond: DrawConditions) -> tuple:
     """
     a = cond.rounds * cond.prizes.ev_per_round() - cond.ticket_price
     b = cond.rounds * P_JACKPOT * expected_cowinner_share(
-        line, cond.tickets_sold * cond.rounds)
+        line, cond.tickets_sold, cond.rounds)
     if cond.roll_down:
         b += exp(-cond.tickets_sold * cond.rounds * P_JACKPOT) / max(cond.tickets_sold, 1)
     return a, b
@@ -848,14 +848,29 @@ def write_golden_fixtures() -> int:
         if len(line) == N_PICK:
             lines.append(line)
 
+    # Fixed, not read from the live model: a fixture that moves with the data
+    # cannot tell a port that drifted from a draw that happened.
+    FIXTURE_ENTRIES, FIXTURE_ROUNDS = 8_000_000, 2
+
     fixture = {
         "note": "Written by scripts/export_site_data.py. Do not edit by hand.",
         "model": {
             "mean_weight": MEAN_WEIGHT,
             "normalization": POPULARITY_NORMALIZATION,
         },
+        # The share is pinned as well as the ratio. The two-round co-winner
+        # correction of 2026-09-05 had to be made twice, once in Python and
+        # once in TypeScript, and nothing here would have caught it if the
+        # second had been forgotten - the ratio does not move when the sharing
+        # model does.
+        "share_case": {
+            "tickets_sold": FIXTURE_ENTRIES,
+            "rounds": FIXTURE_ROUNDS,
+            "total_combinations": TOTAL_COMBOS,
+        },
         "cases": [
-            {"line": line, "ratio": popularity_ratio(line)}
+            {"line": line, "ratio": popularity_ratio(line),
+             "share": expected_cowinner_share(line, FIXTURE_ENTRIES, FIXTURE_ROUNDS)}
             for line in lines
         ],
         "weights": [number_weight(n) for n in range(1, N_BALLS + 1)],

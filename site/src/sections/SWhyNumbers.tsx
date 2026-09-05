@@ -59,9 +59,12 @@ export function SWhyNumbers({
     [picked, complete, model, bands],
   );
 
-  const entries = (ev.regimes[0]?.tickets_sold ?? ev.live.tickets_sold) * 2;
+  const entries = ev.regimes[0]?.tickets_sold ?? ev.live.tickets_sold;
+  const rounds = ev.regimes[0]?.rounds ?? 1;
   const share =
-    ratio === null ? null : DEMO_JACKPOT * expectedShare(ratio, entries, hook.total_combinations);
+    ratio === null
+      ? null
+      : DEMO_JACKPOT * expectedShare(ratio, entries, hook.total_combinations, rounds);
 
   const buckets = popularity.match3_multiplier_by_low31;
   const maxBucket = Math.max(...buckets.map((b) => b.mean_multiplier));
@@ -135,6 +138,13 @@ export function SWhyNumbers({
                   <dd className="num">{gbp(share)}</dd>
                   <dd className="small quiet">
                     after splitting with everyone else holding it
+                    {rounds > 1 && (
+                      <>
+                        {' '}— in both rounds. Only round one&rsquo;s co-winners hold your
+                        numbers; round two&rsquo;s are drawn independently of your slip, so
+                        half the sharing is not yours to avoid.
+                      </>
+                    )}
                   </dd>
                 </div>
               </dl>

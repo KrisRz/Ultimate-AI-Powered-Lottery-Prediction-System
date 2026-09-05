@@ -381,10 +381,34 @@ def _popularity_normalization() -> float:
 POPULARITY_NORMALIZATION = _popularity_normalization()
 
 
-def expected_cowinner_share(line: Sequence[int], tickets_sold: int) -> float:
-    """E[1 / (1 + K)] where K ~ Poisson(lambda) is the number of OTHER
-    jackpot winners holding this line. lambda = tickets * P(pick this line)."""
-    lam = tickets_sold * popularity_ratio(line) / TOTAL_COMBOS
+def expected_cowinner_share(line: Sequence[int], tickets_sold: int,
+                            rounds: int = 1) -> float:
+    """E[1 / (1 + K)], K ~ Poisson(lambda) other jackpot winners to split with.
+
+    `tickets_sold` is entries, not entries x rounds. Each entry plays every
+    round, and the procedures share the jackpot "equally between all Winning
+    Lotto Entries in Round one and Round two" (Game Procedures Ed. 22, 3.1) -
+    but the two rounds do not carry the same risk of sharing:
+
+        round one    the winners hold MY numbers, so their expected popularity
+                     is this line's - picking an unplayed line thins them out
+        other rounds the winners hold THAT round's numbers, drawn independently
+                     of anything on my slip, so their expected popularity is
+                     1.0 whatever I choose
+
+    Pricing every round at the line's own popularity, as this did until
+    2026-09-05, overstated what an unpopular line buys on the jackpot: at
+    N = 8m the reference line's share reads 0.946 that way and 0.892 correctly,
+    so its advantage over a popular line halves from +12.4% to +5.9%. Half the
+    exposure to sharing does not depend on what you write on the slip, and the
+    page said otherwise.
+
+    No decision moves: an ordinary draw would need a jackpot near GBP 32m
+    before the term matters, and a roll-down's EV is dominated by J/N, which
+    this does not touch.
+    """
+    per_round = tickets_sold / TOTAL_COMBOS
+    lam = per_round * popularity_ratio(line) + per_round * max(rounds - 1, 0)
     if lam < 1e-12:
         return 1.0
     return (1.0 - exp(-lam)) / lam
@@ -442,7 +466,7 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
     fixed_ev = cond.prizes.ev_per_round()
     jackpot_ev = (
         cond.rounds * P_JACKPOT * cond.jackpot
-        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+        * expected_cowinner_share(line, cond.tickets_sold, cond.rounds)
     )
 
     rolldown_ev = 0.0
@@ -1103,7 +1127,7 @@ def line_return_distribution(line: Sequence[int], cond: DrawConditions) -> List[
 
     def per_round_outcomes(m3: float, m2: float) -> list:
         jackpot_share = cond.jackpot * expected_cowinner_share(
-            line, cond.tickets_sold * cond.rounds)
+            line, cond.tickets_sold, cond.rounds)
         return [
             (jackpot_share, P_JACKPOT),
             (prizes.match_5_bonus, P_MATCH_5_BONUS),
@@ -1203,7 +1227,7 @@ def break_even_jackpot(cond: DrawConditions,
         return 0.0
     per_pound = (
         cond.rounds * P_JACKPOT
-        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+        * expected_cowinner_share(line, cond.tickets_sold, cond.rounds)
     )
     if cond.roll_down:
         per_pound += exp(-cond.tickets_sold * cond.rounds * P_JACKPOT) / max(cond.tickets_sold, 1)

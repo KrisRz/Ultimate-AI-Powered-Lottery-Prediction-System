@@ -75,16 +75,26 @@ export function popularityRatio(
 /**
  * What fraction of a jackpot this line keeps, on average, if it wins.
  *
- * E[1/(1+K)] for K other winners Poisson-distributed with mean
- * tickets x popularity / combinations. This is the whole argument for playing
- * unpopular numbers, and the only place the choice of line changes the money.
+ * E[1/(1+K)] for K other winners Poisson-distributed. `ticketsSold` is
+ * ENTRIES, not entries x rounds: each entry plays every round, and the two
+ * rounds carry different sharing risk. Round one's winners hold my numbers,
+ * so their expected popularity is this line's; every other round is drawn
+ * independently of my slip, so its winners average 1.0 whatever I pick.
+ *
+ * Mirrors lottery.ev.expected_cowinner_share, which is the authority - the
+ * golden fixtures exist to keep the two in step. Pricing every round at the
+ * line's own popularity, as this did until 2026-09-05, overstated what an
+ * unpopular line buys: half the exposure to sharing does not depend on what
+ * you write on the slip.
  */
 export function expectedShare(
   ratio: number,
   ticketsSold: number,
   totalCombinations: number,
+  rounds = 1,
 ): number {
-  const lambda = (ticketsSold * ratio) / totalCombinations;
+  const perRound = ticketsSold / totalCombinations;
+  const lambda = perRound * ratio + perRound * Math.max(rounds - 1, 0);
   if (lambda < 1e-12) return 1;
   return (1 - Math.exp(-lambda)) / lambda;
 }
