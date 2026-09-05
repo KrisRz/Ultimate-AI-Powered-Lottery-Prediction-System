@@ -5,7 +5,8 @@
  * was measured exhaustively rather than copied from a published table. It held
  * on every real draw where it could apply.
  *
- * And it makes no money. Same return as ten random lines, because nothing
+ * And it makes no money. Same return as the same number of random lines,
+ * because nothing
  * changes the odds. What changes is the shape: wins arrive in fewer draws but
  * several at a time. Selling that as an advantage would be the exact dishonesty
  * this project exists to avoid, so the section says it plainly.
@@ -17,6 +18,9 @@ import type { Wheel } from '@/data/types';
 export function SWheel({ wheel }: { wheel: Wheel }) {
   const bt = wheel.backtest;
   const guaranteeFor4 = wheel.guarantees['4'];
+  // Read off the slip, not typed into the prose: this panel described ten
+  // lines for a fortnight after the design that needs six was installed.
+  const n = wheel.lines.length;
 
   return (
     <section id="panel-e" className="wheel" aria-labelledby="panel-e-title">
@@ -24,10 +28,10 @@ export function SWheel({ wheel }: { wheel: Wheel }) {
       <div className="wheel-head">
         <p className="eyebrow">Panel E &middot; the wheel</p>
         <h2 className="h-section" id="panel-e-title">
-          Ten lines that cover each other
+          {n} lines that cover each other
         </h2>
         <p className="lede prose">
-          Pick the {wheel.pool_size} least-played numbers and arrange ten lines across
+          Pick the {wheel.pool_size} least-played numbers and arrange {n} lines across
           them so that any four coming up guarantees at least{' '}
           {guaranteeFor4 !== undefined && <strong className="num">{guaranteeFor4}</strong>}{' '}
           of your lines match three. Not a better chance of winning — a promise about
@@ -48,7 +52,7 @@ export function SWheel({ wheel }: { wheel: Wheel }) {
 
           <table className="coverage" aria-describedby="coverage-note">
             <caption className="visually-hidden">
-              Which of the pool&rsquo;s numbers each of the ten lines carries
+              Which of the pool&rsquo;s numbers each of the {n} lines carries
             </caption>
             <thead>
               <tr>
@@ -107,7 +111,7 @@ export function SWheel({ wheel }: { wheel: Wheel }) {
           </dl>
 
           <p className="prose">
-            {gbp(bt.cash_gbp)} back from {gbp(bt.cost_gbp)} staked. That is what ten random
+            {gbp(bt.cash_gbp)} back from {gbp(bt.cost_gbp)} staked. That is what {n} random
             lines return too — <strong>the wheel is not an edge</strong>. The guarantee never
             once failed, and the wins landed in only {bt.draws_with_win} of the{' '}
             {count(bt.draws)} draws, arriving several at a time instead of one at a time.

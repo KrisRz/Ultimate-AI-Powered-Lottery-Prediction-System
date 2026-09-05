@@ -5,7 +5,13 @@ from itertools import combinations
 import pytest
 
 from lottery.ev import N_PICK, _has_consecutive_run, number_weight
-from scripts.wheel_play import build_wheel, measure_guarantees, unpopular_pool
+from scripts.wheel_play import (
+    KNOWN_COVERINGS,
+    build_wheel,
+    covering_lines,
+    measure_guarantees,
+    unpopular_pool,
+)
 
 
 class TestUnpopularPool:
@@ -35,6 +41,40 @@ class TestBuildWheel:
         tickets = build_wheel(pool, 10)
         guar = measure_guarantees(pool, tickets)
         assert all(guar[t] >= 3 for t in range(4, N_PICK + 1))
+
+    def test_six_lines_buy_the_same_guarantee_as_ten(self):
+        """The published (12, 6, 3, 4) design, not what greedy can find.
+
+        Greedy reaches "3 if 4" at eight tickets and never at six - it commits
+        to a locally best first line and cannot see the symmetric arrangement.
+        Karim (2005) proves six is the minimum and five impossible, so this is
+        the same promise for GBP 12 instead of GBP 20.
+        """
+        pool = unpopular_pool(12)
+        assert covering_lines(pool) == 6
+        six = measure_guarantees(pool, build_wheel(pool, 6))
+        ten = measure_guarantees(pool, build_wheel(pool, 10))
+        assert six == ten
+        assert all(six[t] >= 3 for t in range(4, N_PICK + 1))
+
+    def test_the_design_is_used_verbatim_and_maps_onto_the_pool(self):
+        pool = unpopular_pool(12)
+        expected = [sorted(pool[i - 1] for i in block)
+                    for block in KNOWN_COVERINGS[12]]
+        assert [sorted(t) for t in build_wheel(pool, 6)] == expected
+
+    def test_extra_lines_extend_the_design_rather_than_replace_it(self):
+        pool = unpopular_pool(12)
+        six = [sorted(t) for t in build_wheel(pool, 6)]
+        ten = [sorted(t) for t in build_wheel(pool, 10)]
+        assert ten[:6] == six
+        assert len({tuple(t) for t in ten}) == 10
+
+    def test_pools_without_a_published_design_still_wheel(self):
+        """Greedy is the fallback, and must not silently do nothing."""
+        assert covering_lines(unpopular_pool(11)) is None
+        tickets = build_wheel(unpopular_pool(11), 8)
+        assert len({tuple(t) for t in tickets}) == 8
 
     def test_more_lines_than_candidates_is_a_clear_error(self):
         # Asking for more tickets than valid candidates must fail loudly,

@@ -83,6 +83,7 @@ from scripts.backtest_wheel import (  # noqa: E402
 from scripts.rolldown_history import replay_rolldowns, summarise  # noqa: E402
 from scripts.wheel_play import (  # noqa: E402
     build_wheel as build_wheel_lines,
+    covering_lines,
     measure_guarantees,
     unpopular_pool,
 )
@@ -603,7 +604,7 @@ def build_rolldown(mbw: DrawConditions) -> dict:
 
 
 def build_wheel(mbw: DrawConditions) -> dict:
-    """The ten-line slip, and what an honest backtest says about it.
+    """The wheel slip, and what an honest backtest says about it.
 
     Worth its own section precisely because the finding is negative in the way
     that matters: the guarantee is real and measured, the return is identical
@@ -611,7 +612,10 @@ def build_wheel(mbw: DrawConditions) -> dict:
     that sold this as an edge would be lying by omission.
     """
     pool = unpopular_pool(12)
-    tickets = build_wheel_lines(pool, 10)
+    # As many lines as the guarantee actually needs. This published ten of
+    # them until 2026-09-05, which bought the reader an identical guarantee
+    # for GBP 8 more - see wheel_play.KNOWN_COVERINGS.
+    tickets = build_wheel_lines(pool, covering_lines(pool) or 10)
     guarantees = measure_guarantees(pool, tickets)
 
     draws = load_draws()
