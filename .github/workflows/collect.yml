@@ -62,19 +62,7 @@ jobs:
           tiers = pd.read_csv("data/prize_tiers.csv")
           latest = max(datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"])
           print(f"latest collected: {latest}, expected: {expected}")
-          ok = latest >= expected
-
-          # And the pools, separately: a silent stop there does not show up in
-          # the tier data at all, which is exactly how it went unnoticed.
-          pools = pd.read_csv("data/draw_pools.csv")
-          highest_tier = int(tiers["draw_number"].max())
-          highest_pool = int(pools["draw_number"].max())
-          print(f"pools reach draw {highest_pool}, tiers reach {highest_tier}")
-          if highest_pool < highest_tier:
-              print("draw_pools.csv is behind - the identity that prices every "
-                    "Must-Be-Won draw is going stale")
-              ok = False
-          sys.exit(0 if ok else 1)
+          sys.exit(0 if latest >= expected else 1)
           EOF
 
       # Scores the model against the draw when it was a Must-Be-Won (~9/year):
@@ -168,3 +156,36 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EV_ALERT_TEST: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
         run: PYTHONPATH=. python scripts/monitoring/ev_alert.py
+
+      # Deliberately LAST. A stall in the pools does not show up in
+      # the tier data at all - that data was complete and correct the whole time
+      # the pools were frozen, which is exactly how it went unnoticed - so it
+      # needs its own check. But it must not gate the commit: if the JSON API is
+      # down the XML fallback still collects the draw, and the pools cannot
+      # advance because the backfill reads the same JSON. Gating the commit
+      # would turn a successful fallback collection into a discarded one, and
+      # gating the alert would let a stale pool file suppress a PLAY email -
+      # the one output that has to survive everything. So: do the work, send
+      # the mail, then go red and say which file is behind.
+      - name: Verify the pools kept up
+        run: |
+          PYTHONPATH=. python - <<'EOF'
+          import sys
+          from pathlib import Path
+          import pandas as pd
+
+          pools_file = Path("data/draw_pools.csv")
+          if not pools_file.exists():
+              print(f"{pools_file} is missing - run scripts/backfill_draw_pools.py")
+              sys.exit(1)
+          tiers = pd.read_csv("data/prize_tiers.csv")
+          pools = pd.read_csv(pools_file)
+          highest_tier = int(tiers["draw_number"].max())
+          highest_pool = int(pools["draw_number"].max())
+          print(f"pools reach draw {highest_pool}, tiers reach {highest_tier}")
+          if highest_pool < highest_tier:
+              print("draw_pools.csv is behind - the identity that prices every "
+                    "Must-Be-Won draw is going stale. The draw data above was "
+                    "collected and committed; this run is red for the pools only.")
+              sys.exit(1)
+          EOF
