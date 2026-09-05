@@ -36,6 +36,16 @@ jobs:
           import sys
           sys.exit(0 if download_fresh_data() else 1)"
 
+      # The pools are what make sales an identity rather than an estimate, and
+      # for one day they were not being collected at all: the write sat in the
+      # XML fallback instead of the JSON path, where `Element.get` returned
+      # None and skipped it without raising. Healing them here rather than
+      # trusting the ingest is the same argument as the 180-day self-heal for
+      # draw data - and the verification below then has something to check.
+      # Idempotent: it fetches only draws the file does not already hold.
+      - name: Backfill any missing draw pools
+        run: PYTHONPATH=. python scripts/backfill_draw_pools.py
+
       # download_fresh_data() returns True even when the network fails and it
       # falls back to cached data - verify we actually hold the expected draw,
       # so a quiet no-op run turns into a loud red one.
@@ -52,7 +62,19 @@ jobs:
           tiers = pd.read_csv("data/prize_tiers.csv")
           latest = max(datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"])
           print(f"latest collected: {latest}, expected: {expected}")
-          sys.exit(0 if latest >= expected else 1)
+          ok = latest >= expected
+
+          # And the pools, separately: a silent stop there does not show up in
+          # the tier data at all, which is exactly how it went unnoticed.
+          pools = pd.read_csv("data/draw_pools.csv")
+          highest_tier = int(tiers["draw_number"].max())
+          highest_pool = int(pools["draw_number"].max())
+          print(f"pools reach draw {highest_pool}, tiers reach {highest_tier}")
+          if highest_pool < highest_tier:
+              print("draw_pools.csv is behind - the identity that prices every "
+                    "Must-Be-Won draw is going stale")
+              ok = False
+          sys.exit(0 if ok else 1)
           EOF
 
       # Scores the model against the draw when it was a Must-Be-Won (~9/year):
