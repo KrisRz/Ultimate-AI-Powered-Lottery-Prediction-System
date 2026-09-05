@@ -5688,14 +5688,14 @@
       "origin": "private S3, reached through Origin Access Control",
       "tls": "ACM in us-east-1"
     },
-    "scheduler_caveat": "GitHub's cron is best-effort and has drifted by up to two and a half hours on this repo. Two runs per draw plus an independent watchdog is the answer to that, not punctuality",
+    "scheduler_caveat": "GitHub's cron is best-effort: on this repo it ran 13-58 minutes late through August 2026 and has drifted to 2-11 hours since. Two runs per draw plus an independent watchdog is the answer to that, not punctuality",
     "self_healing": {
       "how": "the feed serves every draw of the last ~180 days by number, so a missed collection is backfilled on the next run",
       "window_days": 180
     },
     "tests": {
-      "count": 274,
-      "files": 22
+      "count": 281,
+      "files": 23
     },
     "workflows": [
       {
@@ -5735,6 +5735,13 @@
     ]
   },
   "ev": {
+    "cap_pool_reach": {
+      "era_from_draw": 3179,
+      "high_gbp": 9559451,
+      "low_gbp": 8535147,
+      "median_gbp": 9269710,
+      "n": 3
+    },
     "fixed_prizes": {
       "ev_per_round": 0.3645,
       "match_2": 1.0,
@@ -5757,6 +5764,16 @@
       "tickets_sold": 8536043,
       "verdict": "SKIP"
     },
+    "mbw_break_even_by_weekday": {
+      "Saturday": {
+        "break_even_jackpot": 12944323,
+        "tickets_sold": 10840774
+      },
+      "Wednesday": {
+        "break_even_jackpot": 9112484,
+        "tickets_sold": 7399061
+      }
+    },
     "mbw_sales_band": {
       "p25": {
         "a": -1.2710166131372567,
@@ -5772,6 +5789,16 @@
         "tickets_sold": 11182215,
         "uplift": 1.31
       }
+    },
+    "outlook": {
+      "break_even_jackpot": 9112484,
+      "draws_away": 2,
+      "ev_best_line": -0.1379,
+      "expected_date": "2026-09-09",
+      "projected_pool_gbp": 8123650,
+      "tickets_sold": 7399061,
+      "verdict": "SKIP",
+      "weekday": "Wednesday"
     },
     "reference_line": [
       32,

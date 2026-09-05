@@ -54,6 +54,7 @@ from lottery.ev import (  # noqa: E402
     P_MATCH_5,
     P_MATCH_5_BONUS,
     ROLLOVER_CAP,
+    TWO_ROUND_FIRST_DRAW,
     TICKET_PRICE,
     TOTAL_COMBOS,
     DrawConditions,
@@ -61,7 +62,12 @@ from lottery.ev import (  # noqa: E402
     break_even_jackpot,
     expected_cowinner_share,
     mbw_type,
+    exact_sales_baseline,
     mbw_uplift,
+    must_be_won_after_cap,
+    must_be_won_outlook,
+    next_draw_dates,
+    upcoming_draw_date,
     line_ev,
     number_weight,
     popularity_ratio,
@@ -94,6 +100,7 @@ SCHEMA_VERSION = 1
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 MERGED_FILE = Path("data/merged_lottery_data.csv")
 FULL_HISTORY_FILE = Path("data/lotto_full_history.csv")
+DRAW_POOLS_FILE = Path("data/draw_pools.csv")
 VALIDATION_DIR = Path("outputs/validation")
 OUT_FILE = Path("site/public/data/site.json")
 
@@ -351,7 +358,8 @@ def _regime(key: str, label: str, cond: DrawConditions, line) -> dict:
 
 
 def build_ev(live: DrawConditions, ordinary: DrawConditions,
-             mbw: DrawConditions) -> dict:
+             mbw: DrawConditions, pools: "pd.DataFrame | None" = None,
+             now=None) -> dict:
     line = best_unpopular_reference_line()
     verdict = should_play(live, threshold=0.0)
 
@@ -376,6 +384,57 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
             "break_even_jackpot": gbp(break_even_jackpot(cond, line)),
         }
 
+    # The Must-Be-Won threshold is not one number: Saturdays sell about 1.6x
+    # what Wednesdays do, so the same roll-down needs a pool half again as big
+    # to break even on a Saturday. Publishing only the live draw's weekday made
+    # the page read as though there were a single figure.
+    by_weekday = {}
+    if pools is not None and len(pools):
+        first = upcoming_draw_date(now)
+        for when in [first] + next_draw_dates(first, 1):
+            baseline = exact_sales_baseline(pools, when)
+            if baseline is None:
+                continue
+            cond = DrawConditions(
+                jackpot=mbw.jackpot,
+                tickets_sold=max(int(baseline * mbw_uplift(when)[0]), 1),
+                roll_down=True, rounds=mbw.rounds, ticket_price=mbw.ticket_price,
+                prizes=mbw.prizes, rollover_count=ROLLOVER_CAP, draw_date=when)
+            by_weekday[when.strftime("%A")] = {
+                "tickets_sold": cond.tickets_sold,
+                "break_even_jackpot": gbp(break_even_jackpot(cond, line)),
+            }
+
+    # What a capped roll actually reaches in this era, from the draws that
+    # have done it. This is the number that decides whether a Must-Be-Won draw
+    # is an opportunity or just an event: three of them so far, all Saturdays,
+    # none of them within GBP 3m of the Saturday threshold above.
+    cap_reach = None
+    if pools is not None and len(pools):
+        capped = sorted(must_be_won_after_cap(pools))
+        reached = sorted(float(r["pool_gbp"]) for _, r in pools.iterrows()
+                         if int(r["draw_number"]) in capped)
+        if reached:
+            cap_reach = {
+                "n": len(reached),
+                "low_gbp": gbp(reached[0]),
+                "high_gbp": gbp(reached[-1]),
+                "median_gbp": gbp(reached[len(reached) // 2]),
+                "era_from_draw": TWO_ROUND_FIRST_DRAW,
+            }
+
+    forecast = must_be_won_outlook(live, pools, now)
+    outlook = None if forecast is None else {
+        "expected_date": forecast["expected_date"].isoformat(),
+        "draws_away": forecast["draws_away"],
+        "weekday": forecast["expected_date"].strftime("%A"),
+        "projected_pool_gbp": gbp(forecast["projected_pool"]),
+        "tickets_sold": forecast["tickets_sold"],
+        "break_even_jackpot": gbp(forecast["break_even_jackpot"]),
+        "ev_best_line": forecast["ev_best_line"],
+        "verdict": "PLAY" if forecast["play"] else "SKIP",
+    }
+
     return {
         "reference_line": list(line),
         "reference_popularity": popularity_ratio(line),
@@ -394,6 +453,13 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
             _regime("mbw", "Must-Be-Won roll-down", mbw, line),
         ],
         "mbw_sales_band": band,
+        "mbw_break_even_by_weekday": by_weekday or None,
+        "cap_pool_reach": cap_reach,
+        # The Must-Be-Won draw this roll is heading for, priced before it
+        # arrives. The page used to say these come round nine times a year and
+        # leave it there; what it can say instead is what the next one is
+        # actually worth, which in the two-round era is usually "not enough".
+        "outlook": outlook,
         "live": {
             "draw_date": live.draw_date.isoformat(),
             "jackpot_gbp": gbp(live.jackpot),
@@ -637,10 +703,14 @@ def build_built() -> dict:
             "separate step asserts the expected draw is present - a silent no-op "
             "becomes a red build"
         ),
+        # Measured on the run history, not from GitHub's docs, and re-measured
+        # 2026-09-05: the drift got materially worse platform-wide from late
+        # August. Two runs per draw is what makes that a non-event.
         "scheduler_caveat": (
-            "GitHub's cron is best-effort and has drifted by up to two and a half "
-            "hours on this repo. Two runs per draw plus an independent watchdog is "
-            "the answer to that, not punctuality"
+            "GitHub's cron is best-effort: on this repo it ran 13-58 minutes late "
+            "through August 2026 and has drifted to 2-11 hours since. Two runs per "
+            "draw plus an independent watchdog is the answer to that, not "
+            "punctuality"
         ),
         "hosting": {
             "cdn": "CloudFront",
@@ -810,6 +880,7 @@ def build_payload() -> dict:
     ordinary = next_draw_conditions(force_ordinary=True, now=now)
     mbw = next_draw_conditions(force_roll_down=True, now=now)
 
+    pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
     merged = pd.read_csv(MERGED_FILE)
     full = pd.read_csv(FULL_HISTORY_FILE)
 
@@ -823,7 +894,7 @@ def build_payload() -> dict:
         },
         "hook": build_hook(),
         "backtest": build_backtest(),
-        "ev": build_ev(live, ordinary, mbw),
+        "ev": build_ev(live, ordinary, mbw, pools, now),
         "popularity": build_popularity(),
         "rolldown": build_rolldown(mbw),
         "wheel": build_wheel(mbw),

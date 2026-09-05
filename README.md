@@ -64,15 +64,24 @@ make install-cron                                # auto post-draw routine (Wed/S
   `python scripts/calibrate_popularity.py --last-draws 500`.
 - **When the jackpot must be paid out**: rollovers are capped at 5, so the 6th
   draw of a roll is Must-Be-Won and rolls down. `make play` counts down to it
-  ("rollover 2 of 5 — Must-Be-Won in 4 draws, ~2026-08-08"). Historically that
-  is ~9 draws a year, and it is where essentially all of the +EV lives — but
-  **only about 4 of those 9 are actually +EV**. A Must-Be-Won draw sells
-  ~1.38x an ordinary one and the roll-down pays J/N, so the extra buyers eat
-  the edge: re-priced at each historical draw's own measured sales, 27 of 65
-  cap-driven draws since 2019 clear break-even (median EV −£0.14). The earlier
-  "96%" figure priced them at ordinary-draw sales and was too optimistic by
-  more than double. **Must-Be-Won is a necessary condition, not a sufficient
-  one — wait for the advisor's verdict, not the calendar.**
+  and now prices it in advance ("Must-Be-Won in 2 draws, ~2026-09-09 —
+  projected pool ~£8,123,650 vs break-even £9,112,484, likely SKIP"). The cap
+  fires every few weeks, but **that is a schedule, not an opportunity.** A
+  Must-Be-Won draw sells more than an ordinary one and the roll-down pays J/N,
+  so the extra buyers eat the edge — and since the 7 June 2026 licence the
+  jackpot takes **8.88% of sales** (was 9.79%) and restarts at **£2m on both
+  days** (Saturday was £3.8m), so a capped roll now reaches only about
+  £8.5–9.6m. Break-even is ~£9.1m on a Wednesday and ~£12.9m on a Saturday
+  (Saturdays sell half again as many lines to share the pool between). All
+  three Must-Be-Won draws of the two-round era landed on Saturdays and all fell
+  short. Re-priced at each historical draw's own measured sales, 24 of 53
+  cap-driven draws since 2019 clear break-even — but every one of those 24
+  carried a pool of **£11.3m or more**, which a cap alone no longer reaches;
+  the last was March 2026, before the redesign. Realistically that leaves
+  **one or two playable draws a year**: Wednesday Must-Be-Won draws at the top
+  of the range, and special draws (£15–20m, announced weeks ahead).
+  **Must-Be-Won is a necessary condition, not a sufficient one — wait for the
+  advisor's verdict, not the calendar.**
 - **Sales are the fragile input**: on a roll-down the EV is dominated by J/N,
   so `make play` reports the verdict across the sales range (uplift quartiles
   1.07–1.69) and flags whether it survives the busy end. A draw that only
@@ -106,7 +115,9 @@ ops/                launchd template for the post-draw cron
 ## Email alerts (+EV draws)
 
 The post-draw routine emails you only when the next draw clears the EV
-threshold — roughly nine times a year. The email is self-contained: draw date,
+threshold, which in the current structure is one or two draws a year rather
+than the ~9 Must-Be-Won draws the calendar produces. Silence is the normal
+signal. The email is self-contained: draw date,
 jackpot, EV, break-even, **the lines to play**, and a ready-to-paste
 `roi_ledger add` command. Lines are seeded from the draw date, so the evening
 run and the next-morning retry propose the same portfolio rather than two

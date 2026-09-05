@@ -836,8 +836,10 @@ def upcoming_draw_date(now: datetime | date | None = None) -> date:
 
 
 def forecast_must_be_won(rollover_count: int,
-                         now: datetime | date | None = None) -> dict:
-    """How many draws until the jackpot must be paid out, and on what date.
+                         now: datetime | date | None = None,
+                         jackpot: float | None = None,
+                         pools_df=None) -> dict:
+    """How many draws until the jackpot must be paid out, on what date, at what pool.
 
     `rollover_count` is the post-draw counter carried by the official feed
     (data/prize_tiers.csv), so the upcoming draw is the one that would make it
@@ -854,16 +856,85 @@ def forecast_must_be_won(rollover_count: int,
     the counter and pushes the date out. It is for planning a budget - the
     authoritative one-draw-ahead signal stays the official feed's
     `next_jackpot_roll_down` flag, which `DrawConditions.roll_down` carries.
+
+    Given `jackpot` (the estimate advertised for the upcoming draw) and
+    `pools_df`, it also projects the POOL that Must-Be-Won draw would carry.
+    The advertised estimate already contains the upcoming draw's own sales -
+    3203 closed at GBP 5,255,577 and 3204 was advertised at GBP 6,809,577, a
+    Saturday's worth of contribution ahead - so each FURTHER draw adds
+    `share x sales`, at the exact per-weekday sales level, with the uplift on
+    the Must-Be-Won draw itself because its own sales fund its own pool.
+
+    That last point cuts both ways and is worth stating: the uplift constant
+    that inflates this projection is the same one that inflates N, and EV on a
+    roll-down is J / N, so the two errors partly cancel. What the projection
+    does NOT model is the rollover stage - sales climb through a cycle (Walker
+    & Wheeler 2018: ~GBP 1.8m more Saturday sales per GBP 1m of rollover), and
+    a median over whole cycles understates the last draw of one. So read the
+    projection as a floor with about a draw's worth of slack, which is enough
+    to tell "nowhere near break-even" from "worth watching" - and that is all
+    it is for.
     """
     draws_away = max(ROLLOVER_CAP - int(rollover_count) + 1, 1)
     first = upcoming_draw_date(now)
     dates = [first] + next_draw_dates(first, draws_away - 1)
+
+    projected_pool = None
+    if jackpot is not None and pools_df is not None:
+        running = float(jackpot)
+        for when in dates[1:]:
+            baseline = exact_sales_baseline(pools_df, when)
+            if baseline is None:
+                running = None
+                break
+            uplift = mbw_uplift(when)[0] if when == dates[-1] else 1.0
+            running += baseline * uplift * TICKET_PRICE * JACKPOT_SHARE_OF_SALES
+        projected_pool = running
+
     return {
         "rollover_count": int(rollover_count),
         "cap": ROLLOVER_CAP,
         "draws_away": draws_away,
         "expected_date": dates[-1],
         "is_next_draw": draws_away == 1,
+        "projected_pool": projected_pool,
+    }
+
+
+def must_be_won_outlook(cond: "DrawConditions", pools_df,
+                       now: datetime | date | None = None) -> dict | None:
+    """Price the Must-Be-Won draw this roll is heading for, before it arrives.
+
+    The advisor has always been able to say WHEN the cap forces a payout, and
+    never what it would be worth when it got there - so the verdict on a
+    Must-Be-Won draw only existed once the draw before it had been collected.
+    That is a day's notice on the one kind of draw worth planning for.
+
+    Returns None when the draw being priced IS the Must-Be-Won one (nothing to
+    forecast) or when the pools do not cover enough of the window to project a
+    pool honestly. Every figure is a forecast: read it as "worth watching" or
+    "nowhere near", not as a verdict.
+    """
+    if cond.roll_down:
+        return None
+    forecast = forecast_must_be_won(cond.rollover_count, now, cond.jackpot, pools_df)
+    if forecast["projected_pool"] is None:
+        return None
+    when = forecast["expected_date"]
+    baseline = exact_sales_baseline(pools_df, when)
+    if baseline is None:
+        return None
+    tickets = max(int(baseline * mbw_uplift(when)[0]), 1)
+    future = replace(cond, jackpot=forecast["projected_pool"], tickets_sold=tickets,
+                     roll_down=True, draw_date=when)
+    verdict = should_play(future)
+    return {
+        **forecast,
+        "tickets_sold": tickets,
+        "break_even_jackpot": verdict["break_even_jackpot"],
+        "ev_best_line": verdict["ev_best_line"],
+        "play": verdict["play"],
+        "robust": verdict["sales_sensitivity"]["robust"],
     }
 
 
