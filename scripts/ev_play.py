@@ -39,6 +39,7 @@ from lottery.ev import (  # noqa: E402
 from lottery.portfolio import build_portfolio  # noqa: E402
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
+DRAW_POOLS_FILE = Path("data/draw_pools.csv")
 OUT_DIR = Path("outputs/predictions")
 
 
@@ -79,8 +80,14 @@ def next_draw_conditions(force_roll_down: bool = False,
                 pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1")))
             if pd.notna(last.get("rollover_count")):
                 cond.rollover_count = int(last["rollover_count"])
+            # Sales are an identity, not an estimate, wherever the pools
+            # reach: (pool - previous pool) / 8.88%. Winner counts stay the
+            # fallback for windows the pools do not cover.
+            pools = (pd.read_csv(DRAW_POOLS_FILE)
+                     if DRAW_POOLS_FILE.exists() else None)
             estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down,
-                                              draw_date=cond.draw_date)
+                                              draw_date=cond.draw_date,
+                                              pools_df=pools)
             if estimated:
                 cond.tickets_sold = estimated
             # Fixed-tier prizes come from the data too - a hardcoded table is

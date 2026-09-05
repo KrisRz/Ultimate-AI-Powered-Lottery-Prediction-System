@@ -85,6 +85,7 @@ jobs:
           git config user.name "lotto-collector[bot]"
           git config user.email "actions@users.noreply.github.com"
           git add -f data/prize_tiers.csv data/merged_lottery_data.csv data/lotto_full_history.csv
+          git add -f data/draw_pools.csv 2>/dev/null || true
           git add -f data/mbw_validation.csv 2>/dev/null || true
           git add site/public/data/site.json site/src/__fixtures__/popularity-golden.json
           # Whether the PAGE moved is a separate question from whether anything

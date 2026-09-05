@@ -73,6 +73,80 @@ TIER_MATCH_2 = 6
 # (data/prize_tiers_history.csv). Affects jackpot sharing and roll-down splits.
 DEFAULT_TICKETS_SOLD = 7_500_000
 
+# The official split, and the identity it hands us
+# ------------------------------------------------
+# "8.88% of sales for a Lotto Draw are allocated to the Jackpot"
+#   - Lotto Online Game Procedures, Edition 22 (7 June 2026), section 3.1
+#   - and the Gambling Commission Section 6 licence of the same date, which
+#     also sets the minimum jackpot at GBP 2m for both Wednesday and Saturday
+#     (it was GBP 3.8m on Saturdays under the 2024 licence)
+#
+# Nobody publishes sales per draw - the Gambling Commission answered a 2026 FOI
+# with "does not collect data on Lotto ticket sales by day of the week" and
+# Allwyn reports quarterly totals - but that clause means sales do not have to
+# be published. On any draw that inherits a rolled-over pool,
+#
+#     sales(d) = (pool(d) - pool(d - 1)) / share
+#
+# is an identity. Verified against Merseyworld's archive on every two-round
+# draw with both numbers: agreement to about a tenner, Must-Be-Won draws
+# included (tests/test_draw_pools.py). Which also settles what that archive is -
+# the same identity computed by a third party since 2003, not a second
+# independent measurement.
+#
+# The draw after a jackpot is won is the one draw this cannot price: the pool
+# resets to the minimum, so the difference measures the reset, not the sales.
+JACKPOT_SHARE_OF_SALES = 0.0888
+LEGACY_JACKPOT_SHARE_OF_SALES = 0.0979   # licence in force before 7 June 2026
+TWO_ROUND_FIRST_DRAW = 3179              # 2026-06-10, the first two-round draw
+MINIMUM_JACKPOT = 2_000_000.0
+
+# How many exact observations it takes before they replace the winner-count
+# estimator rather than merely joining it. Three same-weekday ordinary draws
+# is one rollover cycle's worth - below that the median is the noise.
+MIN_EXACT_OBSERVATIONS = 3
+
+
+def jackpot_share_of_sales(draw_number: int) -> float:
+    """Share of sales allocated to the jackpot, by era."""
+    return (JACKPOT_SHARE_OF_SALES if draw_number >= TWO_ROUND_FIRST_DRAW
+            else LEGACY_JACKPOT_SHARE_OF_SALES)
+
+
+def exact_lines_sold(pools_df) -> dict:
+    """Lines sold per draw, read off the pool each draw carried.
+
+    `pools_df` is data/draw_pools.csv: draw_number, draw_date, pool_gbp, where
+    pool_gbp is the pool the draw ACTUALLY carried (topPrize in the official
+    feed), not the estimate advertised beforehand. The two differ by up to ~4%,
+    which is 8-10% once divided into sales - see scripts/backfill_draw_pools.py.
+
+    Returns {draw_number: lines} for every draw the identity can price, which
+    is every draw whose pool grew on its predecessor. A pool that did not grow
+    means the previous draw paid its jackpot out and this one restarted from
+    the minimum: no sales information in that difference, so no entry.
+
+    This is what replaces N ~ winners / P(tier) wherever it can. That estimator
+    is unbiased across many draws but carries about +/-15% on a single one,
+    because winner counts move with how popular the drawn numbers happened to
+    be: draw 3196's round-two numbers were all birthday-range, which inflated
+    its measured N by 15% and its scorecard read -11% forecast error where the
+    truth was +2.6%.
+    """
+    if pools_df is None or len(pools_df) == 0:
+        return {}
+    pools = {int(r["draw_number"]): float(r["pool_gbp"])
+             for _, r in pools_df.iterrows()}
+    exact = {}
+    for draw, pool in pools.items():
+        previous = pools.get(draw - 1)
+        if previous is None or pool <= previous:
+            continue
+        sales = (pool - previous) / jackpot_share_of_sales(draw)
+        exact[draw] = int(round(sales / TICKET_PRICE))
+    return exact
+
+
 # A Must-Be-Won draw sells MORE than an ordinary one, and that matters more than
 # anything else in this model: the roll-down term is J / N, so an ordinary-draw
 # sales figure applied to a Must-Be-Won draw inflates its EV - on precisely the
@@ -500,20 +574,134 @@ def rolldown_draw_numbers(tiers_df) -> set:
     return set(int(d) for d in boosted["draw_number"].unique())
 
 
+def must_be_won_after_cap(pools_df) -> set:
+    """Draws that were Must-Be-Won because the rollover before them hit the cap.
+
+    `pools_df` is data/draw_pools.csv, whose rollover_count comes straight from
+    the feed. The count belongs to the draw it is on - 5 means "this pool has
+    rolled five times" - so it identifies the NEXT draw, which the cap forces
+    to pay out. Verified on 3183 -> 3184, 3189 -> 3190 and 3195 -> 3196, the
+    only three Must-Be-Won draws of the two-round era.
+
+    What it cannot see is a PROMOTIONAL Must-Be-Won: the procedures let Allwyn
+    designate any draw one (special draws are the usual case), and no rollover
+    count precedes that. `must_be_won_draw_numbers` catches those, from the
+    forward-looking flag the collector stores. Neither has happened in the
+    two-round era yet.
+    """
+    empty: set = set()
+    if pools_df is None or len(pools_df) == 0:
+        return empty
+    if not {"draw_number", "rollover_count"} <= set(pools_df.columns):
+        return empty
+    import pandas as pd
+    capped = set()
+    for _, row in pools_df.iterrows():
+        count = row["rollover_count"]
+        if pd.notna(count) and int(count) == ROLLOVER_CAP:
+            capped.add(int(row["draw_number"]))
+    order = sorted(int(d) for d in pd.unique(pools_df["draw_number"]))
+    return {nxt for prev, nxt in zip(order, order[1:]) if prev in capped}
+
+
+def exact_sales_baseline(pools_df, draw_date: date | None = None,
+                         last_n_draws: int = 20) -> int | None:
+    """Ordinary-draw lines sold, measured rather than inferred.
+
+    The same quantity `estimate_tickets_sold` builds from winner counts, over
+    the same kind of window and with the same two filters - Must-Be-Won draws
+    excluded, restricted to the target's weekday - but read off the pools
+    instead. None when fewer than MIN_EXACT_OBSERVATIONS draws qualify, which
+    is the caller's signal to fall back.
+
+    Outliers are left in and handled by the median rather than by a rule: the
+    2026-07-04 Millionaire Raffle Saturday sold 11.6m lines against 8.2-9.5m
+    for ordinary Saturdays of the same cycle, and writing a special-draw
+    exception would cost more than it buys while the median already ignores it.
+    """
+    exact = exact_lines_sold(pools_df)
+    if not exact:
+        return None
+    must_be_won = must_be_won_after_cap(pools_df)
+    dates = {int(r["draw_number"]): str(r["draw_date"])
+             for _, r in pools_df.iterrows()}
+    recent = sorted(int(d) for d in pools_df["draw_number"])[-last_n_draws:]
+    values = []
+    for draw in recent:
+        if draw in must_be_won or draw not in exact:
+            continue
+        if draw_date is not None:
+            when = date.fromisoformat(dates[draw])
+            if when.weekday() != draw_date.weekday():
+                continue
+        values.append(exact[draw])
+    if len(values) < MIN_EXACT_OBSERVATIONS:
+        return None
+    values.sort()
+    return values[len(values) // 2]
+
+
+def must_be_won_draw_numbers(tiers_df) -> set:
+    """Draw numbers in `tiers_df` that were Must-Be-Won, rolled down or not.
+
+    A Must-Be-Won draw won outright leaves no trace in its own prize table -
+    draw 3196 paid ordinary Match 3 / Match 2 prizes because two tickets hit
+    six - but it still SOLD like one: 9.46m lines against ~8.4m for an ordinary
+    Saturday of the same cycle. `rolldown_draw_numbers` cannot see it, so until
+    now such draws sat in the "ordinary" baseline and inflated it, and that
+    baseline is then multiplied by the Must-Be-Won uplift. Counting the effect
+    once in the baseline and again in the uplift is double-counting; it pushes
+    EV pessimistic, which is the safe direction and still wrong.
+
+    The flag is forward-looking - the rows of the PREVIOUS draw carry
+    next_jackpot_roll_down for this one - so the earliest draw in a file cannot
+    be classified this way. That case is `rolldown_draw_numbers`, which reads
+    the prize table itself.
+    """
+    empty: set = set()
+    if tiers_df is None or len(tiers_df) == 0:
+        return empty
+    if not {"draw_number", "next_jackpot_roll_down"} <= set(tiers_df.columns):
+        return empty
+    import pandas as pd
+    flagged = set()
+    for draw, group in tiers_df.groupby("draw_number"):
+        values = group["next_jackpot_roll_down"].dropna()
+        if any(str(v).strip().lower() in ("true", "y", "yes", "1") for v in values):
+            flagged.add(int(draw))
+    order = sorted(int(d) for d in pd.unique(tiers_df["draw_number"]))
+    return {nxt for prev, nxt in zip(order, order[1:]) if prev in flagged}
+
+
 def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
                           roll_down: bool = False,
-                          draw_date: date | None = None) -> int | None:
-    """Estimate lines sold for the UPCOMING draw from observed winner counts.
+                          draw_date: date | None = None,
+                          pools_df=None) -> int | None:
+    """Estimate lines sold for the UPCOMING draw from recent draws.
 
     For fixed-prize tiers the expected winner count is N x P(tier), so each
     observation gives N ~= winners / P. Uses the high-count tiers (match 4/3/2,
     least distorted by jackpot-sharing) over recent draws, both rounds, and
     takes the median to damp popularity-of-drawn-numbers noise.
 
+    Given `pools_df` (data/draw_pools.csv) the baseline is not estimated at
+    all - `exact_sales_baseline` reads it off the pool each draw carried, an
+    identity from the 8.88% clause. Winner counts remain the fallback and
+    remain what the rest of this docstring describes, because the pools reach
+    back only as far as the feed's ~180-day window has been collected.
+
+    The uplift multiplication is unchanged either way, and that is now the
+    weakest link: MBW_UPLIFT_BY_WEEKDAY was calibrated on winner-count ratios
+    from the one-round era, and the three live two-round Saturdays read
+    1.02-1.14 against its 1.27 on exact data. Until those constants are
+    re-measured this overstates N on a Must-Be-Won draw, which understates EV -
+    the safe direction, and the one the scorecard now makes visible.
+
     Three steps, because the answer depends on WHICH draw is being forecast:
 
-    1. Measure the ordinary-draw sales level, excluding any roll-down draws in
-       the window. With a full 20-draw window one or two roll-downs barely move
+    1. Measure the ordinary-draw sales level, excluding every Must-Be-Won draw
+       in the window - the ones that rolled down and the ones won outright,
+       which sell the same and are invisible in their own prize tables. With a full 20-draw window one or two roll-downs barely move
        a median, but the collected file started at 3190 - a roll-down - and with
        6 draws on record that single draw was 1/6 of the sample and pulled the
        estimate up 10% (6,574,552 vs 5,913,930).
@@ -529,6 +717,14 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
        3.2% away in N. The one Must-Be-Won draw with full data, 3190, returned
        GBP 1.586 per GBP 2 line.
     """
+    uplift = mbw_uplift(draw_date)[0] if roll_down else 1.0
+
+    # Measured beats inferred: where data/draw_pools.csv covers enough of the
+    # window, the baseline is an identity rather than an estimate.
+    measured = exact_sales_baseline(pools_df, draw_date, last_n_draws)
+    if measured is not None:
+        return int(measured * uplift)
+
     if tiers_df is None or len(tiers_df) == 0:
         return None
     tier_probs = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
@@ -544,7 +740,8 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
     # Baseline is the ORDINARY level; roll-downs are re-added via the uplift.
     # If the window is nothing but roll-downs there is no ordinary level to
     # measure, so fall back to the whole window rather than returning None.
-    boosted = rolldown_draw_numbers(tiers_df[tiers_df["draw_number"].isin(recent_draws)])
+    recent = tiers_df[tiers_df["draw_number"].isin(recent_draws)]
+    boosted = rolldown_draw_numbers(recent) | must_be_won_draw_numbers(recent)
     sample = window[~window["draw_number"].isin(boosted)] if boosted else window
     if len(sample) == 0:
         sample = window
@@ -562,7 +759,6 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
         row["winners"] / tier_probs[int(row["tier"])] for _, row in sample.iterrows()
     )
     baseline = estimates[len(estimates) // 2]
-    uplift = mbw_uplift(draw_date)[0] if roll_down else 1.0
     return int(baseline * uplift)
 
 

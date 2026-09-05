@@ -8,7 +8,7 @@ from scripts.monitoring.post_mbw_validation import (
     _pool_line,
     append_scorecard,
     format_report,
-    latest_draw_was_rolldown,
+    draw_was_must_be_won,
     measured_lines,
     redistributed_sum,
     validate,
@@ -48,20 +48,20 @@ def _history(mbw_lines=9_000_000):
 
 class TestDetection:
     def test_flagged_by_previous_draws_forward_flag(self):
-        assert latest_draw_was_rolldown(_history())
+        assert draw_was_must_be_won(_history())
 
     def test_quiet_on_an_ordinary_draw(self):
         rows = []
         for i in range(3):
             rows += _draw_rows(3180 + i, "2026-05-02", 7_000_000)
         df = pd.DataFrame(rows).drop(columns=["prize_per_winner"])
-        assert not latest_draw_was_rolldown(df)
+        assert not draw_was_must_be_won(df)
 
     def test_tier_marker_works_without_forward_flag(self):
         df = _history()
         df.loc[df["draw_number"] == 3189, "next_jackpot_roll_down"] = False
         df["tier_roll_down"] = (df["draw_number"] == 3190) & df["tier"].isin([5, 6])
-        assert latest_draw_was_rolldown(df)
+        assert draw_was_must_be_won(df)
 
 
 class TestScorecard:
