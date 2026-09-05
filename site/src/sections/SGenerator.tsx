@@ -14,7 +14,7 @@
  * it pays.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import { generatePortfolio } from '@/data/generator';
 import { expectedShare, popularityRatio } from '@/data/popularity';
@@ -25,6 +25,18 @@ const LINES = 5;
 
 /** A line an ordinary player might actually pick: a birthday spread. */
 const TYPICAL_LINE = [3, 7, 12, 19, 24, 31];
+
+/** One offset per tab, drawn on first read and stable for the visit. */
+let visitorSeedValue = 0;
+const visitorSeed = () => {
+  if (visitorSeedValue === 0) {
+    visitorSeedValue = 1 + Math.floor(Math.random() * 1_000_000);
+  }
+  return visitorSeedValue;
+};
+const serverSeed = () => 0;
+/** Nothing ever changes it, so there is nothing to subscribe to. */
+const subscribeToNothing = () => () => {};
 
 export function SGenerator({
   popularity,
@@ -41,14 +53,14 @@ export function SGenerator({
 
   // Every visitor used to get the same first slip - the seed is the draw date -
   // so at any traffic at all this page would have its readers sharing a jackpot
-  // with each other, which is the one thing it tells them to avoid. The server
-  // still renders the deterministic slip, so the committed snapshot and the
-  // golden fixtures still diff; each visitor steps off it once, after
-  // hydration.
-  const [visitorOffset, setVisitorOffset] = useState(0);
-  useEffect(() => {
-    setVisitorOffset(1 + Math.floor(Math.random() * 1_000_000));
-  }, []);
+  // with each other, which is the one thing it tells them to avoid.
+  //
+  // useSyncExternalStore rather than setState in an effect: the offset is
+  // client-only data that must not exist during the server render, which is
+  // exactly the divergence this hook is for. The server snapshot is 0, so the
+  // prerendered page stays deterministic and the committed snapshot and golden
+  // fixtures still diff; React swaps in the visitor's own offset once hydrated.
+  const visitorOffset = useSyncExternalStore(subscribeToNothing, visitorSeed, serverSeed);
 
   const model = popularity.model;
   const bands = popularity.installed_step;
