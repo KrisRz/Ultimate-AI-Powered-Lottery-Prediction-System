@@ -11,6 +11,7 @@ from datetime import datetime
 import warnings
 import traceback
 from collections import Counter
+from lottery.ev import DRAW_WEEKDAYS, MINIMUM_JACKPOT, upcoming_draw_date
 from scripts.utils import LOG_DIR
 
 # Try to import from utils and validation
@@ -1212,30 +1213,11 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
                 "next_jackpot_estimate": float(next_jackpot) if next_jackpot else None,
                 "next_jackpot_roll_down": roll_down,
             })
-    # The pool this draw ACTUALLY carried, kept apart from the estimate the
-    # XML path writes into lotto_full_history's Jackpot column. Sales are an
-    # identity on this number - (pool - previous pool) / 8.88% - and an
-    # estimate is not close enough: draw 3192 was advertised at GBP 3,625,040
-    # and carried GBP 3,492,117.23, an 8.9% error in the sales it implies.
-    # See lottery.ev.exact_lines_sold and scripts/backfill_draw_pools.py.
-    pool_cents = (draw.get("topPrize") or {}).get("prizeCents")
-    if pool_cents is not None:
-        pool_row = pd.DataFrame([{
-            "draw_number": draw_number,
-            "draw_date": draw_date,
-            "pool_gbp": pool_cents / 100.0,
-            # Raw, not the `rollover_count` above: that coerces the feed's null
-            # to 0, and "the jackpot was won" is not "it rolled zero times".
-            "rollover_count": pb.get("jackpotRolloverCount"),
-        }])
-        if DRAW_POOLS_FILE.exists():
-            pool_row = pd.concat([pd.read_csv(DRAW_POOLS_FILE), pool_row],
-                                 ignore_index=True)
-            pool_row = pool_row.drop_duplicates(subset="draw_number", keep="last")
-        pool_row = pool_row.sort_values("draw_number")
-        pool_row["rollover_count"] = pool_row["rollover_count"].astype("Int64")
-        pool_row.to_csv(DRAW_POOLS_FILE, index=False)
-        logger.info(f"Recorded the pool for draw {draw_number} in {DRAW_POOLS_FILE}")
+    # No pool row from this path: the XML carries the ADVERTISED estimate, and
+    # data/draw_pools.csv holds only pools a draw actually carried, because the
+    # sales identity divides by the difference between two of them. A gap here
+    # is filled by scripts/backfill_draw_pools.py from the JSON feed's
+    # ~180-day window, which is also where the JSON path gets it.
 
     if tier_rows:
         tiers_df = pd.DataFrame(tier_rows)
@@ -1311,14 +1293,81 @@ def _forward_fields_from_xml(session, headers) -> dict:
         if game is None:
             return {}
         est = (game.findtext("next-estimated-jackpot") or "").replace(",", "")
+        estimate = float(est) if est else None
+
+        # In the minutes after a draw this endpoint serves a well-formed
+        # document with the forward fields not yet filled in - observed live at
+        # 2026-09-05 20:11 BST, eleven minutes after the draw, returning an
+        # estimate of 0 and then GBP 7,706,666 three minutes later. Taking that
+        # 0 at face value writes it into prize_tiers.csv, and `ev_play` reads
+        # the newest row's estimate as THE jackpot: the advisor would price the
+        # next draw at nothing and the site would publish it.
+        #
+        # The licence guarantees a minimum jackpot of GBP 2m on both days, so
+        # anything below that is not an estimate, it is an absence. Return
+        # nothing at all rather than half a block: the roll-down flag in the
+        # same document is no more trustworthy than the number beside it, and
+        # the caller derives that flag from the rollover cap when it is missing.
+        if estimate is not None and estimate < MINIMUM_JACKPOT:
+            logger.warning(
+                f"Forward-looking XML fields not published yet "
+                f"(next-estimated-jackpot={estimate:,.0f}) - deriving instead")
+            return {}
+
+        # Which draw these fields FOLLOW. The two feeds go out of step in the
+        # update window - at 2026-09-05 20:16 BST the JSON still served 3203 as
+        # latest while this document had already moved on to the estimate for
+        # 3205 - and stapling one to the other stamps a draw with forward
+        # fields that describe a different draw's successor. The advisor
+        # survives that by accident (both mean "the next draw"), but the
+        # scorecard does not: it decides whether a draw was Must-Be-Won by
+        # reading the PREVIOUS draw's flag, so a stray True scores an ordinary
+        # draw as a Must-Be-Won one.
+        drawn = game.find("draw")
+        followed = drawn.findtext("draw-number") if drawn is not None else None
         return {
-            "next_jackpot_estimate": float(est) if est else None,
+            "draw_number": int(followed) if followed else None,
+            "next_jackpot_estimate": estimate,
             "next_jackpot_roll_down":
                 (game.findtext("next-estimated-jackpot-roll-down") or "N") == "Y",
         }
     except Exception as exc:
         logger.warning(f"Forward-looking XML fields unavailable: {exc}")
         return {}
+
+
+def _draws_since(draw_date: str) -> int:
+    """Draws that have taken place since `draw_date` and are not on file yet.
+
+    The forward-looking fields describe the draw after the latest one the feed
+    knows about - so they are only usable while the feed IS the latest. It
+    stops being that for a couple of hours after every draw, and the two
+    endpoints do not lag together: at 2026-09-05 20:16 BST the JSON still
+    served 3203 as latest and its own `<draw>` block still said 3203, while
+    `next-estimated-jackpot` had already moved to GBP 7,706,666 - the estimate
+    for 3205, i.e. the successor of a draw neither endpoint had published.
+
+    Stamped onto 3203 that reads "the next draw is a GBP 7.7m Must-Be-Won",
+    which is true of 3205 and false of 3204. The advisor survives it by
+    coincidence (it wants the next draw either way); `post_mbw_validation` does
+    not, because it decides whether a draw was Must-Be-Won by reading the
+    PREVIOUS draw's flag, and would score an ordinary draw as a Must-Be-Won one.
+
+    Counting from the calendar rather than the feed is the point: it is the one
+    source that cannot be mid-update.
+    """
+    from datetime import date as _date, timedelta as _timedelta
+    try:
+        when = _date.fromisoformat(str(draw_date)[:10])
+    except ValueError:
+        return 0
+    upcoming = upcoming_draw_date()
+    day, drawn = when + _timedelta(days=1), 0
+    while day < upcoming:
+        if day.weekday() in DRAW_WEEKDAYS:
+            drawn += 1
+        day += _timedelta(days=1)
+    return drawn
 
 
 def _ingest_official_json(payload: dict, forward: dict | None = None) -> None:
@@ -1375,9 +1424,41 @@ def _ingest_official_json(payload: dict, forward: dict | None = None) -> None:
     rollover = bool(pb.get("isJackpotRollover"))
     rollover_count = int(pb.get("jackpotRolloverCount") or 0)
     forward = forward or {}
+    # Only if both feeds are talking about the same draw - see
+    # _forward_fields_from_xml for what happens in the window where they are not.
+    if forward.get("draw_number") not in (None, draw_number):
+        logger.warning(
+            f"Forward-looking fields follow draw {forward['draw_number']}, "
+            f"not {draw_number} - the feeds are out of step; deriving instead")
+        forward = {}
     next_roll_down = forward.get("next_jackpot_roll_down")
     if next_roll_down is None:
         next_roll_down = rollover_count >= _ROLLOVER_CAP
+
+    # The pool this draw ACTUALLY carried, kept apart from the estimate the
+    # XML path writes into lotto_full_history's Jackpot column. Sales are an
+    # identity on this number - (pool - previous pool) / 8.88% - and an
+    # estimate is not close enough: draw 3192 was advertised at GBP 3,625,040
+    # and carried GBP 3,492,117.23, an 8.9% error in the sales it implies.
+    # See lottery.ev.exact_lines_sold and scripts/backfill_draw_pools.py.
+    pool_cents = (draw.get("topPrize") or {}).get("prizeCents")
+    if pool_cents is not None:
+        pool_row = pd.DataFrame([{
+            "draw_number": draw_number,
+            "draw_date": draw_date,
+            "pool_gbp": pool_cents / 100.0,
+            # Raw, not the `rollover_count` above: that coerces the feed's null
+            # to 0, and "the jackpot was won" is not "it rolled zero times".
+            "rollover_count": pb.get("jackpotRolloverCount"),
+        }])
+        if DRAW_POOLS_FILE.exists():
+            pool_row = pd.concat([pd.read_csv(DRAW_POOLS_FILE), pool_row],
+                                 ignore_index=True)
+            pool_row = pool_row.drop_duplicates(subset="draw_number", keep="last")
+        pool_row = pool_row.sort_values("draw_number")
+        pool_row["rollover_count"] = pool_row["rollover_count"].astype("Int64")
+        pool_row.to_csv(DRAW_POOLS_FILE, index=False)
+        logger.info(f"Recorded the pool for draw {draw_number} in {DRAW_POOLS_FILE}")
 
     tier_rows = []
     for lvl in pb.get("prizeLevels") or []:
@@ -1403,6 +1484,24 @@ def _ingest_official_json(payload: dict, forward: dict | None = None) -> None:
         tiers_df = pd.DataFrame(tier_rows)
         if PRIZE_TIERS_FILE.exists():
             old = pd.read_csv(PRIZE_TIERS_FILE)
+            # Ingestion is idempotent by design (dedupe keeps the newest row),
+            # and that is what makes the retry run safe - but "newest" must not
+            # mean "least informed". A re-ingest while the forward fields are
+            # unpublished would otherwise blank an estimate this file already
+            # holds. Only ever fill a gap, never open one.
+            if not forward:
+                stored = old[old["draw_number"] == draw_number]
+                known = stored["next_jackpot_estimate"].dropna()
+                if len(known):
+                    tiers_df["next_jackpot_estimate"] = known.iloc[-1]
+                # The flag too: the cap derivation below cannot see a
+                # PROMOTIONAL Must-Be-Won (a special draw Allwyn designates
+                # without five rollovers), so a retry would quietly turn one
+                # off. Those are the draws most worth playing.
+                flag = stored["next_jackpot_roll_down"].dropna()
+                if len(flag) and str(flag.iloc[-1]).strip().lower() in (
+                        "true", "y", "yes", "1"):
+                    tiers_df["next_jackpot_roll_down"] = True
             tiers_df = pd.concat([old, tiers_df], ignore_index=True)
             tiers_df = tiers_df.drop_duplicates(subset=["draw_number", "round", "tier"], keep="last")
         tiers_df.sort_values(["draw_number", "round", "tier"]).to_csv(PRIZE_TIERS_FILE, index=False)
@@ -1535,6 +1634,18 @@ def download_fresh_data() -> bool:
                 recover_missing_draws(session, ua,
                                       int(payload["drawResult"]["drawNo"]))
                 forward = _forward_fields_from_xml(session, ua)
+                # Only the live path can ask this, and only the live path
+                # needs to: `_ingest_official_json` stays a function of its
+                # arguments, which is what lets the tests and the backfill
+                # replay old draws.
+                behind = _draws_since(payload["drawResult"]["drawDate"])
+                if forward and behind:
+                    logger.warning(
+                        f"{behind} draw(s) have taken place since "
+                        f"{str(payload['drawResult']['drawDate'])[:10]} and are not "
+                        f"published yet - the forward-looking fields describe a draw "
+                        f"after this one's successor; deriving instead")
+                    forward = {}
                 _ingest_official_json(payload, forward)
                 logger.info("Successfully collected the latest draw from the JSON API")
                 return True
