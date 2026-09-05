@@ -23,6 +23,7 @@ configured - an MBW is rare enough that a scorecard email is signal, not spam.
 
 from __future__ import annotations
 
+import argparse
 import sys
 from datetime import date
 from pathlib import Path
@@ -34,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from lottery.ev import (  # noqa: E402
     calibrate_fixed_prizes,
     estimate_tickets_sold,
+    exact_lines_sold,
     mbw_uplift,
     P_MATCH_2,
     P_MATCH_3,
@@ -43,22 +45,34 @@ from lottery.ev import (  # noqa: E402
 )
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
+DRAW_POOLS_FILE = Path("data/draw_pools.csv")
 VALIDATION_FILE = Path("data/mbw_validation.csv")
 
 TIER_PROBS = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
 
 
-def latest_draw_was_rolldown(tiers: pd.DataFrame) -> bool:
-    """The row(s) BEFORE the latest draw carry its forward-looking flag."""
+def draw_was_must_be_won(tiers: pd.DataFrame,
+                         draw_number: int | None = None) -> bool:
+    """Was this draw Must-Be-Won? The row(s) BEFORE it carry the forward flag.
+
+    Named for what it tests. It was `latest_draw_was_rolldown`, which was only
+    ever true by coincidence: a Must-Be-Won draw rolls down when nobody wins
+    (~73% of them) and pays out normally when somebody does. Both are worth
+    scoring - draw 3196 was won outright and is the model's only live
+    Saturday sales measurement.
+    """
     draws = sorted(tiers["draw_number"].unique())
     if len(draws) < 2:
         return False
-    prev = tiers[tiers["draw_number"] == draws[-2]].iloc[-1]
+    target = int(draw_number) if draw_number is not None else int(draws[-1])
+    if target not in draws or draws.index(target) == 0:
+        return False
+    prev = tiers[tiers["draw_number"] == draws[draws.index(target) - 1]].iloc[-1]
     flag = prev.get("next_jackpot_roll_down")
     if pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1"):
         return True
     # JSON-era rows also mark the boosted tiers directly on the draw itself
-    latest_rows = tiers[tiers["draw_number"] == draws[-1]]
+    latest_rows = tiers[tiers["draw_number"] == target]
     if "tier_roll_down" in latest_rows.columns:
         return bool(latest_rows["tier_roll_down"].fillna(False).any())
     return False
@@ -98,19 +112,42 @@ def redistributed_sum(rows: pd.DataFrame, prizes) -> float | None:
     return total if seen else None
 
 
-def validate(tiers: pd.DataFrame) -> dict | None:
-    """The scorecard for the latest draw, or None if it was not a roll-down."""
-    if not latest_draw_was_rolldown(tiers):
+def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
+             draw_number: int | None = None) -> dict | None:
+    """The scorecard for a draw, or None if it was not Must-Be-Won.
+
+    Defaults to the latest collected draw, which is how the collector calls it.
+    `draw_number` re-scores an earlier one, which is how a correction gets made
+    from data rather than by editing the CSV by hand.
+    """
+    if not draw_was_must_be_won(tiers, draw_number):
         return None
     draws = sorted(tiers["draw_number"].unique())
-    latest_no = draws[-1]
+    latest_no = int(draw_number) if draw_number is not None else int(draws[-1])
+    previous_no = draws[draws.index(latest_no) - 1]
     rows = tiers[tiers["draw_number"] == latest_no]
     draw_date = date.fromisoformat(str(rows["draw_date"].iloc[0]))
     before = tiers[tiers["draw_number"] < latest_no]
-    prev = before[before["draw_number"] == draws[-2]].iloc[-1]
+    prev = before[before["draw_number"] == previous_no].iloc[-1]
 
-    measured = measured_lines(rows)
-    predicted = estimate_tickets_sold(before, roll_down=True, draw_date=draw_date)
+    # What the draw sold is an identity where the pools reach it: winner counts
+    # measure the same thing with +/-15% of noise, and a scorecard is a
+    # single-draw measurement - exactly the case that noise ruins. Draw 3196
+    # read 10.92m by winner counts against an exact 9.46m, turning a +2.6%
+    # forecast error into a reported -11.1% and a 1.04 uplift into 1.43.
+    exact = exact_lines_sold(pools)
+    measured = exact.get(latest_no)
+    lines_source = "pool identity"
+    if measured is None:
+        measured = measured_lines(rows)
+        lines_source = "winner counts"
+    # The forecast is reconstructed with the model as it stands TODAY, on the
+    # data that existed before the draw - which is why re-scoring an old draw
+    # can move its row: it is scoring the current model, not the one that ran.
+    before_pools = (pools[pools["draw_number"] < latest_no]
+                    if pools is not None else None)
+    predicted = estimate_tickets_sold(before, roll_down=True, draw_date=draw_date,
+                                      pools_df=before_pools)
     advertised = (float(prev["next_jackpot_estimate"])
                   if pd.notna(prev.get("next_jackpot_estimate")) else None)
     redistributed = redistributed_sum(rows, calibrate_fixed_prizes(before))
@@ -123,6 +160,7 @@ def validate(tiers: pd.DataFrame) -> dict | None:
         "draw_number": int(latest_no),
         "draw_date": draw_date.isoformat(),
         "measured_lines": measured,
+        "lines_source": lines_source,
         "predicted_lines": predicted,
         "n_error": (predicted - measured) / measured
         if measured and predicted else None,
@@ -188,6 +226,7 @@ def format_report(r: dict) -> str:
         "",
         f"Lines sold:   measured {r['measured_lines']:,} vs forecast "
         f"{r['predicted_lines']:,}  (forecast error {pct(r['n_error'])})"
+        f"  [{r.get('lines_source', 'winner counts')}]"
         if r["measured_lines"] and r["predicted_lines"] else
         "Lines sold:   insufficient data",
         f"Sales uplift: measured x{r['uplift_measured']:.3f} vs installed "
@@ -202,21 +241,28 @@ def format_report(r: dict) -> str:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--draw", type=int, default=None,
+                    help="re-score an earlier draw instead of the latest one")
+    args = ap.parse_args()
+
     if not PRIZE_TIERS_FILE.exists():
         print("[mbw-validation] no prize_tiers.csv - nothing to do")
         return 0
     tiers = pd.read_csv(PRIZE_TIERS_FILE)
-    result = validate(tiers)
+    pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
+    result = validate(tiers, pools, args.draw)
     if result is None:
-        print("[mbw-validation] latest draw was not a roll-down - nothing to score")
+        which = f"draw {args.draw}" if args.draw else "latest draw"
+        print(f"[mbw-validation] {which} was not Must-Be-Won - nothing to score")
         return 0
     append_scorecard(result)
     report = format_report(result)
     print(report)
-# Deliberately not emailed. The inbox is reserved for a PLAY verdict, so that
-    # a message arriving always means "act". The scorecard is a post-mortem of a
-    # draw already settled - it belongs in data/mbw_validation.csv, which it is,
-    # and in the workflow log above.
+    # Deliberately not emailed. The inbox is reserved for a PLAY verdict, so
+    # that a message arriving always means "act". The scorecard is a
+    # post-mortem of a draw already settled - it belongs in
+    # data/mbw_validation.csv, which it is, and in the workflow log above.
     return 0
 
 

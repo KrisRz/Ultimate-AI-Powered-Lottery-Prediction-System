@@ -5694,8 +5694,8 @@
       "window_days": 180
     },
     "tests": {
-      "count": 260,
-      "files": 21
+      "count": 274,
+      "files": 22
     },
     "workflows": [
       {
@@ -5745,31 +5745,31 @@
       "source": "observed (14 draws)"
     },
     "live": {
-      "break_even_jackpot": 30253355,
+      "break_even_jackpot": 30381430,
       "draw_date": "2026-09-05",
-      "ev_best_line": -0.9849,
+      "ev_best_line": -0.9861,
       "jackpot_gbp": 6809577,
       "mbw_type": null,
       "robust": false,
       "roll_down": false,
       "rollover_cap": 5,
       "rollover_count": 4,
-      "tickets_sold": 7921410,
+      "tickets_sold": 8536043,
       "verdict": "SKIP"
     },
     "mbw_sales_band": {
       "p25": {
         "a": -1.2710166131372567,
-        "b": 1.1139298937055008e-07,
-        "break_even_jackpot": 11410203,
-        "tickets_sold": 9426477,
+        "b": 1.0408891001979412e-07,
+        "break_even_jackpot": 12210874,
+        "tickets_sold": 10157890,
         "uplift": 1.19
       },
       "p75": {
         "a": -1.2710166131372567,
-        "b": 1.0210810577994358e-07,
-        "break_even_jackpot": 12447754,
-        "tickets_sold": 10377046,
+        "b": 9.552301728940748e-08,
+        "break_even_jackpot": 13305868,
+        "tickets_sold": 11182215,
         "uplift": 1.31
       }
     },
@@ -5785,23 +5785,23 @@
     "regimes": [
       {
         "a": -1.2710166131372567,
-        "b": 4.201241828446322e-08,
-        "break_even_jackpot": 30253355,
+        "b": 4.183531253591222e-08,
+        "break_even_jackpot": 30381430,
         "key": "ordinary",
         "label": "Ordinary draw",
         "roll_down": false,
         "rounds": 2,
-        "tickets_sold": 7921410
+        "tickets_sold": 8536043
       },
       {
         "a": -1.2710166131372567,
-        "b": 1.0500086531086508e-07,
-        "break_even_jackpot": 12104820,
+        "b": 9.819104243086237e-08,
+        "break_even_jackpot": 12944323,
         "key": "mbw",
         "label": "Must-Be-Won roll-down",
         "roll_down": true,
         "rounds": 2,
-        "tickets_sold": 10060190
+        "tickets_sold": 10840774
       }
     ],
     "slider": {
@@ -6884,15 +6884,15 @@
     "rule": "\u00a35 to every Match 2 winner first; whatever remains is shared among the Match 3 winners",
     "split": {
       "basis": "median historical roll-down pool",
-      "expected_match_2_winners": 1961412,
-      "expected_match_3_winners": 209217,
+      "expected_match_2_winners": 2113600,
+      "expected_match_3_winners": 225451,
       "jackpot_gbp": 12011099,
       "match_2_boost": 4.0,
-      "match_2_total_gbp": 7845647,
-      "match_3_boost": 19.9097,
-      "match_3_total_gbp": 4165452,
+      "match_2_total_gbp": 8454401,
+      "match_3_boost": 15.7759,
+      "match_3_total_gbp": 3556698,
       "rounds": 2,
-      "tickets_sold": 10060190
+      "tickets_sold": 10840774
     }
   },
   "schema_version": 1,
@@ -6923,7 +6923,7 @@
       "5": 3,
       "6": 3
     },
-    "line_ev": -0.556,
+    "line_ev": -0.6024,
     "line_popularity": 0.3158,
     "lines": [
       [

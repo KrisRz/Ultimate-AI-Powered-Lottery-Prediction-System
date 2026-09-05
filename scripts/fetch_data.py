@@ -1212,6 +1212,31 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
                 "next_jackpot_estimate": float(next_jackpot) if next_jackpot else None,
                 "next_jackpot_roll_down": roll_down,
             })
+    # The pool this draw ACTUALLY carried, kept apart from the estimate the
+    # XML path writes into lotto_full_history's Jackpot column. Sales are an
+    # identity on this number - (pool - previous pool) / 8.88% - and an
+    # estimate is not close enough: draw 3192 was advertised at GBP 3,625,040
+    # and carried GBP 3,492,117.23, an 8.9% error in the sales it implies.
+    # See lottery.ev.exact_lines_sold and scripts/backfill_draw_pools.py.
+    pool_cents = (draw.get("topPrize") or {}).get("prizeCents")
+    if pool_cents is not None:
+        pool_row = pd.DataFrame([{
+            "draw_number": draw_number,
+            "draw_date": draw_date,
+            "pool_gbp": pool_cents / 100.0,
+            # Raw, not the `rollover_count` above: that coerces the feed's null
+            # to 0, and "the jackpot was won" is not "it rolled zero times".
+            "rollover_count": pb.get("jackpotRolloverCount"),
+        }])
+        if DRAW_POOLS_FILE.exists():
+            pool_row = pd.concat([pd.read_csv(DRAW_POOLS_FILE), pool_row],
+                                 ignore_index=True)
+            pool_row = pool_row.drop_duplicates(subset="draw_number", keep="last")
+        pool_row = pool_row.sort_values("draw_number")
+        pool_row["rollover_count"] = pool_row["rollover_count"].astype("Int64")
+        pool_row.to_csv(DRAW_POOLS_FILE, index=False)
+        logger.info(f"Recorded the pool for draw {draw_number} in {DRAW_POOLS_FILE}")
+
     if tier_rows:
         tiers_df = pd.DataFrame(tier_rows)
         if PRIZE_TIERS_FILE.exists():
@@ -1247,6 +1272,7 @@ def _ingest_official_xml(xml_bytes: bytes) -> None:
 # auth, but an AWS WAF rejects non-browser user agents with 403. Richer than
 # the XML: per-winner prize AND per-tier fund, plus per-tier roll-down flags.
 # Window is only ~180 days - the git-committed CSVs remain the full archive.
+DRAW_POOLS_FILE = DATA_DIR / "draw_pools.csv"
 API_JSON_URL = "https://api-dfe.national-lottery.co.uk/draw-game/results/1/latest"
 API_DRAW_URL = "https://api-dfe.national-lottery.co.uk/draw-game/results/6/{draw}"
 LATEST_JSON_FILE = DATA_DIR / "lotto-latest.json"
