@@ -36,6 +36,18 @@ bash "$ROOT_DIR/scripts/monitoring/sync_collector_data.sh" || {
   exit 1
 }
 
+# Nudge the cloud collector before doing anything locally. GitHub's cron has
+# been dropping and delaying scheduled runs since late August 2026, and a
+# workflow_dispatch is honoured immediately - so if the scheduled run never
+# fired, this repairs the cloud copy (which is canonical) rather than leaving
+# the Mac as the only machine holding the draw. Best-effort: no gh, no auth, no
+# network, and the local fetch below still does the job.
+if command -v gh >/dev/null; then
+  gh workflow run collect.yml --ref main 2>/dev/null \
+    && echo "[post-draw] asked the collector to run" \
+    || echo "[post-draw] could not dispatch collect.yml - carrying on locally"
+fi
+
 echo "[post-draw] $(date '+%Y-%m-%d %H:%M') fetching latest result..."
 PYTHONPATH=. python -c "from scripts.fetch_data import download_fresh_data; download_fresh_data()"
 

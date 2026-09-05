@@ -13,7 +13,7 @@ weights, so the wheel keeps the one real edge this project has: lines that
 share prizes with fewer co-winners.
 
 Usage:
-  PYTHONPATH=. python scripts/wheel_play.py                  # 10 lines, pool 12
+  PYTHONPATH=. python scripts/wheel_play.py                  # 6 lines, pool 12
   PYTHONPATH=. python scripts/wheel_play.py --lines 10 --pool-size 11
 """
 
@@ -56,15 +56,46 @@ def unpopular_pool(size: int) -> list[int]:
     return sorted(below + spread)
 
 
+# Optimal lotto designs, by pool size, as 1-based indices into the pool.
+#
+# A greedy search finds the "3 if 4" guarantee on a 12-number pool at EIGHT
+# tickets and never at six - it commits to a locally best first ticket and
+# cannot see the symmetric arrangement. The optimum has been known for
+# decades: the (12, 6, 3, 4) lotto design has 6 blocks, and 5 is proved
+# impossible (Karim 2005). Taken from coveringrepository.com, which formally
+# replaced the La Jolla Covering Repository in March 2026, and verified here
+# with this file's own `measure_guarantees` - {4: 3, 5: 3, 6: 3}, identical to
+# greedy at 8 and 10 tickets, for GBP 12 instead of GBP 20.
+#
+# Two of the six lines share four numbers. That is a property of the design,
+# not a mistake: covering every quadruple with 6 blocks needs the overlap.
+KNOWN_COVERINGS = {
+    12: [[1, 2, 4, 10, 11, 12], [1, 3, 7, 8, 9, 10], [4, 5, 6, 8, 9, 11],
+         [2, 5, 6, 8, 9, 12], [1, 3, 5, 6, 7, 10], [2, 3, 4, 7, 11, 12]],
+}
+
+
+def covering_lines(pool: list[int]) -> int | None:
+    """How many lines the known optimal design needs on this pool, if any."""
+    design = KNOWN_COVERINGS.get(len(pool))
+    return len(design) if design else None
+
+
 def build_wheel(pool: list[int], n_lines: int) -> list[list[int]]:
-    """Greedy covering design aimed straight at the "3 if 4" guarantee.
+    """The "3 if 4" guarantee: the known optimal design, or greedy after it.
 
     A pool quadruple counts as covered when some ticket matches at least 3
     of it - cover them all and any draw putting 4 winners in the pool pays a
-    guaranteed Match 3. That is the strongest guarantee 10 tickets can chase
-    on a 12-number pool (full 3-if-3 needs every one of the 220 triples on a
-    ticket; 10 tickets hold at most 200). Plain triple coverage breaks ties,
-    then the least popular line. Deterministic for a given pool and size.
+    guaranteed Match 3. That is the strongest guarantee available on a
+    12-number pool at any size worth buying (full 3-if-3 needs every one of the
+    220 triples on a ticket; even 10 tickets hold at most 200).
+
+    KNOWN_COVERINGS supplies it outright where the optimum is published; the
+    greedy search below is the fallback for every other pool size, and tops up
+    beyond the design when more lines are asked for than the guarantee needs.
+    Greedy scores each candidate by new quadruples covered, then plain triple
+    coverage, then the least popular line. Deterministic for a given pool
+    and size.
     """
     def quads_hit(c) -> set:
         # Quadruples sharing >=3 numbers with ticket c: each triple of c
@@ -88,6 +119,18 @@ def build_wheel(pool: list[int], n_lines: int) -> list[list[int]]:
     covered3: set = set()
     covered4: set = set()
     tickets: list[list[int]] = []
+
+    # Start from the optimal design where one is known and there is room for
+    # it; greedy then only ever tops up beyond a guarantee already complete.
+    design = KNOWN_COVERINGS.get(len(pool))
+    if design and n_lines >= len(design):
+        for block in design:
+            line = tuple(sorted(pool[i - 1] for i in block))
+            tickets.append(list(line))
+            covered3 |= set(combinations(line, 3))
+            covered4 |= quads_hit(line)
+            if line in candidates:
+                candidates.remove(line)
     while len(tickets) < n_lines:
         best = max(
             candidates,
@@ -123,7 +166,9 @@ def measure_guarantees(pool: list[int], tickets: list[list[int]]) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lines", type=int, default=10, help="Tickets to generate")
+    parser.add_argument("--lines", type=int, default=None,
+                        help="Tickets to generate (default: as many as the "
+                             "guarantee needs, 6 on a pool of 12)")
     parser.add_argument("--pool-size", type=int, default=12,
                         help="Unpopular numbers to wheel (11-14 is sensible)")
     args = parser.parse_args()
@@ -137,7 +182,9 @@ def main() -> None:
                      "impractically slow (and dilutes the unpopular-pool edge)")
 
     pool = unpopular_pool(args.pool_size)
-    tickets = build_wheel(pool, args.lines)
+    optimal = covering_lines(pool)
+    n_lines = args.lines if args.lines is not None else (optimal or 10)
+    tickets = build_wheel(pool, n_lines)
     guar = measure_guarantees(pool, tickets)
     cond = next_draw_conditions()
 
@@ -158,6 +205,14 @@ def main() -> None:
     for t, g in guar.items():
         note = " -> guaranteed Match 3+ prize" if g >= 3 else ""
         print(f"  t={t}: g={g}{note}")
+    if optimal:
+        if n_lines == optimal:
+            print(f"Optimal design:       {optimal} lines is the published minimum for "
+                  f"this pool")
+        elif n_lines > optimal:
+            print(f"NOTE: the guarantee is complete at {optimal} lines "
+                  f"(£{(n_lines - optimal) * 2:.0f} of these {n_lines} buy nothing "
+                  f"the first {optimal} do not already guarantee)")
     print("-" * 64)
     total_ev = 0.0
     for i, line in enumerate(tickets, 1):

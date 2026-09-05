@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install pandas numpy requests
+        run: pip install -r requirements-ci.txt
 
       - name: Fetch latest draw (official XML, idempotent ingest)
         run: |
@@ -114,6 +114,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run site-deploy.yml --ref main
+
+      # The one failure this repo could not see: a run that never happened.
+      # GitHub notifies on a FAILED run and says nothing about a skipped one,
+      # and its cron has been dropping and delaying runs platform-wide since
+      # late August 2026 (measured: 13-58 min late through 23 Aug, 2-11 h
+      # since). A dead-man ping inverts the test - healthchecks.io alerts when
+      # the ping does NOT arrive by its deadline, so silence becomes the alarm
+      # instead of the default.
+      #
+      # Set HEALTHCHECK_URL (repo secret) to the check's ping URL, with a
+      # period of one draw and a grace long enough for the retry run. Without
+      # the secret this step is a no-op, so a fork or a fresh clone is not
+      # broken by its absence.
+      - name: Dead-man ping
+        if: success()
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          if [ -n "$HEALTHCHECK_URL" ]; then
+            curl -fsS --retry 3 --max-time 10 "$HEALTHCHECK_URL" && echo "pinged"
+          else
+            echo "HEALTHCHECK_URL not set - skipping (see the comment above)"
+          fi
 
       - name: EV verdict + email alert on PLAY
         env:

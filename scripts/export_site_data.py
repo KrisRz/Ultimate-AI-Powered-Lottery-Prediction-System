@@ -54,6 +54,7 @@ from lottery.ev import (  # noqa: E402
     P_MATCH_5,
     P_MATCH_5_BONUS,
     ROLLOVER_CAP,
+    TWO_ROUND_FIRST_DRAW,
     TICKET_PRICE,
     TOTAL_COMBOS,
     DrawConditions,
@@ -61,7 +62,12 @@ from lottery.ev import (  # noqa: E402
     break_even_jackpot,
     expected_cowinner_share,
     mbw_type,
+    exact_sales_baseline,
     mbw_uplift,
+    must_be_won_after_cap,
+    must_be_won_outlook,
+    next_draw_dates,
+    upcoming_draw_date,
     line_ev,
     number_weight,
     popularity_ratio,
@@ -77,6 +83,7 @@ from scripts.backtest_wheel import (  # noqa: E402
 from scripts.rolldown_history import replay_rolldowns, summarise  # noqa: E402
 from scripts.wheel_play import (  # noqa: E402
     build_wheel as build_wheel_lines,
+    covering_lines,
     measure_guarantees,
     unpopular_pool,
 )
@@ -94,6 +101,8 @@ SCHEMA_VERSION = 1
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 MERGED_FILE = Path("data/merged_lottery_data.csv")
 FULL_HISTORY_FILE = Path("data/lotto_full_history.csv")
+DRAW_POOLS_FILE = Path("data/draw_pools.csv")
+GOLDEN_FILE = Path("site/src/__fixtures__/popularity-golden.json")
 VALIDATION_DIR = Path("outputs/validation")
 OUT_FILE = Path("site/public/data/site.json")
 
@@ -330,7 +339,7 @@ def affine(line, cond: DrawConditions) -> tuple:
     """
     a = cond.rounds * cond.prizes.ev_per_round() - cond.ticket_price
     b = cond.rounds * P_JACKPOT * expected_cowinner_share(
-        line, cond.tickets_sold * cond.rounds)
+        line, cond.tickets_sold, cond.rounds)
     if cond.roll_down:
         b += exp(-cond.tickets_sold * cond.rounds * P_JACKPOT) / max(cond.tickets_sold, 1)
     return a, b
@@ -351,7 +360,8 @@ def _regime(key: str, label: str, cond: DrawConditions, line) -> dict:
 
 
 def build_ev(live: DrawConditions, ordinary: DrawConditions,
-             mbw: DrawConditions) -> dict:
+             mbw: DrawConditions, pools: "pd.DataFrame | None" = None,
+             now=None) -> dict:
     line = best_unpopular_reference_line()
     verdict = should_play(live, threshold=0.0)
 
@@ -376,6 +386,57 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
             "break_even_jackpot": gbp(break_even_jackpot(cond, line)),
         }
 
+    # The Must-Be-Won threshold is not one number: Saturdays sell about 1.6x
+    # what Wednesdays do, so the same roll-down needs a pool half again as big
+    # to break even on a Saturday. Publishing only the live draw's weekday made
+    # the page read as though there were a single figure.
+    by_weekday = {}
+    if pools is not None and len(pools):
+        first = upcoming_draw_date(now)
+        for when in [first] + next_draw_dates(first, 1):
+            baseline = exact_sales_baseline(pools, when)
+            if baseline is None:
+                continue
+            cond = DrawConditions(
+                jackpot=mbw.jackpot,
+                tickets_sold=max(int(baseline * mbw_uplift(when)[0]), 1),
+                roll_down=True, rounds=mbw.rounds, ticket_price=mbw.ticket_price,
+                prizes=mbw.prizes, rollover_count=ROLLOVER_CAP, draw_date=when)
+            by_weekday[when.strftime("%A")] = {
+                "tickets_sold": cond.tickets_sold,
+                "break_even_jackpot": gbp(break_even_jackpot(cond, line)),
+            }
+
+    # What a capped roll actually reaches in this era, from the draws that
+    # have done it. This is the number that decides whether a Must-Be-Won draw
+    # is an opportunity or just an event: three of them so far, all Saturdays,
+    # none of them within GBP 3m of the Saturday threshold above.
+    cap_reach = None
+    if pools is not None and len(pools):
+        capped = sorted(must_be_won_after_cap(pools))
+        reached = sorted(float(r["pool_gbp"]) for _, r in pools.iterrows()
+                         if int(r["draw_number"]) in capped)
+        if reached:
+            cap_reach = {
+                "n": len(reached),
+                "low_gbp": gbp(reached[0]),
+                "high_gbp": gbp(reached[-1]),
+                "median_gbp": gbp(reached[len(reached) // 2]),
+                "era_from_draw": TWO_ROUND_FIRST_DRAW,
+            }
+
+    forecast = must_be_won_outlook(live, pools, now)
+    outlook = None if forecast is None else {
+        "expected_date": forecast["expected_date"].isoformat(),
+        "draws_away": forecast["draws_away"],
+        "weekday": forecast["expected_date"].strftime("%A"),
+        "projected_pool_gbp": gbp(forecast["projected_pool"]),
+        "tickets_sold": forecast["tickets_sold"],
+        "break_even_jackpot": gbp(forecast["break_even_jackpot"]),
+        "ev_best_line": forecast["ev_best_line"],
+        "verdict": "PLAY" if forecast["play"] else "SKIP",
+    }
+
     return {
         "reference_line": list(line),
         "reference_popularity": popularity_ratio(line),
@@ -394,6 +455,13 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
             _regime("mbw", "Must-Be-Won roll-down", mbw, line),
         ],
         "mbw_sales_band": band,
+        "mbw_break_even_by_weekday": by_weekday or None,
+        "cap_pool_reach": cap_reach,
+        # The Must-Be-Won draw this roll is heading for, priced before it
+        # arrives. The page used to say these come round nine times a year and
+        # leave it there; what it can say instead is what the next one is
+        # actually worth, which in the two-round era is usually "not enough".
+        "outlook": outlook,
         "live": {
             "draw_date": live.draw_date.isoformat(),
             "jackpot_gbp": gbp(live.jackpot),
@@ -537,7 +605,7 @@ def build_rolldown(mbw: DrawConditions) -> dict:
 
 
 def build_wheel(mbw: DrawConditions) -> dict:
-    """The ten-line slip, and what an honest backtest says about it.
+    """The wheel slip, and what an honest backtest says about it.
 
     Worth its own section precisely because the finding is negative in the way
     that matters: the guarantee is real and measured, the return is identical
@@ -545,7 +613,10 @@ def build_wheel(mbw: DrawConditions) -> dict:
     that sold this as an edge would be lying by omission.
     """
     pool = unpopular_pool(12)
-    tickets = build_wheel_lines(pool, 10)
+    # As many lines as the guarantee actually needs. This published ten of
+    # them until 2026-09-05, which bought the reader an identical guarantee
+    # for GBP 8 more - see wheel_play.KNOWN_COVERINGS.
+    tickets = build_wheel_lines(pool, covering_lines(pool) or 10)
     guarantees = measure_guarantees(pool, tickets)
 
     draws = load_draws()
@@ -637,10 +708,14 @@ def build_built() -> dict:
             "separate step asserts the expected draw is present - a silent no-op "
             "becomes a red build"
         ),
+        # Measured on the run history, not from GitHub's docs, and re-measured
+        # 2026-09-05: the drift got materially worse platform-wide from late
+        # August. Two runs per draw is what makes that a non-event.
         "scheduler_caveat": (
-            "GitHub's cron is best-effort and has drifted by up to two and a half "
-            "hours on this repo. Two runs per draw plus an independent watchdog is "
-            "the answer to that, not punctuality"
+            "GitHub's cron is best-effort: on this repo it ran 13-58 minutes late "
+            "through August 2026 and has drifted to 2-11 hours since. Two runs per "
+            "draw plus an independent watchdog is the answer to that, not "
+            "punctuality"
         ),
         "hosting": {
             "cdn": "CloudFront",
@@ -738,7 +813,7 @@ def build_last_draw(tiers: pd.DataFrame, merged: pd.DataFrame) -> dict:
 
 # --- golden fixtures ---------------------------------------------------------
 
-def write_golden_fixtures() -> int:
+def golden_fixture_text() -> tuple[str, int]:
     """Pin the browser's copy of the model to this one.
 
     The page generates lines in the visitor's browser, which means
@@ -774,14 +849,29 @@ def write_golden_fixtures() -> int:
         if len(line) == N_PICK:
             lines.append(line)
 
+    # Fixed, not read from the live model: a fixture that moves with the data
+    # cannot tell a port that drifted from a draw that happened.
+    FIXTURE_ENTRIES, FIXTURE_ROUNDS = 8_000_000, 2
+
     fixture = {
         "note": "Written by scripts/export_site_data.py. Do not edit by hand.",
         "model": {
             "mean_weight": MEAN_WEIGHT,
             "normalization": POPULARITY_NORMALIZATION,
         },
+        # The share is pinned as well as the ratio. The two-round co-winner
+        # correction of 2026-09-05 had to be made twice, once in Python and
+        # once in TypeScript, and nothing here would have caught it if the
+        # second had been forgotten - the ratio does not move when the sharing
+        # model does.
+        "share_case": {
+            "tickets_sold": FIXTURE_ENTRIES,
+            "rounds": FIXTURE_ROUNDS,
+            "total_combinations": TOTAL_COMBOS,
+        },
         "cases": [
-            {"line": line, "ratio": popularity_ratio(line)}
+            {"line": line, "ratio": popularity_ratio(line),
+             "share": expected_cowinner_share(line, FIXTURE_ENTRIES, FIXTURE_ROUNDS)}
             for line in lines
         ],
         "weights": [number_weight(n) for n in range(1, N_BALLS + 1)],
@@ -791,10 +881,14 @@ def write_golden_fixtures() -> int:
     # that is subtly wrong, and 4 decimal places would hide exactly that. Safe
     # to leave unrounded because none of this passes through numpy - it is
     # products of constants, identical on every platform.
-    path = Path("site/src/__fixtures__/popularity-golden.json")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(fixture, indent=2, sort_keys=True) + "\n")
-    return len(lines)
+    return json.dumps(fixture, indent=2, sort_keys=True) + "\n", len(lines)
+
+
+def write_golden_fixtures() -> int:
+    text, cases = golden_fixture_text()
+    GOLDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    GOLDEN_FILE.write_text(text)
+    return cases
 
 
 # --- assembly ---------------------------------------------------------------
@@ -810,6 +904,7 @@ def build_payload() -> dict:
     ordinary = next_draw_conditions(force_ordinary=True, now=now)
     mbw = next_draw_conditions(force_roll_down=True, now=now)
 
+    pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
     merged = pd.read_csv(MERGED_FILE)
     full = pd.read_csv(FULL_HISTORY_FILE)
 
@@ -823,7 +918,7 @@ def build_payload() -> dict:
         },
         "hook": build_hook(),
         "backtest": build_backtest(),
-        "ev": build_ev(live, ordinary, mbw),
+        "ev": build_ev(live, ordinary, mbw, pools, now),
         "popularity": build_popularity(),
         "rolldown": build_rolldown(mbw),
         "wheel": build_wheel(mbw),
@@ -862,12 +957,24 @@ def main() -> int:
     text = serialize(build_payload())
 
     if args.check:
+        stale = []
+        # The fixtures need checking as much as the snapshot does - more, in
+        # fact: they are the only thing pinning the browser's copy of the model
+        # to this one, and --check used to skip them entirely, so a stale
+        # fixture passed CI silently. Found 2026-09-05, when the two-round
+        # co-winner fix had to be made in both languages.
+        golden, _ = golden_fixture_text()
+        if not GOLDEN_FILE.exists() or GOLDEN_FILE.read_text() != golden:
+            stale.append(GOLDEN_FILE)
         current = OUT_FILE.read_text() if OUT_FILE.exists() else ""
         if current != text:
-            print(f"{OUT_FILE} is stale - run `make site-data` and commit the result",
-                  file=sys.stderr)
+            stale.append(OUT_FILE)
+        if stale:
+            for path in stale:
+                print(f"{path} is stale", file=sys.stderr)
+            print("run `make site-data` and commit the result", file=sys.stderr)
             return 1
-        print(f"{OUT_FILE} is up to date")
+        print(f"{OUT_FILE} and {GOLDEN_FILE} are up to date")
         return 0
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)

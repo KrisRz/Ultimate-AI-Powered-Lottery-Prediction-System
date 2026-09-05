@@ -381,10 +381,34 @@ def _popularity_normalization() -> float:
 POPULARITY_NORMALIZATION = _popularity_normalization()
 
 
-def expected_cowinner_share(line: Sequence[int], tickets_sold: int) -> float:
-    """E[1 / (1 + K)] where K ~ Poisson(lambda) is the number of OTHER
-    jackpot winners holding this line. lambda = tickets * P(pick this line)."""
-    lam = tickets_sold * popularity_ratio(line) / TOTAL_COMBOS
+def expected_cowinner_share(line: Sequence[int], tickets_sold: int,
+                            rounds: int = 1) -> float:
+    """E[1 / (1 + K)], K ~ Poisson(lambda) other jackpot winners to split with.
+
+    `tickets_sold` is entries, not entries x rounds. Each entry plays every
+    round, and the procedures share the jackpot "equally between all Winning
+    Lotto Entries in Round one and Round two" (Game Procedures Ed. 22, 3.1) -
+    but the two rounds do not carry the same risk of sharing:
+
+        round one    the winners hold MY numbers, so their expected popularity
+                     is this line's - picking an unplayed line thins them out
+        other rounds the winners hold THAT round's numbers, drawn independently
+                     of anything on my slip, so their expected popularity is
+                     1.0 whatever I choose
+
+    Pricing every round at the line's own popularity, as this did until
+    2026-09-05, overstated what an unpopular line buys on the jackpot: at
+    N = 8m the reference line's share reads 0.946 that way and 0.892 correctly,
+    so its advantage over a popular line halves from +12.4% to +5.9%. Half the
+    exposure to sharing does not depend on what you write on the slip, and the
+    page said otherwise.
+
+    No decision moves: an ordinary draw would need a jackpot near GBP 32m
+    before the term matters, and a roll-down's EV is dominated by J/N, which
+    this does not touch.
+    """
+    per_round = tickets_sold / TOTAL_COMBOS
+    lam = per_round * popularity_ratio(line) + per_round * max(rounds - 1, 0)
     if lam < 1e-12:
         return 1.0
     return (1.0 - exp(-lam)) / lam
@@ -442,7 +466,7 @@ def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
     fixed_ev = cond.prizes.ev_per_round()
     jackpot_ev = (
         cond.rounds * P_JACKPOT * cond.jackpot
-        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+        * expected_cowinner_share(line, cond.tickets_sold, cond.rounds)
     )
 
     rolldown_ev = 0.0
@@ -836,8 +860,10 @@ def upcoming_draw_date(now: datetime | date | None = None) -> date:
 
 
 def forecast_must_be_won(rollover_count: int,
-                         now: datetime | date | None = None) -> dict:
-    """How many draws until the jackpot must be paid out, and on what date.
+                         now: datetime | date | None = None,
+                         jackpot: float | None = None,
+                         pools_df=None) -> dict:
+    """How many draws until the jackpot must be paid out, on what date, at what pool.
 
     `rollover_count` is the post-draw counter carried by the official feed
     (data/prize_tiers.csv), so the upcoming draw is the one that would make it
@@ -854,16 +880,85 @@ def forecast_must_be_won(rollover_count: int,
     the counter and pushes the date out. It is for planning a budget - the
     authoritative one-draw-ahead signal stays the official feed's
     `next_jackpot_roll_down` flag, which `DrawConditions.roll_down` carries.
+
+    Given `jackpot` (the estimate advertised for the upcoming draw) and
+    `pools_df`, it also projects the POOL that Must-Be-Won draw would carry.
+    The advertised estimate already contains the upcoming draw's own sales -
+    3203 closed at GBP 5,255,577 and 3204 was advertised at GBP 6,809,577, a
+    Saturday's worth of contribution ahead - so each FURTHER draw adds
+    `share x sales`, at the exact per-weekday sales level, with the uplift on
+    the Must-Be-Won draw itself because its own sales fund its own pool.
+
+    That last point cuts both ways and is worth stating: the uplift constant
+    that inflates this projection is the same one that inflates N, and EV on a
+    roll-down is J / N, so the two errors partly cancel. What the projection
+    does NOT model is the rollover stage - sales climb through a cycle (Walker
+    & Wheeler 2018: ~GBP 1.8m more Saturday sales per GBP 1m of rollover), and
+    a median over whole cycles understates the last draw of one. So read the
+    projection as a floor with about a draw's worth of slack, which is enough
+    to tell "nowhere near break-even" from "worth watching" - and that is all
+    it is for.
     """
     draws_away = max(ROLLOVER_CAP - int(rollover_count) + 1, 1)
     first = upcoming_draw_date(now)
     dates = [first] + next_draw_dates(first, draws_away - 1)
+
+    projected_pool = None
+    if jackpot is not None and pools_df is not None:
+        running = float(jackpot)
+        for when in dates[1:]:
+            baseline = exact_sales_baseline(pools_df, when)
+            if baseline is None:
+                running = None
+                break
+            uplift = mbw_uplift(when)[0] if when == dates[-1] else 1.0
+            running += baseline * uplift * TICKET_PRICE * JACKPOT_SHARE_OF_SALES
+        projected_pool = running
+
     return {
         "rollover_count": int(rollover_count),
         "cap": ROLLOVER_CAP,
         "draws_away": draws_away,
         "expected_date": dates[-1],
         "is_next_draw": draws_away == 1,
+        "projected_pool": projected_pool,
+    }
+
+
+def must_be_won_outlook(cond: "DrawConditions", pools_df,
+                       now: datetime | date | None = None) -> dict | None:
+    """Price the Must-Be-Won draw this roll is heading for, before it arrives.
+
+    The advisor has always been able to say WHEN the cap forces a payout, and
+    never what it would be worth when it got there - so the verdict on a
+    Must-Be-Won draw only existed once the draw before it had been collected.
+    That is a day's notice on the one kind of draw worth planning for.
+
+    Returns None when the draw being priced IS the Must-Be-Won one (nothing to
+    forecast) or when the pools do not cover enough of the window to project a
+    pool honestly. Every figure is a forecast: read it as "worth watching" or
+    "nowhere near", not as a verdict.
+    """
+    if cond.roll_down:
+        return None
+    forecast = forecast_must_be_won(cond.rollover_count, now, cond.jackpot, pools_df)
+    if forecast["projected_pool"] is None:
+        return None
+    when = forecast["expected_date"]
+    baseline = exact_sales_baseline(pools_df, when)
+    if baseline is None:
+        return None
+    tickets = max(int(baseline * mbw_uplift(when)[0]), 1)
+    future = replace(cond, jackpot=forecast["projected_pool"], tickets_sold=tickets,
+                     roll_down=True, draw_date=when)
+    verdict = should_play(future)
+    return {
+        **forecast,
+        "tickets_sold": tickets,
+        "break_even_jackpot": verdict["break_even_jackpot"],
+        "ev_best_line": verdict["ev_best_line"],
+        "play": verdict["play"],
+        "robust": verdict["sales_sensitivity"]["robust"],
     }
 
 
@@ -1032,7 +1127,7 @@ def line_return_distribution(line: Sequence[int], cond: DrawConditions) -> List[
 
     def per_round_outcomes(m3: float, m2: float) -> list:
         jackpot_share = cond.jackpot * expected_cowinner_share(
-            line, cond.tickets_sold * cond.rounds)
+            line, cond.tickets_sold, cond.rounds)
         return [
             (jackpot_share, P_JACKPOT),
             (prizes.match_5_bonus, P_MATCH_5_BONUS),
@@ -1132,7 +1227,7 @@ def break_even_jackpot(cond: DrawConditions,
         return 0.0
     per_pound = (
         cond.rounds * P_JACKPOT
-        * expected_cowinner_share(line, cond.tickets_sold * cond.rounds)
+        * expected_cowinner_share(line, cond.tickets_sold, cond.rounds)
     )
     if cond.roll_down:
         per_pound += exp(-cond.tickets_sold * cond.rounds * P_JACKPOT) / max(cond.tickets_sold, 1)

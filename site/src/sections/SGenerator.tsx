@@ -14,7 +14,7 @@
  * it pays.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import { generatePortfolio } from '@/data/generator';
 import { expectedShare, popularityRatio } from '@/data/popularity';
@@ -25,6 +25,18 @@ const LINES = 5;
 
 /** A line an ordinary player might actually pick: a birthday spread. */
 const TYPICAL_LINE = [3, 7, 12, 19, 24, 31];
+
+/** One offset per tab, drawn on first read and stable for the visit. */
+let visitorSeedValue = 0;
+const visitorSeed = () => {
+  if (visitorSeedValue === 0) {
+    visitorSeedValue = 1 + Math.floor(Math.random() * 1_000_000);
+  }
+  return visitorSeedValue;
+};
+const serverSeed = () => 0;
+/** Nothing ever changes it, so there is nothing to subscribe to. */
+const subscribeToNothing = () => () => {};
 
 export function SGenerator({
   popularity,
@@ -39,18 +51,30 @@ export function SGenerator({
 }) {
   const [nonce, setNonce] = useState(0);
 
+  // Every visitor used to get the same first slip - the seed is the draw date -
+  // so at any traffic at all this page would have its readers sharing a jackpot
+  // with each other, which is the one thing it tells them to avoid.
+  //
+  // useSyncExternalStore rather than setState in an effect: the offset is
+  // client-only data that must not exist during the server render, which is
+  // exactly the divergence this hook is for. The server snapshot is 0, so the
+  // prerendered page stays deterministic and the committed snapshot and golden
+  // fixtures still diff; React swaps in the visitor's own offset once hydrated.
+  const visitorOffset = useSyncExternalStore(subscribeToNothing, visitorSeed, serverSeed);
+
   const model = popularity.model;
   const bands = popularity.installed_step;
 
   const lines = useMemo(
-    () => generatePortfolio(LINES, seed + nonce, model, bands, hook.n_balls),
-    [seed, nonce, model, bands, hook.n_balls],
+    () => generatePortfolio(LINES, seed + visitorOffset + nonce, model, bands, hook.n_balls),
+    [seed, visitorOffset, nonce, model, bands, hook.n_balls],
   );
 
   // The comparison that makes the case, at a jackpot big enough to be worth
   // caring about. Both lines have identical odds of coming up.
   const jackpot = 10_000_000;
   const entries = ev.regimes[0]?.tickets_sold ?? ev.live.tickets_sold;
+  const rounds = ev.regimes[0]?.rounds ?? 1;
   const typicalRatio = useMemo(
     () => popularityRatio(TYPICAL_LINE, model, bands),
     [model, bands],
@@ -58,10 +82,10 @@ export function SGenerator({
 
   const best = lines[0];
   const yourShare = best
-    ? jackpot * expectedShare(best.ratio, entries * 2, hook.total_combinations)
+    ? jackpot * expectedShare(best.ratio, entries, hook.total_combinations, rounds)
     : 0;
   const typicalShare =
-    jackpot * expectedShare(typicalRatio, entries * 2, hook.total_combinations);
+    jackpot * expectedShare(typicalRatio, entries, hook.total_combinations, rounds);
   const difference = yourShare - typicalShare;
 
   return (

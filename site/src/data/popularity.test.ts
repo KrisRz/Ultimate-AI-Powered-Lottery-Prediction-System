@@ -11,7 +11,13 @@ import { describe, expect, it } from 'vitest';
 
 import golden from '@/__fixtures__/popularity-golden.json';
 import { generatePortfolio } from '@/data/generator';
-import { hasConsecutiveRun, isArithmetic, numberWeight, popularityRatio } from '@/data/popularity';
+import {
+  expectedShare,
+  hasConsecutiveRun,
+  isArithmetic,
+  numberWeight,
+  popularityRatio,
+} from '@/data/popularity';
 import { popularity } from '@/data/siteData';
 
 const model = popularity.model;
@@ -34,6 +40,35 @@ describe('popularityRatio matches Python', () => {
   it('reads its constants from the snapshot, not from a copy', () => {
     expect(model.mean_weight).toBeCloseTo(golden.model.mean_weight, 12);
     expect(model.normalization).toBeCloseTo(golden.model.normalization, 12);
+  });
+});
+
+describe('expectedShare matches Python', () => {
+  // Pinned separately from the ratio because the ratio does not move when the
+  // sharing model does: the two-round co-winner correction of 2026-09-05
+  // changed every share on the page and left every ratio untouched.
+  const { tickets_sold, rounds, total_combinations } = golden.share_case;
+
+  it.each(golden.cases.map((c) => [c.line.join('-'), c.ratio, c.share] as const))(
+    '%s',
+    (_label, ratio, expected) => {
+      expect(expectedShare(ratio, tickets_sold, total_combinations, rounds)).toBeCloseTo(
+        expected,
+        12,
+      );
+    },
+  );
+
+  it('prices the other round at average popularity, not at this line\'s', () => {
+    // An unpopular line thins the co-winners who hold MY numbers; the other
+    // round's winners hold that round's numbers and are unaffected.
+    const unpopular = expectedShare(0.3, tickets_sold, total_combinations, 2);
+    const oneRound = expectedShare(0.3, tickets_sold, total_combinations, 1);
+    expect(unpopular).toBeLessThan(oneRound);
+    expect(expectedShare(1, tickets_sold, total_combinations, 2)).toBeCloseTo(
+      expectedShare(1, tickets_sold * 2, total_combinations, 1),
+      12,
+    );
   });
 });
 

@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install pandas numpy requests
+        run: pip install -r requirements-ci.txt
       - name: Verify latest draw was collected
         env:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}

@@ -7,7 +7,7 @@ import { SMoney } from '@/sections/SMoney';
 import { SRolldown } from '@/sections/SRolldown';
 import { SWheel } from '@/sections/SWheel';
 import { SWhyNumbers } from '@/sections/SWhyNumbers';
-import { count, gbp, gbpPence, longDate } from '@/data/format';
+import { count, gbp, gbpPence, gbpShort, longDate } from '@/data/format';
 import {
   backtest,
   built,
@@ -86,6 +86,11 @@ function Masthead() {
 function Summary() {
   const mbw = ev.regimes.find((r) => r.key === 'mbw');
   const ordinary = ev.regimes.find((r) => r.key === 'ordinary');
+  const reach = ev.cap_pool_reach;
+  const outlook = ev.outlook;
+  const byDay = ev.mbw_break_even_by_weekday;
+  const wed = byDay?.Wednesday?.break_even_jackpot;
+  const sat = byDay?.Saturday?.break_even_jackpot;
 
   return (
     <section id="summary" className="summary" aria-labelledby="summary-title">
@@ -110,9 +115,33 @@ function Summary() {
           jackpot of{' '}
           {ordinary && <strong className="num">{gbp(ordinary.break_even_jackpot)}</strong>}{' '}
           before a {gbp(hook.ticket_price_gbp)} line is worth its price. A Must-Be-Won
-          draw — where an unclaimed jackpot rolls down into the lower tiers — needs only{' '}
-          {mbw && <strong className="num">{gbp(mbw.break_even_jackpot)}</strong>}. Those
-          come round roughly nine times a year.
+          draw — where an unclaimed jackpot rolls down into the lower tiers — needs{' '}
+          {wed && sat ? (
+            <>
+              <strong className="num">{gbpShort(wed)}</strong> on a Wednesday and{' '}
+              <strong className="num">{gbpShort(sat)}</strong> on a Saturday — Saturdays
+              sell half again as many lines to share it between
+            </>
+          ) : (
+            mbw && <strong className="num">{gbp(mbw.break_even_jackpot)}</strong>
+          )}
+          . The cap forces one every few weeks, which is not the same as an opportunity.
+          Since June 2026 the jackpot takes 8.88% of sales and restarts at £2m, so the{' '}
+          {reach && count(reach.n)} forced draws of this era all landed on Saturdays
+          carrying{' '}
+          {reach && (
+            <strong className="num">
+              {gbpShort(reach.low_gbp)}–{gbpShort(reach.high_gbp)}
+            </strong>
+          )}
+          .
+          {outlook && (
+            <>
+              {' '}The next is {outlook.weekday} {longDate(outlook.expected_date)},
+              projected at{' '}
+              <strong className="num">{gbpShort(outlook.projected_pool_gbp)}</strong>.
+            </>
+          )}
         </p>
         <p>
           <strong>And do not believe anyone who claims more.</strong> This project tested

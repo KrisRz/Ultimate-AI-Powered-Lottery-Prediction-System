@@ -90,6 +90,35 @@ export interface Ev {
   slider: { min_gbp: number; max_gbp: number; step_gbp: number };
   regimes: Regime[];
   mbw_sales_band: { p25: SalesBandPoint; p75: SalesBandPoint };
+  /** The roll-down threshold is not one number: Saturdays sell ~1.6x what
+   *  Wednesdays do, so the same draw needs a much bigger pool to break even.
+   *  Keyed by weekday name. Null before the pools cover both days. */
+  mbw_break_even_by_weekday: Record<
+    string,
+    { tickets_sold: number; break_even_jackpot: number }
+  > | null;
+  /** What a capped roll has actually reached in the two-round era, from the
+   *  draws that have done it. Null before any of them are on file. */
+  cap_pool_reach: {
+    n: number;
+    low_gbp: number;
+    high_gbp: number;
+    median_gbp: number;
+    era_from_draw: number;
+  } | null;
+  /** The Must-Be-Won draw this roll is heading for, priced before it arrives.
+   *  Null when the draw being priced IS that draw, or when the collected pools
+   *  do not reach far enough back to project one honestly. */
+  outlook: {
+    expected_date: string;
+    draws_away: number;
+    weekday: string;
+    projected_pool_gbp: number;
+    tickets_sold: number;
+    break_even_jackpot: number;
+    ev_best_line: number;
+    verdict: 'PLAY' | 'SKIP';
+  } | null;
   live: {
     draw_date: string;
     jackpot_gbp: number;

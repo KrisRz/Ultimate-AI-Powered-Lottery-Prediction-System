@@ -1,0 +1,13 @@
+# What the cloud runs, pinned to what the Mac runs.
+#
+# The workflows used to `pip install pandas numpy requests` and take whatever
+# pip served that morning, while environment.yml pinned the local runtime to
+# pandas 2.0.3 / numpy 1.24.3. So the suite that guards this model was free to
+# be green against a different pandas than the one computing every published
+# figure - and pandas 3 is out. Same versions here as there.
+#
+# Deliberately not the whole environment: nothing in CI (or in the collector)
+# touches tensorflow, scikit-learn, matplotlib or tqdm. See audit item C1.
+numpy==1.24.3
+pandas==2.0.3
+requests>=2.27.0

@@ -30,6 +30,7 @@ from lottery.ev import (  # noqa: E402
     default_portfolio_seed,
     estimate_tickets_sold,
     forecast_must_be_won,
+    must_be_won_outlook,
     kelly_stake,
     mbw_type,
     mbw_uplift,
@@ -139,6 +140,17 @@ def main() -> None:
         print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
               f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
               f"if nobody wins before")
+        # What that draw would be worth. Without it the verdict on the one
+        # draw worth planning for only existed the morning after the draw
+        # before it - a day's notice on a fortnight's wait.
+        pools = (pd.read_csv(DRAW_POOLS_FILE)
+                 if DRAW_POOLS_FILE.exists() else None)
+        outlook = must_be_won_outlook(cond, pools)
+        if outlook and not outlook["is_next_draw"]:
+            print(f"  that draw:          projected pool ~£{outlook['projected_pool']:,.0f} "
+                  f"vs break-even £{outlook['break_even_jackpot']:,.0f} - "
+                  f"{'PLAY' if outlook['play'] else 'likely SKIP'} "
+                  f"(EV £{outlook['ev_best_line']:+.2f}, forecast)")
     day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
     print(f"Assumed lines sold:   {cond.tickets_sold:,}"
           f"{f' ({day} Must-Be-Won uplift x{mbw_uplift(cond.draw_date)[0]})' if cond.roll_down else ''}")

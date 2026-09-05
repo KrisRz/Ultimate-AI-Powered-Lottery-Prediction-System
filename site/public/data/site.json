@@ -5688,14 +5688,14 @@
       "origin": "private S3, reached through Origin Access Control",
       "tls": "ACM in us-east-1"
     },
-    "scheduler_caveat": "GitHub's cron is best-effort and has drifted by up to two and a half hours on this repo. Two runs per draw plus an independent watchdog is the answer to that, not punctuality",
+    "scheduler_caveat": "GitHub's cron is best-effort: on this repo it ran 13-58 minutes late through August 2026 and has drifted to 2-11 hours since. Two runs per draw plus an independent watchdog is the answer to that, not punctuality",
     "self_healing": {
       "how": "the feed serves every draw of the last ~180 days by number, so a missed collection is backfilled on the next run",
       "window_days": 180
     },
     "tests": {
-      "count": 274,
-      "files": 22
+      "count": 288,
+      "files": 23
     },
     "workflows": [
       {
@@ -5735,6 +5735,13 @@
     ]
   },
   "ev": {
+    "cap_pool_reach": {
+      "era_from_draw": 3179,
+      "high_gbp": 9559451,
+      "low_gbp": 8535147,
+      "median_gbp": 9269710,
+      "n": 3
+    },
     "fixed_prizes": {
       "ev_per_round": 0.3645,
       "match_2": 1.0,
@@ -5745,9 +5752,9 @@
       "source": "observed (14 draws)"
     },
     "live": {
-      "break_even_jackpot": 30381430,
+      "break_even_jackpot": 32351315,
       "draw_date": "2026-09-05",
-      "ev_best_line": -0.9861,
+      "ev_best_line": -1.0035,
       "jackpot_gbp": 6809577,
       "mbw_type": null,
       "robust": false,
@@ -5757,21 +5764,41 @@
       "tickets_sold": 8536043,
       "verdict": "SKIP"
     },
+    "mbw_break_even_by_weekday": {
+      "Saturday": {
+        "break_even_jackpot": 13370811,
+        "tickets_sold": 10840774
+      },
+      "Wednesday": {
+        "break_even_jackpot": 9261472,
+        "tickets_sold": 7399061
+      }
+    },
     "mbw_sales_band": {
       "p25": {
         "a": -1.2710166131372567,
-        "b": 1.0408891001979412e-07,
-        "break_even_jackpot": 12210874,
+        "b": 1.0112594970666659e-07,
+        "break_even_jackpot": 12568649,
         "tickets_sold": 10157890,
         "uplift": 1.19
       },
       "p75": {
         "a": -1.2710166131372567,
-        "b": 9.552301728940748e-08,
-        "break_even_jackpot": 13305868,
+        "b": 9.230780175177664e-08,
+        "break_even_jackpot": 13769330,
         "tickets_sold": 11182215,
         "uplift": 1.31
       }
+    },
+    "outlook": {
+      "break_even_jackpot": 9261472,
+      "draws_away": 2,
+      "ev_best_line": -0.1562,
+      "expected_date": "2026-09-09",
+      "projected_pool_gbp": 8123650,
+      "tickets_sold": 7399061,
+      "verdict": "SKIP",
+      "weekday": "Wednesday"
     },
     "reference_line": [
       32,
@@ -5785,8 +5812,8 @@
     "regimes": [
       {
         "a": -1.2710166131372567,
-        "b": 4.183531253591222e-08,
-        "break_even_jackpot": 30381430,
+        "b": 3.928794239308615e-08,
+        "break_even_jackpot": 32351315,
         "key": "ordinary",
         "label": "Ordinary draw",
         "roll_down": false,
@@ -5795,8 +5822,8 @@
       },
       {
         "a": -1.2710166131372567,
-        "b": 9.819104243086237e-08,
-        "break_even_jackpot": 12944323,
+        "b": 9.505904950674585e-08,
+        "break_even_jackpot": 13370811,
         "key": "mbw",
         "label": "Must-Be-Won roll-down",
         "roll_down": true,
@@ -6155,7 +6182,7 @@
           "cap_driven": true,
           "date": "2019-01-30",
           "draw_number": 2411,
-          "ev": 0.2453,
+          "ev": 0.211,
           "pool_gbp": 12950857,
           "tickets_sold": 8927880
         },
@@ -6163,7 +6190,7 @@
           "cap_driven": true,
           "date": "2019-02-20",
           "draw_number": 2417,
-          "ev": 0.6875,
+          "ev": 0.6338,
           "pool_gbp": 18448180,
           "tickets_sold": 9938626
         },
@@ -6171,7 +6198,7 @@
           "cap_driven": true,
           "date": "2019-03-13",
           "draw_number": 2423,
-          "ev": 0.2623,
+          "ev": 0.2282,
           "pool_gbp": 12984966,
           "tickets_sold": 8845720
         },
@@ -6179,7 +6206,7 @@
           "cap_driven": true,
           "date": "2019-04-27",
           "draw_number": 2436,
-          "ev": -0.2782,
+          "ev": -0.3182,
           "pool_gbp": 11396192,
           "tickets_sold": 12421696
         },
@@ -6187,7 +6214,7 @@
           "cap_driven": false,
           "date": "2019-05-04",
           "draw_number": 2438,
-          "ev": -0.8824,
+          "ev": -0.8975,
           "pool_gbp": 4383861,
           "tickets_sold": 12174980
         },
@@ -6195,7 +6222,7 @@
           "cap_driven": false,
           "date": "2019-05-18",
           "draw_number": 2442,
-          "ev": -0.2464,
+          "ev": -0.2874,
           "pool_gbp": 11708252,
           "tickets_sold": 12358187
         },
@@ -6203,7 +6230,7 @@
           "cap_driven": true,
           "date": "2019-06-26",
           "draw_number": 2453,
-          "ev": 0.198,
+          "ev": 0.1651,
           "pool_gbp": 12497210,
           "tickets_sold": 8889356
         },
@@ -6211,7 +6238,7 @@
           "cap_driven": true,
           "date": "2019-07-17",
           "draw_number": 2459,
-          "ev": 0.1916,
+          "ev": 0.1585,
           "pool_gbp": 12500333,
           "tickets_sold": 8934060
         },
@@ -6219,7 +6246,7 @@
           "cap_driven": true,
           "date": "2019-08-14",
           "draw_number": 2467,
-          "ev": 0.1631,
+          "ev": 0.1284,
           "pool_gbp": 12675909,
           "tickets_sold": 9267732
         },
@@ -6227,7 +6254,7 @@
           "cap_driven": false,
           "date": "2019-08-24",
           "draw_number": 2470,
-          "ev": -0.5884,
+          "ev": -0.6127,
           "pool_gbp": 7360035,
           "tickets_sold": 11562457
         },
@@ -6235,7 +6262,7 @@
           "cap_driven": false,
           "date": "2019-09-04",
           "draw_number": 2473,
-          "ev": 0.1986,
+          "ev": 0.1638,
           "pool_gbp": 12852503,
           "tickets_sold": 9160792
         },
@@ -6243,7 +6270,7 @@
           "cap_driven": true,
           "date": "2019-09-25",
           "draw_number": 2479,
-          "ev": 0.1542,
+          "ev": 0.118,
           "pool_gbp": 12907599,
           "tickets_sold": 9518172
         },
@@ -6251,7 +6278,7 @@
           "cap_driven": true,
           "date": "2019-10-16",
           "draw_number": 2485,
-          "ev": 0.1987,
+          "ev": 0.1629,
           "pool_gbp": 13023710,
           "tickets_sold": 9293590
         },
@@ -6259,7 +6286,7 @@
           "cap_driven": false,
           "date": "2019-11-23",
           "draw_number": 2496,
-          "ev": 1.0587,
+          "ev": 0.9764,
           "pool_gbp": 25000000,
           "tickets_sold": 11500000
         },
@@ -6267,7 +6294,7 @@
           "cap_driven": true,
           "date": "2019-12-14",
           "draw_number": 2502,
-          "ev": -0.276,
+          "ev": -0.3173,
           "pool_gbp": 11598525,
           "tickets_sold": 12645306
         },
@@ -6275,7 +6302,7 @@
           "cap_driven": false,
           "date": "2019-12-25",
           "draw_number": 2505,
-          "ev": 0.7947,
+          "ev": 0.7606,
           "pool_gbp": 15000000,
           "tickets_sold": 7500000
         },
@@ -6283,7 +6310,7 @@
           "cap_driven": true,
           "date": "2020-02-01",
           "draw_number": 2516,
-          "ev": -0.3065,
+          "ev": -0.3488,
           "pool_gbp": 11574206,
           "tickets_sold": 13079923
         },
@@ -6291,7 +6318,7 @@
           "cap_driven": true,
           "date": "2020-03-07",
           "draw_number": 2526,
-          "ev": -0.2902,
+          "ev": -0.332,
           "pool_gbp": 11578001,
           "tickets_sold": 12832538
         },
@@ -6299,7 +6326,7 @@
           "cap_driven": true,
           "date": "2020-04-08",
           "draw_number": 2535,
-          "ev": 0.198,
+          "ev": 0.1689,
           "pool_gbp": 11735036,
           "tickets_sold": 8305051
         },
@@ -6307,7 +6334,7 @@
           "cap_driven": true,
           "date": "2020-04-29",
           "draw_number": 2541,
-          "ev": 0.1053,
+          "ev": 0.0708,
           "pool_gbp": 12384648,
           "tickets_sold": 9450735
         },
@@ -6315,7 +6342,7 @@
           "cap_driven": true,
           "date": "2020-06-24",
           "draw_number": 2557,
-          "ev": 0.1217,
+          "ev": 0.085,
           "pool_gbp": 12867635,
           "tickets_sold": 9729009
         },
@@ -6323,7 +6350,7 @@
           "cap_driven": true,
           "date": "2020-07-18",
           "draw_number": 2564,
-          "ev": -0.2898,
+          "ev": -0.3309,
           "pool_gbp": 11499676,
           "tickets_sold": 12724826
         },
@@ -6331,7 +6358,7 @@
           "cap_driven": true,
           "date": "2020-09-05",
           "draw_number": 2578,
-          "ev": 0.5245,
+          "ev": 0.4563,
           "pool_gbp": 20000000,
           "tickets_sold": 12000000
         },
@@ -6339,7 +6366,7 @@
           "cap_driven": true,
           "date": "2020-09-26",
           "draw_number": 2584,
-          "ev": -0.2923,
+          "ev": -0.3335,
           "pool_gbp": 11496937,
           "tickets_sold": 12759147
         },
@@ -6347,7 +6374,7 @@
           "cap_driven": true,
           "date": "2020-11-04",
           "draw_number": 2595,
-          "ev": 0.0843,
+          "ev": 0.0459,
           "pool_gbp": 12980180,
           "tickets_sold": 10123059
         },
@@ -6355,7 +6382,7 @@
           "cap_driven": false,
           "date": "2020-11-07",
           "draw_number": 2596,
-          "ev": 0.5245,
+          "ev": 0.4563,
           "pool_gbp": 20000000,
           "tickets_sold": 12000000
         },
@@ -6363,7 +6390,7 @@
           "cap_driven": true,
           "date": "2020-11-28",
           "draw_number": 2602,
-          "ev": -0.3331,
+          "ev": -0.38,
           "pool_gbp": 12032594,
           "tickets_sold": 14154831
         },
@@ -6371,7 +6398,7 @@
           "cap_driven": false,
           "date": "2020-12-23",
           "draw_number": 2609,
-          "ev": 0.7947,
+          "ev": 0.7606,
           "pool_gbp": 15000000,
           "tickets_sold": 7500000
         },
@@ -6379,7 +6406,7 @@
           "cap_driven": true,
           "date": "2021-02-03",
           "draw_number": 2621,
-          "ev": 0.1247,
+          "ev": 0.0849,
           "pool_gbp": 13420584,
           "tickets_sold": 10167896
         },
@@ -6387,7 +6414,7 @@
           "cap_driven": true,
           "date": "2021-02-24",
           "draw_number": 2627,
-          "ev": 0.0641,
+          "ev": 0.0211,
           "pool_gbp": 13680714,
           "tickets_sold": 10915204
         },
@@ -6395,7 +6422,7 @@
           "cap_driven": false,
           "date": "2021-03-06",
           "draw_number": 2630,
-          "ev": 0.4045,
+          "ev": 0.3316,
           "pool_gbp": 20000000,
           "tickets_sold": 13000000
         },
@@ -6403,7 +6430,7 @@
           "cap_driven": true,
           "date": "2021-04-24",
           "draw_number": 2644,
-          "ev": -0.3266,
+          "ev": -0.3735,
           "pool_gbp": 12068332,
           "tickets_sold": 14088657
         },
@@ -6411,7 +6438,7 @@
           "cap_driven": true,
           "date": "2021-05-15",
           "draw_number": 2650,
-          "ev": -0.3198,
+          "ev": -0.3689,
           "pool_gbp": 12395599,
           "tickets_sold": 14423279
         },
@@ -6419,7 +6446,7 @@
           "cap_driven": false,
           "date": "2021-05-22",
           "draw_number": 2652,
-          "ev": 0.257,
+          "ev": 0.1774,
           "pool_gbp": 20000000,
           "tickets_sold": 14500000
         },
@@ -6427,7 +6454,7 @@
           "cap_driven": true,
           "date": "2021-06-12",
           "draw_number": 2658,
-          "ev": -0.3137,
+          "ev": -0.3593,
           "pool_gbp": 11966646,
           "tickets_sold": 13725495
         },
@@ -6435,7 +6462,7 @@
           "cap_driven": false,
           "date": "2021-07-17",
           "draw_number": 2668,
-          "ev": 0.257,
+          "ev": 0.1774,
           "pool_gbp": 20000000,
           "tickets_sold": 14500000
         },
@@ -6443,7 +6470,7 @@
           "cap_driven": true,
           "date": "2021-09-04",
           "draw_number": 2682,
-          "ev": 0.257,
+          "ev": 0.1774,
           "pool_gbp": 20000000,
           "tickets_sold": 14500000
         },
@@ -6451,7 +6478,7 @@
           "cap_driven": false,
           "date": "2021-09-18",
           "draw_number": 2686,
-          "ev": 0.0287,
+          "ev": -0.0242,
           "pool_gbp": 15000000,
           "tickets_sold": 12500000
         },
@@ -6459,7 +6486,7 @@
           "cap_driven": true,
           "date": "2021-10-09",
           "draw_number": 2692,
-          "ev": -0.3518,
+          "ev": -0.3981,
           "pool_gbp": 11836281,
           "tickets_sold": 14217666
         },
@@ -6467,7 +6494,7 @@
           "cap_driven": false,
           "date": "2021-11-06",
           "draw_number": 2700,
-          "ev": 0.257,
+          "ev": 0.1774,
           "pool_gbp": 20000000,
           "tickets_sold": 14500000
         },
@@ -6475,7 +6502,7 @@
           "cap_driven": true,
           "date": "2021-12-11",
           "draw_number": 2710,
-          "ev": -0.3292,
+          "ev": -0.3735,
           "pool_gbp": 11704275,
           "tickets_sold": 13629520
         },
@@ -6483,7 +6510,7 @@
           "cap_driven": false,
           "date": "2021-12-25",
           "draw_number": 2714,
-          "ev": 0.0287,
+          "ev": -0.0242,
           "pool_gbp": 15000000,
           "tickets_sold": 12500000
         },
@@ -6491,7 +6518,7 @@
           "cap_driven": true,
           "date": "2022-01-15",
           "draw_number": 2720,
-          "ev": -0.3265,
+          "ev": -0.3735,
           "pool_gbp": 12070921,
           "tickets_sold": 14091726
         },
@@ -6499,7 +6526,7 @@
           "cap_driven": true,
           "date": "2022-02-05",
           "draw_number": 2726,
-          "ev": -0.3431,
+          "ev": -0.3891,
           "pool_gbp": 11847859,
           "tickets_sold": 14075419
         },
@@ -6507,7 +6534,7 @@
           "cap_driven": true,
           "date": "2022-02-26",
           "draw_number": 2732,
-          "ev": -0.3556,
+          "ev": -0.402,
           "pool_gbp": 11812605,
           "tickets_sold": 14255684
         },
@@ -6515,7 +6542,7 @@
           "cap_driven": false,
           "date": "2022-03-05",
           "draw_number": 2734,
-          "ev": 0.2148,
+          "ev": 0.133,
           "pool_gbp": 20000000,
           "tickets_sold": 15000000
         },
@@ -6523,7 +6550,7 @@
           "cap_driven": true,
           "date": "2022-04-02",
           "draw_number": 2742,
-          "ev": -0.3542,
+          "ev": -0.3996,
           "pool_gbp": 11698558,
           "tickets_sold": 14063922
         },
@@ -6531,7 +6558,7 @@
           "cap_driven": true,
           "date": "2022-07-16",
           "draw_number": 2772,
-          "ev": -0.3497,
+          "ev": -0.3949,
           "pool_gbp": 11702037,
           "tickets_sold": 13987293
         },
@@ -6539,7 +6566,7 @@
           "cap_driven": true,
           "date": "2022-08-31",
           "draw_number": 2785,
-          "ev": 0.0661,
+          "ev": 0.0281,
           "pool_gbp": 12824799,
           "tickets_sold": 10139770
         },
@@ -6547,7 +6574,7 @@
           "cap_driven": false,
           "date": "2022-10-01",
           "draw_number": 2794,
-          "ev": 0.2148,
+          "ev": 0.133,
           "pool_gbp": 20000000,
           "tickets_sold": 15000000
         },
@@ -6555,7 +6582,7 @@
           "cap_driven": true,
           "date": "2022-12-17",
           "draw_number": 2816,
-          "ev": -0.3284,
+          "ev": -0.3711,
           "pool_gbp": 11481636,
           "tickets_sold": 13312354
         },
@@ -6563,7 +6590,7 @@
           "cap_driven": false,
           "date": "2022-12-24",
           "draw_number": 2818,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6571,7 +6598,7 @@
           "cap_driven": false,
           "date": "2022-12-31",
           "draw_number": 2820,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6579,7 +6606,7 @@
           "cap_driven": true,
           "date": "2023-03-18",
           "draw_number": 2842,
-          "ev": -0.3347,
+          "ev": -0.3802,
           "pool_gbp": 11822031,
           "tickets_sold": 13889591
         },
@@ -6587,7 +6614,7 @@
           "cap_driven": true,
           "date": "2023-04-08",
           "draw_number": 2848,
-          "ev": 0.3025,
+          "ev": 0.2251,
           "pool_gbp": 20000000,
           "tickets_sold": 14000000
         },
@@ -6595,7 +6622,7 @@
           "cap_driven": true,
           "date": "2023-04-29",
           "draw_number": 2854,
-          "ev": -0.3577,
+          "ev": -0.4043,
           "pool_gbp": 11826941,
           "tickets_sold": 14314101
         },
@@ -6603,7 +6630,7 @@
           "cap_driven": false,
           "date": "2023-05-06",
           "draw_number": 2856,
-          "ev": 0.257,
+          "ev": 0.1774,
           "pool_gbp": 20000000,
           "tickets_sold": 14500000
         },
@@ -6611,7 +6638,7 @@
           "cap_driven": false,
           "date": "2023-08-05",
           "draw_number": 2882,
-          "ev": -0.5688,
+          "ev": -0.5947,
           "pool_gbp": 7706455,
           "tickets_sold": 11798166
         },
@@ -6619,7 +6646,7 @@
           "cap_driven": false,
           "date": "2023-08-12",
           "draw_number": 2884,
-          "ev": -0.3222,
+          "ev": -0.3674,
           "pool_gbp": 11868266,
           "tickets_sold": 13736093
         },
@@ -6627,7 +6654,7 @@
           "cap_driven": false,
           "date": "2023-09-02",
           "draw_number": 2890,
-          "ev": 0.3515,
+          "ev": 0.2763,
           "pool_gbp": 20000000,
           "tickets_sold": 13500000
         },
@@ -6635,7 +6662,7 @@
           "cap_driven": false,
           "date": "2023-10-28",
           "draw_number": 2906,
-          "ev": -0.3043,
+          "ev": -0.3413,
           "pool_gbp": 10807968,
           "tickets_sold": 12051578
         },
@@ -6643,7 +6670,7 @@
           "cap_driven": false,
           "date": "2023-11-01",
           "draw_number": 2907,
-          "ev": 0.0568,
+          "ev": 0.0188,
           "pool_gbp": 12805232,
           "tickets_sold": 10200531
         },
@@ -6651,7 +6678,7 @@
           "cap_driven": true,
           "date": "2023-11-22",
           "draw_number": 2913,
-          "ev": 0.0358,
+          "ev": -0.0032,
           "pool_gbp": 12849272,
           "tickets_sold": 10423304
         },
@@ -6659,7 +6686,7 @@
           "cap_driven": false,
           "date": "2023-12-30",
           "draw_number": 2924,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6667,7 +6694,7 @@
           "cap_driven": true,
           "date": "2024-01-20",
           "draw_number": 2930,
-          "ev": -0.3511,
+          "ev": -0.3985,
           "pool_gbp": 11972432,
           "tickets_sold": 14401404
         },
@@ -6675,7 +6702,7 @@
           "cap_driven": true,
           "date": "2024-02-10",
           "draw_number": 2936,
-          "ev": -0.3414,
+          "ev": -0.3876,
           "pool_gbp": 11888763,
           "tickets_sold": 14102186
         },
@@ -6683,7 +6710,7 @@
           "cap_driven": true,
           "date": "2024-03-23",
           "draw_number": 2948,
-          "ev": -0.3458,
+          "ev": -0.3907,
           "pool_gbp": 11669564,
           "tickets_sold": 13872421
         },
@@ -6691,7 +6718,7 @@
           "cap_driven": true,
           "date": "2024-05-08",
           "draw_number": 2961,
-          "ev": -0.1754,
+          "ev": -0.22,
           "pool_gbp": 12644545,
           "tickets_sold": 12500000
         },
@@ -6699,7 +6726,7 @@
           "cap_driven": false,
           "date": "2024-05-11",
           "draw_number": 2962,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6707,7 +6734,7 @@
           "cap_driven": true,
           "date": "2024-06-29",
           "draw_number": 2976,
-          "ev": -0.3514,
+          "ev": -0.395,
           "pool_gbp": 11473912,
           "tickets_sold": 13694341
         },
@@ -6715,7 +6742,7 @@
           "cap_driven": false,
           "date": "2024-08-03",
           "draw_number": 2986,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6723,7 +6750,7 @@
           "cap_driven": false,
           "date": "2024-09-07",
           "draw_number": 2996,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6731,7 +6758,7 @@
           "cap_driven": true,
           "date": "2024-09-28",
           "draw_number": 3002,
-          "ev": -0.3539,
+          "ev": -0.3965,
           "pool_gbp": 11310063,
           "tickets_sold": 13507926
         },
@@ -6739,7 +6766,7 @@
           "cap_driven": false,
           "date": "2024-11-09",
           "draw_number": 3014,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6747,7 +6774,7 @@
           "cap_driven": false,
           "date": "2024-12-25",
           "draw_number": 3027,
-          "ev": 0.1829,
+          "ev": 0.1353,
           "pool_gbp": 15000000,
           "tickets_sold": 11000000
         },
@@ -6755,7 +6782,7 @@
           "cap_driven": false,
           "date": "2025-02-01",
           "draw_number": 3038,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6763,7 +6790,7 @@
           "cap_driven": false,
           "date": "2025-04-19",
           "draw_number": 3060,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6771,7 +6798,7 @@
           "cap_driven": true,
           "date": "2025-05-17",
           "draw_number": 3068,
-          "ev": 0.316,
+          "ev": 0.2906,
           "pool_gbp": 11343776,
           "tickets_sold": 7375291
         },
@@ -6779,7 +6806,7 @@
           "cap_driven": false,
           "date": "2025-07-05",
           "draw_number": 3082,
-          "ev": 0.1829,
+          "ev": 0.1353,
           "pool_gbp": 15000000,
           "tickets_sold": 11000000
         },
@@ -6787,7 +6814,7 @@
           "cap_driven": true,
           "date": "2025-07-26",
           "draw_number": 3088,
-          "ev": -0.3604,
+          "ev": -0.4042,
           "pool_gbp": 11438016,
           "tickets_sold": 13804137
         },
@@ -6795,7 +6822,7 @@
           "cap_driven": false,
           "date": "2025-09-13",
           "draw_number": 3102,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6803,7 +6830,7 @@
           "cap_driven": true,
           "date": "2025-10-29",
           "draw_number": 3115,
-          "ev": 0.0704,
+          "ev": 0.0348,
           "pool_gbp": 12423596,
           "tickets_sold": 9754934
         },
@@ -6811,7 +6838,7 @@
           "cap_driven": false,
           "date": "2025-12-24",
           "draw_number": 3131,
-          "ev": -0.8378,
+          "ev": -0.8554,
           "pool_gbp": 5000000,
           "tickets_sold": 12500000
         },
@@ -6819,7 +6846,7 @@
           "cap_driven": true,
           "date": "2026-02-11",
           "draw_number": 3145,
-          "ev": 0.1454,
+          "ev": 0.1138,
           "pool_gbp": 12011099,
           "tickets_sold": 8858412
         },
@@ -6827,7 +6854,7 @@
           "cap_driven": true,
           "date": "2026-03-04",
           "draw_number": 3151,
-          "ev": 0.0657,
+          "ev": 0.0311,
           "pool_gbp": 12219097,
           "tickets_sold": 9615567
         },
@@ -6835,7 +6862,7 @@
           "cap_driven": true,
           "date": "2026-03-25",
           "draw_number": 3157,
-          "ev": 0.0811,
+          "ev": 0.0474,
           "pool_gbp": 12141356,
           "tickets_sold": 9428892
         },
@@ -6843,7 +6870,7 @@
           "cap_driven": false,
           "date": "2026-03-28",
           "draw_number": 3158,
-          "ev": -0.0541,
+          "ev": -0.1105,
           "pool_gbp": 15000000,
           "tickets_sold": 13500000
         },
@@ -6851,7 +6878,7 @@
           "cap_driven": true,
           "date": "2026-04-25",
           "draw_number": 3166,
-          "ev": -0.336,
+          "ev": -0.3745,
           "pool_gbp": 10852914,
           "tickets_sold": 12583590
         },
@@ -6859,21 +6886,21 @@
           "cap_driven": true,
           "date": "2026-07-18",
           "draw_number": 3190,
-          "ev": -0.3193,
+          "ev": -0.3488,
           "pool_gbp": 9559451,
           "tickets_sold": 10673637
         }
       ],
       "ev_quartiles": [
-        -0.3347,
-        0.1454
+        -0.38,
+        0.1138
       ],
-      "median_ev": -0.2782,
+      "median_ev": -0.3182,
       "median_pool_gbp": 12011099,
       "median_tickets": 12645306,
       "per_year": 11.9,
-      "positive_ev": 24,
-      "positive_ev_share": 0.4528,
+      "positive_ev": 23,
+      "positive_ev_share": 0.434,
       "special_event": 36,
       "window": [
         "2019-01-30",
@@ -6904,18 +6931,18 @@
   },
   "wheel": {
     "backtest": {
-      "cash_gbp": 4889,
-      "clump_variance": 0.2202,
-      "cost_gbp": 23260,
+      "cash_gbp": 3126,
+      "clump_variance": 0.1024,
+      "cost_gbp": 13956,
       "draws": 1163,
-      "draws_with_win": 87,
+      "draws_with_win": 74,
       "guarantee_violations": 0,
       "hits_by_tier": {
-        "3": 131,
-        "4": 5
+        "3": 89,
+        "4": 1
       },
-      "hits_total": 136,
-      "return_pct": 0.2102
+      "hits_total": 90,
+      "return_pct": 0.224
     },
     "guarantees": {
       "3": 2,
@@ -6923,88 +6950,56 @@
       "5": 3,
       "6": 3
     },
-    "line_ev": -0.6024,
+    "line_ev": -0.6237,
     "line_popularity": 0.3158,
     "lines": [
       [
         32,
         34,
-        36,
         39,
-        41,
-        43
-      ],
-      [
-        32,
-        46,
-        48,
-        50,
-        53,
-        55
-      ],
-      [
-        34,
-        36,
-        39,
-        46,
-        48,
-        57
-      ],
-      [
-        41,
-        43,
-        50,
-        53,
-        55,
-        57
-      ],
-      [
-        34,
-        36,
-        41,
-        43,
-        46,
-        48
-      ],
-      [
-        39,
-        41,
-        43,
-        50,
-        53,
-        55
-      ],
-      [
-        32,
-        34,
-        50,
         53,
         55,
         57
       ],
       [
         32,
-        39,
-        41,
-        43,
-        46,
-        57
-      ],
-      [
-        32,
         36,
-        39,
+        46,
         48,
         50,
         53
       ],
       [
-        34,
-        36,
+        39,
         41,
-        46,
+        43,
+        48,
         50,
         55
+      ],
+      [
+        34,
+        41,
+        43,
+        48,
+        50,
+        57
+      ],
+      [
+        32,
+        36,
+        41,
+        43,
+        46,
+        53
+      ],
+      [
+        34,
+        36,
+        39,
+        46,
+        55,
+        57
       ]
     ],
     "pool": [
