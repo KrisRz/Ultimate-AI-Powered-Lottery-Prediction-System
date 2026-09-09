@@ -1,2 +1,3 @@
 draw_number,draw_date,measured_lines,predicted_lines,n_error,uplift_installed,uplift_measured,advertised_pool,redistributed,pool_ratio,jackpot_winners,lines_source
 3196,2026-08-08,9459223,11741204,0.2412440218398488,1.27,1.0231670627646023,8391429.0,0.0,0.0,2.0,pool identity
+3205,2026-09-09,5918273,7399061,0.2502060989751571,1.44,1.1518100904966184,7706666.0,0.0,0.0,1.0,pool identity
