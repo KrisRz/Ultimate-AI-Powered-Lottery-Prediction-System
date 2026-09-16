@@ -197,6 +197,26 @@ class TestEvIsAffine:
             assert root == pytest.approx(regime["break_even_jackpot"], rel=1e-6)
 
 
+class TestMustBeWonThresholds:
+    """What the summary quotes about the two kinds of Must-Be-Won draw."""
+
+    def test_a_special_needs_more_than_a_capped_roll(self, payload):
+        capped = payload["ev"]["mbw_break_even_by_weekday"]
+        special = payload["ev"]["special_break_even_by_weekday"]
+        assert set(special) == set(capped) == {"Wednesday", "Saturday"}
+        for day, row in special.items():
+            assert row["tickets_sold"] > capped[day]["tickets_sold"]
+            assert row["break_even_jackpot"] > capped[day]["break_even_jackpot"]
+            # the robust figure is the busy end, so it can only be higher
+            assert row["robust_break_even_jackpot"] > row["break_even_jackpot"]
+
+    def test_the_forced_draws_are_counted_by_weekday(self, payload):
+        """The page said "all landed on Saturdays" after 3205 made it false."""
+        reach = payload["ev"]["cap_pool_reach"]
+        assert sum(reach["by_weekday"].values()) == reach["n"]
+        assert reach["by_weekday"].get("Wednesday", 0) >= 1
+
+
 class TestHook:
     def test_total_combinations(self, payload):
         assert payload["hook"]["total_combinations"] == comb(N_BALLS, N_PICK) == TOTAL_COMBOS

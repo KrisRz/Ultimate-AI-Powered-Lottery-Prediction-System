@@ -5694,7 +5694,7 @@
       "window_days": 180
     },
     "tests": {
-      "count": 340,
+      "count": 342,
       "files": 25
     },
     "workflows": [
@@ -5736,6 +5736,10 @@
   },
   "ev": {
     "cap_pool_reach": {
+      "by_weekday": {
+        "Saturday": 3,
+        "Wednesday": 1
+      },
       "era_from_draw": 3179,
       "high_gbp": 9559451,
       "low_gbp": 7807591,
@@ -5835,6 +5839,18 @@
       "max_gbp": 50000000,
       "min_gbp": 2000000,
       "step_gbp": 100000
+    },
+    "special_break_even_by_weekday": {
+      "Saturday": {
+        "break_even_jackpot": 14424888,
+        "robust_break_even_jackpot": 16357615,
+        "tickets_sold": 11747134
+      },
+      "Wednesday": {
+        "break_even_jackpot": 13970927,
+        "robust_break_even_jackpot": 16617638,
+        "tickets_sold": 11355503
+      }
     }
   },
   "hook": {

@@ -390,21 +390,41 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
     # what Wednesdays do, so the same roll-down needs a pool half again as big
     # to break even on a Saturday. Publishing only the live draw's weekday made
     # the page read as though there were a single figure.
+    #
+    # A special - a guaranteed pool with a campaign behind it - sells far more
+    # than a capped roll (SPECIAL_MBW_UPLIFT_BY_WEEKDAY), so it gets its own
+    # pair of thresholds: where it breaks even on the central sales estimate,
+    # and where it still does if it sells like the busy end of the specials
+    # on file. The second is the figure a PLAY has to clear to be robust.
     by_weekday = {}
+    special_by_weekday = {}
     if pools is not None and len(pools):
         first = upcoming_draw_date(now)
         for when in [first] + next_draw_dates(first, 1):
             baseline = exact_sales_baseline(pools, when)
             if baseline is None:
                 continue
-            cond = DrawConditions(
-                jackpot=mbw.jackpot,
-                tickets_sold=max(int(baseline * mbw_uplift(when)[0]), 1),
-                roll_down=True, rounds=mbw.rounds, ticket_price=mbw.ticket_price,
-                prizes=mbw.prizes, rollover_count=ROLLOVER_CAP, draw_date=when)
-            by_weekday[when.strftime("%A")] = {
-                "tickets_sold": cond.tickets_sold,
-                "break_even_jackpot": gbp(break_even_jackpot(cond, line)),
+
+            def threshold(uplift: float, special: bool) -> tuple:
+                cond = DrawConditions(
+                    jackpot=mbw.jackpot,
+                    tickets_sold=max(int(baseline * uplift), 1),
+                    roll_down=True, rounds=mbw.rounds,
+                    ticket_price=mbw.ticket_price, prizes=mbw.prizes,
+                    rollover_count=ROLLOVER_CAP, draw_date=when,
+                    special_event=special)
+                return cond.tickets_sold, gbp(break_even_jackpot(cond, line))
+
+            day = when.strftime("%A")
+            tickets, level = threshold(mbw_uplift(when)[0], False)
+            by_weekday[day] = {"tickets_sold": tickets, "break_even_jackpot": level}
+            mid, _, busy = mbw_uplift(when, special_event=True)
+            tickets, level = threshold(mid, True)
+            _, robust = threshold(busy, True)
+            special_by_weekday[day] = {
+                "tickets_sold": tickets,
+                "break_even_jackpot": level,
+                "robust_break_even_jackpot": robust,
             }
 
     # What a capped roll actually reaches in this era, from the draws that
@@ -412,18 +432,27 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
     # is an opportunity or just an event: four of them by 3206, three Saturdays
     # none within GBP 3m of the Saturday threshold above, and one Wednesday
     # (3205, GBP 7.8m) that the realised sales put above its own break-even.
+    #
+    # The weekdays are counted rather than described: the page said "all
+    # landed on Saturdays" for as long as that was true, and kept saying it
+    # after 3205 made it false.
     cap_reach = None
     if pools is not None and len(pools):
         capped = sorted(must_be_won_after_cap(pools))
-        reached = sorted(float(r["pool_gbp"]) for _, r in pools.iterrows()
-                         if int(r["draw_number"]) in capped)
+        rows = [r for _, r in pools.iterrows() if int(r["draw_number"]) in capped]
+        reached = sorted(float(r["pool_gbp"]) for r in rows)
         if reached:
+            weekdays: dict = {}
+            for r in rows:
+                day = pd.Timestamp(r["draw_date"]).strftime("%A")
+                weekdays[day] = weekdays.get(day, 0) + 1
             cap_reach = {
                 "n": len(reached),
                 "low_gbp": gbp(reached[0]),
                 "high_gbp": gbp(reached[-1]),
                 "median_gbp": gbp(reached[len(reached) // 2]),
                 "era_from_draw": TWO_ROUND_FIRST_DRAW,
+                "by_weekday": weekdays,
             }
 
     forecast = must_be_won_outlook(live, pools, now)
@@ -457,6 +486,7 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
         ],
         "mbw_sales_band": band,
         "mbw_break_even_by_weekday": by_weekday or None,
+        "special_break_even_by_weekday": special_by_weekday or None,
         "cap_pool_reach": cap_reach,
         # The Must-Be-Won draw this roll is heading for, priced before it
         # arrives. The page used to say these come round nine times a year and
