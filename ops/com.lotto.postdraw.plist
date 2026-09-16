@@ -7,8 +7,11 @@
 
   Not 22:30 on the draw night itself: that fired 15 min before the cloud
   collector and left the tracked CSVs dirty every time (see
-  scripts/monitoring/sync_collector_data.sh). launchd also runs a missed job
-  once the Mac wakes, so a closed lid only delays this, it does not skip it.
+  scripts/monitoring/sync_collector_data.sh). launchd runs a missed job once
+  a SLEEPING Mac wakes; a Mac that was switched off skips it (Sep 2026: one
+  run in three slots). Nothing depends on it - the cloud collector does the
+  data, the scorecard, the site and the PLAY email; this job only settles
+  the local ledger and dashboard, and the next run catches those up.
 
   Install (from the repo root):
     make install-cron
