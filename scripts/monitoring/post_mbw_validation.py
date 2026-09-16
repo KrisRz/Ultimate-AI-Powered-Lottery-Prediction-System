@@ -2,23 +2,25 @@
 """After a Must-Be-Won draw: score the model's forecast against what happened.
 
 Runs at the end of every collection; exits quietly unless the just-collected
-draw was a roll-down (~9 a year). When it was, this answers the two questions
-plan.md says to ask after every MBW - automatically, because "compare after
-each one" is exactly the kind of milestone nobody remembers in November:
+draw was Must-Be-Won, rolled down or won outright. When it was, this answers
+the two questions plan.md says to ask after every MBW - automatically, because
+"compare after each one" is exactly the kind of milestone nobody remembers in
+November:
 
-1. SALES: measured N (winner counts of the draw itself) vs the N the model
-   would have forecast before it (same-weekday baseline x day uplift). The
-   1.27/1.44 uplift constants were measured on archive estimates; this file
-   accumulates their live scorecard (data/mbw_validation.csv), and at 3-4
-   observations `calibrate_mbw_uplift.py` is worth re-running.
+1. SALES: measured N vs the N the model would have forecast before it
+   (same-weekday baseline x day uplift). Measured means the pool identity
+   wherever it applies and winner counts of the draw itself where it does not
+   - a promotional draw, whose pool the operator set. This file accumulates
+   the live scorecard (data/mbw_validation.csv); `make uplift` is where the
+   constants get reconsidered, in the estimator's own definition.
 
-2. POOL: the advertised jackpot vs the sum actually redistributed into the
+2. POOL: the pool the draw carried vs the sum actually redistributed into the
    boosted tiers. The 2026-08-07 archive study found redistribution running
-   a systematic ~9% BELOW the recorded pools; if that holds on live data,
-   the J/N term is ~9% optimistic and cond.jackpot deserves a haircut.
+   a systematic ~9% BELOW the recorded pools; the one live roll-down (3190)
+   read -1.7%.
 
-Report is printed (lands in the workflow log) and emailed when SMTP is
-configured - an MBW is rare enough that a scorecard email is signal, not spam.
+Report is printed and lands in the workflow log. It is not emailed - the inbox
+is reserved for a PLAY verdict (see main).
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ from lottery.ev import (  # noqa: E402
     P_MATCH_4,
     TIER_MATCH_2,
     TIER_MATCH_3,
+    must_be_won_after_cap,
 )
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
@@ -135,8 +138,13 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
     # single-draw measurement - exactly the case that noise ruins. Draw 3196
     # read 10.92m by winner counts against an exact 9.46m, turning a +2.6%
     # forecast error into a reported -11.1% and a 1.04 uplift into 1.43.
+    #
+    # Only on a cap-driven draw, though. A promotional Must-Be-Won carries a
+    # pool the operator set - 3206's GBP 12m - and differencing that measures
+    # the guarantee, not the sales.
     exact = exact_lines_sold(pools)
-    measured = exact.get(latest_no)
+    measured = (exact.get(latest_no)
+                if latest_no in must_be_won_after_cap(pools) else None)
     lines_source = "pool identity"
     if measured is None:
         measured = measured_lines(rows)
@@ -150,6 +158,15 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
                                       pools_df=before_pools)
     advertised = (float(prev["next_jackpot_estimate"])
                   if pd.notna(prev.get("next_jackpot_estimate")) else None)
+    # The pool the draw actually carried, where the pools reach. Allwyn's
+    # advertised figure runs 1-2% under it (3196 +1.7%, 3205 +1.3%), which is
+    # the size of effect the pool ratio below exists to measure.
+    carried = None
+    if pools is not None and len(pools):
+        row = pools[pools["draw_number"] == latest_no]
+        if len(row):
+            carried = float(row["pool_gbp"].iloc[0])
+    pool = carried if carried is not None else advertised
     redistributed = redistributed_sum(rows, calibrate_fixed_prizes(before))
     jackpot_rows = rows[rows["tier"] == 1]
     jackpot_winners = int(jackpot_rows["winners"].sum()) if len(jackpot_rows) else None
@@ -167,13 +184,14 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
         "uplift_installed": up_installed,
         "uplift_measured": measured / baseline if measured and baseline else None,
         "advertised_pool": advertised,
+        "carried_pool": carried,
         "jackpot_winners": jackpot_winners,
         "redistributed": redistributed,
         # `is not None`, not truthiness: a measured zero means the jackpot was
         # won outright and nothing rolled down, which is a complete answer.
         # Treating it as missing data lost the one fact that explains the row.
-        "pool_ratio": redistributed / advertised
-        if redistributed is not None and advertised else None,
+        "pool_ratio": redistributed / pool
+        if redistributed is not None and pool else None,
     }
 
 
@@ -199,6 +217,9 @@ def _pool_line(r: dict) -> str:
         return f"{x:+.1%}" if x is not None else "n/a"
 
     advertised = r.get("advertised_pool")
+    carried = r.get("carried_pool")
+    pool, which = ((carried, "carried") if carried is not None
+                   else (advertised, "advertised"))
     redistributed = r.get("redistributed")
 
     if redistributed is None:
@@ -208,11 +229,11 @@ def _pool_line(r: dict) -> str:
         won = r.get("jackpot_winners")
         who = (f"{won} ticket{'' if won == 1 else 's'} matched six"
                if won else "the jackpot was claimed")
-        pool = f"£{advertised:,.0f} " if advertised else ""
-        return (f"Pool:         nothing rolled down - {who}, so the {pool}"
+        amount = f"£{pool:,.0f} " if pool else ""
+        return (f"Pool:         nothing rolled down - {who}, so the {amount}"
                 "pool was paid out as a jackpot")
 
-    return (f"Pool:         advertised £{advertised:,.0f}, actually "
+    return (f"Pool:         {which} £{pool:,.0f}, actually "
             f"redistributed £{redistributed:,.0f} "
             f"({pct((r.get('pool_ratio') or 1) - 1)})")
 
@@ -234,8 +255,8 @@ def format_report(r: dict) -> str:
         if r["uplift_measured"] else "Sales uplift: n/a",
         _pool_line(r),
         "",
-        f"Scorecard history: {VALIDATION_FILE} - at 3-4 live entries, re-run "
-        f"scripts/calibrate_mbw_uplift.py and reconsider the constants.",
+        f"Scorecard history: {VALIDATION_FILE}. Constants are reconsidered "
+        f"with `make uplift`, which reports n per weekday on exact pools.",
     ]
     return "\n".join(lines)
 

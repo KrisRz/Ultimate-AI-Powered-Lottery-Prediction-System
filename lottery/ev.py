@@ -94,8 +94,10 @@ DEFAULT_TICKETS_SOLD = 7_500_000
 # the same identity computed by a third party since 2003, not a second
 # independent measurement.
 #
-# The draw after a jackpot is won is the one draw this cannot price: the pool
-# resets to the minimum, so the difference measures the reset, not the sales.
+# The draw after a jackpot is paid out is the one draw this cannot price: its
+# pool is set by the operator, not grown by sales - usually the GBP 2m minimum,
+# but draw 3206 followed a won Must-Be-Won with a guaranteed GBP 12m, and the
+# difference read as 23.6m lines on a draw that sold about 10.5m.
 JACKPOT_SHARE_OF_SALES = 0.0888
 LEGACY_JACKPOT_SHARE_OF_SALES = 0.0979   # licence in force before 7 June 2026
 TWO_ROUND_FIRST_DRAW = 3179              # 2026-06-10, the first two-round draw
@@ -121,10 +123,17 @@ def exact_lines_sold(pools_df) -> dict:
     feed), not the estimate advertised beforehand. The two differ by up to ~4%,
     which is 8-10% once divided into sales - see scripts/backfill_draw_pools.py.
 
-    Returns {draw_number: lines} for every draw the identity can price, which
-    is every draw whose pool grew on its predecessor. A pool that did not grow
-    means the previous draw paid its jackpot out and this one restarted from
-    the minimum: no sales information in that difference, so no entry.
+    Returns {draw_number: lines} for every draw the identity can price: the
+    previous draw ROLLED its pool into this one, and the pool grew. The first
+    condition is the identity's premise and reads the feed's rollover_count
+    (a positive count on the previous draw; blank after a win, 0 after a
+    roll-down). Growth alone is not enough - it held for draw 3206, whose
+    guaranteed GBP 12m pool followed a jackpot won at GBP 7.8m, and priced a
+    ~10.5m-line draw at 23.6m. Frames without the column fall back to the
+    growth test, which is right whenever the reset is to the minimum.
+
+    A promotional pool set on top of a rollover cannot be told apart from
+    sales here; the scorecard routes those to winner counts itself.
 
     This is what replaces N ~ winners / P(tier) wherever it can. That estimator
     is unbiased across many draws but carries about +/-15% on a single one,
@@ -135,12 +144,20 @@ def exact_lines_sold(pools_df) -> dict:
     """
     if pools_df is None or len(pools_df) == 0:
         return {}
+    import pandas as pd
     pools = {int(r["draw_number"]): float(r["pool_gbp"])
              for _, r in pools_df.iterrows()}
+    rolled = None
+    if "rollover_count" in pools_df.columns:
+        rolled = {int(r["draw_number"]): pd.notna(r["rollover_count"])
+                  and int(r["rollover_count"]) > 0
+                  for _, r in pools_df.iterrows()}
     exact = {}
     for draw, pool in pools.items():
         previous = pools.get(draw - 1)
         if previous is None or pool <= previous:
+            continue
+        if rolled is not None and not rolled.get(draw - 1, False):
             continue
         sales = (pool - previous) / jackpot_share_of_sales(draw)
         exact[draw] = int(round(sales / TICKET_PRICE))
@@ -604,14 +621,15 @@ def must_be_won_after_cap(pools_df) -> set:
     `pools_df` is data/draw_pools.csv, whose rollover_count comes straight from
     the feed. The count belongs to the draw it is on - 5 means "this pool has
     rolled five times" - so it identifies the NEXT draw, which the cap forces
-    to pay out. Verified on 3183 -> 3184, 3189 -> 3190 and 3195 -> 3196, the
-    only three Must-Be-Won draws of the two-round era.
+    to pay out. Verified on 3183 -> 3184, 3189 -> 3190, 3195 -> 3196 and
+    3204 -> 3205, the four cap-driven Must-Be-Won draws of the two-round era.
 
     What it cannot see is a PROMOTIONAL Must-Be-Won: the procedures let Allwyn
-    designate any draw one (special draws are the usual case), and no rollover
-    count precedes that. `must_be_won_draw_numbers` catches those, from the
-    forward-looking flag the collector stores. Neither has happened in the
-    two-round era yet.
+    designate any draw one, and no rollover count precedes that. The first of
+    the era was 3206, a guaranteed GBP 12m straight after 3205 was won.
+    `must_be_won_draw_numbers` catches those from the forward-looking flag the
+    collector stores; the pool baseline does not need to, because a pool that
+    follows a win is never priced (`exact_lines_sold`).
     """
     empty: set = set()
     if pools_df is None or len(pools_df) == 0:

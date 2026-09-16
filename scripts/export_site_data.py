@@ -409,8 +409,9 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
 
     # What a capped roll actually reaches in this era, from the draws that
     # have done it. This is the number that decides whether a Must-Be-Won draw
-    # is an opportunity or just an event: three of them so far, all Saturdays,
-    # none of them within GBP 3m of the Saturday threshold above.
+    # is an opportunity or just an event: four of them by 3206, three Saturdays
+    # none within GBP 3m of the Saturday threshold above, and one Wednesday
+    # (3205, GBP 7.8m) that the realised sales put above its own break-even.
     cap_reach = None
     if pools is not None and len(pools):
         capped = sorted(must_be_won_after_cap(pools))

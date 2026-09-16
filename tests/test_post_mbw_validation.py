@@ -97,6 +97,33 @@ class TestScorecard:
         assert validate(pd.DataFrame(rows)) is None
 
 
+class TestOnTheCollectedDraws:
+    """The two September 2026 Must-Be-Won draws, from the collected files as
+    they stood after 3206 - pinned, because the collector keeps appending."""
+
+    @pytest.fixture(scope="class")
+    def data(self):
+        tiers = pd.read_csv("data/prize_tiers.csv").query("draw_number <= 3206")
+        pools = pd.read_csv("data/draw_pools.csv").query("draw_number <= 3206")
+        return tiers, pools
+
+    def test_the_cap_driven_wednesday_is_read_off_the_pool(self, data):
+        r = validate(*data, draw_number=3205)
+        assert r["lines_source"] == "pool identity"
+        assert r["measured_lines"] == 5_918_273
+        assert r["uplift_measured"] == pytest.approx(1.152, abs=0.001)
+        assert r["carried_pool"] == pytest.approx(7_807_591.37)
+        assert "£7,807,591" in format_report(r)
+
+    def test_the_promotional_saturday_falls_back_to_winner_counts(self, data):
+        """3206's GBP 12m was a guarantee. Differencing it gave 23.6m lines and
+        an uplift of 2.79 - the row this test exists to keep out."""
+        r = validate(*data, draw_number=3206)
+        assert r["lines_source"] == "winner counts"
+        assert 9_000_000 < r["measured_lines"] < 12_000_000
+        assert r["uplift_measured"] < 1.5
+
+
 class TestAccumulation:
     def test_appends_and_dedupes(self, tmp_path):
         path = tmp_path / "scorecard.csv"
