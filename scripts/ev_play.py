@@ -30,6 +30,7 @@ from lottery.ev import (  # noqa: E402
     default_portfolio_seed,
     estimate_tickets_sold,
     forecast_must_be_won,
+    guaranteed_pool,
     must_be_won_outlook,
     kelly_stake,
     mbw_type,
@@ -77,10 +78,20 @@ def next_draw_conditions(force_roll_down: bool = False,
                 cond.jackpot = float(last["next_jackpot_estimate"])
             # bool(NaN) is True - a missing flag must never fake a Must-Be-Won
             flag = last.get("next_jackpot_roll_down")
-            cond.roll_down = not force_ordinary and (force_roll_down or (
-                pd.notna(flag) and str(flag).strip().lower() in ("true", "y", "yes", "1")))
+            flagged = pd.notna(flag) and str(flag).strip().lower() in (
+                "true", "y", "yes", "1")
+            cond.roll_down = not force_ordinary and (force_roll_down or flagged)
             if pd.notna(last.get("rollover_count")):
                 cond.rollover_count = int(last["rollover_count"])
+            # A flagged draw the cap did not force is the operator's own - a
+            # guaranteed pool with a campaign behind it, which sells like one
+            # (SPECIAL_MBW_UPLIFT_BY_WEEKDAY). So is a capped roll the operator
+            # topped up to a round guarantee. Only the live flag can say so:
+            # a forced what-if asks about the cap.
+            cond.special_event = bool(
+                cond.roll_down and flagged and not force_roll_down
+                and (mbw_type(True, cond.rollover_count) == "special-event"
+                     or guaranteed_pool(cond.jackpot)))
             # Sales are an identity, not an estimate, wherever the pools
             # reach: (pool - previous pool) / 8.88%. Winner counts stay the
             # fallback for windows the pools do not cover.
@@ -88,7 +99,8 @@ def next_draw_conditions(force_roll_down: bool = False,
                      if DRAW_POOLS_FILE.exists() else None)
             estimated = estimate_tickets_sold(tiers, roll_down=cond.roll_down,
                                               draw_date=cond.draw_date,
-                                              pools_df=pools)
+                                              pools_df=pools,
+                                              special_event=cond.special_event)
             if estimated:
                 cond.tickets_sold = estimated
             # Fixed-tier prizes come from the data too - a hardcoded table is
@@ -133,7 +145,10 @@ def main() -> None:
     print("=" * 64)
     print(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
     print(f"Rounds per ticket:    {cond.rounds}")
-    kind = mbw_type(cond.roll_down, cond.rollover_count)
+    # From the conditions, not the count: a forced what-if has no count and
+    # is priced as a capped roll, so it must not be labelled a special.
+    kind = (None if not cond.roll_down
+            else "special-event" if cond.special_event else "cap-driven")
     print(f"Must-Be-Won:          {f'YES ({kind})' if kind else 'no'}")
     mbw = forecast_must_be_won(cond.rollover_count)
     if not cond.roll_down:
@@ -152,8 +167,10 @@ def main() -> None:
                   f"{'PLAY' if outlook['play'] else 'likely SKIP'} "
                   f"(EV £{outlook['ev_best_line']:+.2f}, forecast)")
     day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
-    print(f"Assumed lines sold:   {cond.tickets_sold:,}"
-          f"{f' ({day} Must-Be-Won uplift x{mbw_uplift(cond.draw_date)[0]})' if cond.roll_down else ''}")
+    uplift_label = (f" ({day} {kind} uplift "
+                    f"x{mbw_uplift(cond.draw_date, cond.special_event)[0]})"
+                    if cond.roll_down else "")
+    print(f"Assumed lines sold:   {cond.tickets_sold:,}{uplift_label}")
     p = cond.prizes
     print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
           f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")

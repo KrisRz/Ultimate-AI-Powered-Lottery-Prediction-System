@@ -73,3 +73,48 @@ class TestExactEraUplifts:
         ordinary = pd.DataFrame(_cycles(2))
         ordinary["rollover_count"] = 1          # nothing ever reaches the cap
         assert exact_era_uplifts(ordinary) == []
+
+
+class TestSpecialEventCalibration:
+    """The constants SPECIAL_MBW_UPLIFT_BY_WEEKDAY install are what `make
+    uplift` measures on the archive as it stood after 3206."""
+
+    @pytest.fixture(scope="class")
+    def archive(self):
+        from scripts.calibrate_mbw_uplift import load
+        history = load()
+        collected = pd.read_csv("data/prize_tiers.csv", parse_dates=["draw_date"])
+        collected = collected[(collected["draw_number"] > history["draw_number"].max())
+                              & (collected["draw_number"] <= 3206)]
+        tiers = pd.concat([history, collected], ignore_index=True)
+        full = pd.read_csv("data/lotto_full_history.csv").query("DrawNumber <= 3206")
+        return tiers, full
+
+    def test_finds_the_specials_and_only_them(self, archive):
+        from scripts.calibrate_mbw_uplift import rolldown_draws, special_event_draws
+        tiers, _ = archive
+        found = special_event_draws(tiers, rolldown_draws(tiers))
+        # Christmas Eve 2025, recorded as GBP 5m in the history file
+        assert 3131 in found
+        # won outright: no roll-down signature, still a special - 2400 went
+        # to two tickets at GBP 7.5m each
+        assert {3178, 3206, 2922, 2400} <= found
+        # a flat advertised GBP 14m that simply rolled on
+        assert 2415 not in found
+        # capped rolls are the other kind - unless the operator topped one
+        # up to a round guarantee and advertised it
+        assert 3190 not in found and 3184 not in found
+        assert {2578, 2848, 2962, 2996} <= found
+
+    def test_the_installed_constants_are_the_measured_ones(self, archive):
+        from lottery.ev import SPECIAL_MBW_UPLIFT_BY_WEEKDAY
+        from scripts.calibrate_mbw_uplift import special_event_uplifts
+        rows = special_event_uplifts(*archive)
+        for day in (2, 5):
+            u = rows[rows["weekday"] == day]["uplift"]
+            measured = tuple(round(float(x), 2) for x in
+                             (u.median(), u.quantile(.25), u.quantile(.75)))
+            assert measured == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[day], day
+        assert (rows["weekday"] == 5).sum() == 39
+        wednesdays = rows[rows["weekday"] == 2]
+        assert len(wednesdays) == 4 and wednesdays["christmas"].all()

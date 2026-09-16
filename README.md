@@ -71,20 +71,33 @@ make install-cron                                # auto post-draw routine (Wed/S
   so the extra buyers eat the edge — and since the 7 June 2026 licence the
   jackpot takes **8.88% of sales** (was 9.79%) and restarts at **£2m on both
   days** (Saturday was £3.8m), so a capped roll now reaches only about
-  £8.5–9.6m. Break-even is ~£9.1m on a Wednesday and ~£12.9m on a Saturday
-  (Saturdays sell half again as many lines to share the pool between). All
-  three Must-Be-Won draws of the two-round era landed on Saturdays and all fell
-  short. Re-priced at each historical draw's own measured sales, 24 of 53
-  cap-driven draws since 2019 clear break-even — but every one of those 24
+  £7.8–9.6m. Break-even is ~£9.3m on a Wednesday and ~£13.2m on a Saturday
+  (Saturdays sell half again as many lines to share the pool between). Of the
+  four capped Must-Be-Won draws of the two-round era, the three Saturdays fell
+  well short; the Wednesday one (3205, £7.8m) turned out +£0.06 a line at the
+  sales it actually saw, because the installed uplift overstates them — see
+  `make uplift`. Re-priced at each historical draw's own measured sales, 22 of
+  53 cap-driven draws since 2019 clear break-even — but every one of those 22
   carried a pool of **£11.3m or more**, which a cap alone no longer reaches;
-  the last was March 2026, before the redesign. Realistically that leaves
-  **one or two playable draws a year**: Wednesday Must-Be-Won draws at the top
-  of the range, and special draws (£15–20m, announced weeks ahead).
+  the last was March 2026, before the redesign.
+- **Special draws are the other kind of Must-Be-Won** — a guaranteed £12m,
+  £15m or £20m with a campaign behind it, 43 of them since late 2018, often
+  announced only a couple of days ahead (3206's £12m appeared in the feed on
+  the Thursday). They sell far more than a capped roll: ×1.39 an ordinary
+  Saturday, ×2.2 an ordinary Wednesday (every Wednesday one on file was at
+  Christmas, up to ×3.2). The advisor tells the two apart from the feed and
+  prices each with its own uplift, so a special breaks even at ~£14m on
+  either day and holds across the sales range only from ~£16.5m: **£20m pays,
+  £15m is a coin flip on sales, £12m does not.** The catch is the calendar:
+  the operator ran sixteen £20m specials in 2020–2023 and none since — 2024
+  to date brought fourteen at £15m and two at £12m. So a clearly playable
+  draw is currently **rarer than once a year**, and most PLAY verdicts will be
+  the marginal kind the advisor labels as such.
   **Must-Be-Won is a necessary condition, not a sufficient one — wait for the
   advisor's verdict, not the calendar.**
 - **Sales are the fragile input**: on a roll-down the EV is dominated by J/N,
-  so `make play` reports the verdict across the sales range (uplift quartiles
-  1.07–1.69) and flags whether it survives the busy end. A draw that only
+  so `make play` reports the verdict across the sales range (the day's uplift
+  quartiles, capped or special) and flags whether it survives the busy end. A draw that only
   clears on the central estimate is not a real opportunity. Re-calibrate with
   `python scripts/calibrate_mbw_uplift.py`.
 - **Two rounds**: since 2026-06-07 every ticket enters two draws per night;

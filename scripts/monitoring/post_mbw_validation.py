@@ -42,9 +42,9 @@ from lottery.ev import (  # noqa: E402
     P_MATCH_2,
     P_MATCH_3,
     P_MATCH_4,
+    ROLLOVER_CAP,
     TIER_MATCH_2,
     TIER_MATCH_3,
-    must_be_won_after_cap,
 )
 
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
@@ -132,6 +132,12 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
     draw_date = date.fromisoformat(str(rows["draw_date"].iloc[0]))
     before = tiers[tiers["draw_number"] < latest_no]
     prev = before[before["draw_number"] == previous_no].iloc[-1]
+    # Which kind of Must-Be-Won, read off the count the draw before it carried:
+    # the cap forces the draw after a fifth rollover; anything else flagged was
+    # the operator's. The two sell differently and are priced differently.
+    # An unknown count is read as the cap, the common case.
+    count = prev.get("rollover_count")
+    special = bool(pd.notna(count) and int(count) < ROLLOVER_CAP)
 
     # What the draw sold is an identity where the pools reach it: winner counts
     # measure the same thing with +/-15% of noise, and a scorecard is a
@@ -143,8 +149,7 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
     # pool the operator set - 3206's GBP 12m - and differencing that measures
     # the guarantee, not the sales.
     exact = exact_lines_sold(pools)
-    measured = (exact.get(latest_no)
-                if latest_no in must_be_won_after_cap(pools) else None)
+    measured = None if special else exact.get(latest_no)
     lines_source = "pool identity"
     if measured is None:
         measured = measured_lines(rows)
@@ -155,7 +160,7 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
     before_pools = (pools[pools["draw_number"] < latest_no]
                     if pools is not None else None)
     predicted = estimate_tickets_sold(before, roll_down=True, draw_date=draw_date,
-                                      pools_df=before_pools)
+                                      pools_df=before_pools, special_event=special)
     advertised = (float(prev["next_jackpot_estimate"])
                   if pd.notna(prev.get("next_jackpot_estimate")) else None)
     # The pool the draw actually carried, where the pools reach. Allwyn's
@@ -171,11 +176,12 @@ def validate(tiers: pd.DataFrame, pools: pd.DataFrame | None = None,
     jackpot_rows = rows[rows["tier"] == 1]
     jackpot_winners = int(jackpot_rows["winners"].sum()) if len(jackpot_rows) else None
 
-    up_installed = mbw_uplift(draw_date)[0]
+    up_installed = mbw_uplift(draw_date, special)[0]
     baseline = predicted / up_installed if predicted else None
     return {
         "draw_number": int(latest_no),
         "draw_date": draw_date.isoformat(),
+        "kind": "special-event" if special else "cap-driven",
         "measured_lines": measured,
         "lines_source": lines_source,
         "predicted_lines": predicted,
@@ -242,8 +248,9 @@ def format_report(r: dict) -> str:
     def pct(x):
         return f"{x:+.1%}" if x is not None else "n/a"
 
+    kind = f", {r['kind']}" if r.get("kind") else ""
     lines = [
-        f"Must-Be-Won draw {r['draw_number']} ({r['draw_date']}) - model scorecard",
+        f"Must-Be-Won draw {r['draw_number']} ({r['draw_date']}{kind}) - model scorecard",
         "",
         f"Lines sold:   measured {r['measured_lines']:,} vs forecast "
         f"{r['predicted_lines']:,}  (forecast error {pct(r['n_error'])})"

@@ -78,6 +78,15 @@ to 4%.
 conflicts there with every other one. Resolve by re-running `make site-data`,
 never by editing the JSON.
 
+**There are two kinds of Must-Be-Won, priced with different uplifts.** A
+capped roll uses `MBW_UPLIFT_BY_WEEKDAY`; a special — a guaranteed round pool
+of £10M or more, with or without a cap under it — uses
+`SPECIAL_MBW_UPLIFT_BY_WEEKDAY` (Sat ×1.39, Wed ×2.21, measured on winner
+counts because the archive's sales for every special are round placeholders).
+Only the live feed flag sets `DrawConditions.special_event`; `--roll-down`
+what-ifs price the cap. Any archive figure that is a round £1M of sales
+(`sales_history.csv`, 153 rows) is a placeholder, not a measurement.
+
 ## After a Must-Be-Won draw
 
 `make uplift`. Its last section measures the uplift on exact pools in the same

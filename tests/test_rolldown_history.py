@@ -82,6 +82,15 @@ class TestReplay:
         assert numbers == sorted(numbers)
         assert len(numbers) == len(set(numbers))
 
+    def test_a_guaranteed_pool_is_priced_at_what_it_sold(self, rows):
+        """Christmas Eve 2025: a GBP 15m special the history file records as
+        GBP 5m, with a round 12.5m placeholder for sales. Winner counts put it
+        at ~17.5m lines, which is what made it a loss."""
+        row = next(r for r in rows if r["draw_number"] == 3131)
+        assert row["pool_gbp"] == 15_000_000
+        assert 16_000_000 < row["tickets_sold"] < 19_000_000
+        assert row["ev"] < 0
+
     def test_cap_driven_count_matches_the_archive(self, stats):
         """53 of the roll-downs followed a jackpot reaching the cap. That
         figure is independently recorded in the project's own notes, so it
