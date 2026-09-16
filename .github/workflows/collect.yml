@@ -74,15 +74,11 @@ jobs:
           sys.exit(0 if latest >= expected else 1)
           EOF
 
-      # Scores the model against the draw when it was a Must-Be-Won (~9/year):
-      # measured sales vs forecast, advertised pool vs actual redistribution.
-      # Runs before the commit so its scorecard CSV rides the same push.
+      # Scores the model against the draw when it was a Must-Be-Won, capped
+      # or special: measured sales vs forecast, carried pool vs what rolled
+      # down. Runs before the commit so its scorecard CSV rides the same push.
+      # It prints and never emails, so it gets no SMTP secrets.
       - name: Score the model after a Must-Be-Won draw
-        env:
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: PYTHONPATH=. python scripts/monitoring/post_mbw_validation.py
 
       # The public page quotes this model, and until now only a human running

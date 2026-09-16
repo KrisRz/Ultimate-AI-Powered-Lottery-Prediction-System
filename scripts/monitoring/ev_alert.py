@@ -41,7 +41,7 @@ from lottery.ev import (  # noqa: E402
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
-from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
+from scripts.monitoring.notify import maybe_send_email  # noqa: E402
 from scripts.monitoring.operator_page import (  # noqa: E402
     compare as compare_with_operator,
     fetch_operator_page,

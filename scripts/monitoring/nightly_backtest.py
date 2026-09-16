@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import json
 import os
-import smtplib
 from datetime import datetime
-from email.message import EmailMessage
 from pathlib import Path
 from typing import Dict
 
+from scripts.monitoring.notify import maybe_send_email
 from scripts.validations.backtest import run_backtest
 
 
@@ -36,30 +35,6 @@ def pick_best(metrics: Dict[str, Dict[str, float]], methods: list[str]) -> str:
             best = key
             best_key = m
     return best_key or methods[0]
-
-
-def maybe_send_email(subject: str, body: str) -> None:
-    server = os.environ.get('SMTP_SERVER')
-    user = os.environ.get('SMTP_USER')
-    password = os.environ.get('SMTP_PASS')
-    to_addr = os.environ.get('EMAIL_TO')
-    from_addr = os.environ.get('EMAIL_FROM', user)
-    if not (server and user and password and to_addr and from_addr):
-        print("[email] SMTP env not configured (SMTP_SERVER/SMTP_USER/SMTP_PASS/EMAIL_TO) - not sending")
-        return
-    try:
-        msg = EmailMessage()
-        msg['Subject'] = subject
-        msg['From'] = from_addr
-        msg['To'] = to_addr
-        msg.set_content(body)
-        with smtplib.SMTP_SSL(server, 465) as s:
-            s.login(user, password)
-            s.send_message(msg)
-        print(f"[email] SENT to {to_addr}: {subject}")
-    except Exception as e:
-        # Loud failure - an alert that silently fails is worse than none
-        print(f"[email] FAILED to send ({type(e).__name__}): {e}")
 
 
 def main() -> int:
