@@ -115,3 +115,58 @@ class TestMatchDegreeUndamping:
         b = fit_bucket_weights(self._synthetic(2), match_degree=3)
         assert b["low12"] < W_LOW * 0.99
         assert b["high"] > W_HIGH * 1.01
+
+
+class TestBonusNumberEstimator:
+    """The second, sales-free measurement of the bucket weights."""
+
+    def _synthetic(self) -> pd.DataFrame:
+        """Expected 5+B and Match 5 counts from the forward model, for every
+        bonus ball against a fixed drawn six."""
+        drawn = [1, 2, 13, 14, 32, 33]
+        rows = []
+        for draw, bonus in enumerate(n for n in range(1, 60) if n not in drawn):
+            rest = sum(_weight(x) for x in range(1, 60)
+                       if x not in drawn and x != bonus)
+            w5 = 1_000.0
+            rows.append({**{c: drawn[i] for i, c in enumerate(NUMBER_COLS)},
+                         "Bonus": bonus, "w5": w5, "w5b": w5 * _weight(bonus) / rest,
+                         "draw_number": 3000 + draw, "round": 1})
+        return pd.DataFrame(rows)
+
+    def test_recovers_known_weights_without_any_sales(self):
+        from scripts.calibrate_popularity import bonus_number_weights
+        est = bonus_number_weights(self._synthetic())
+        assert est["low12"] == pytest.approx(W_LOW, rel=1e-6)
+        assert est["mid"] == pytest.approx(W_MID, rel=1e-6)
+        assert est["high"] == pytest.approx(W_HIGH, rel=1e-6)
+
+    def test_the_archive_confirms_the_installed_weights(self):
+        """2026-09-16: 1.217 / 1.174 / 0.789, installed inside every interval."""
+        from lottery.ev import number_weight
+        from scripts.calibrate_popularity import (
+            BUCKETS, _bootstrap, bonus_number_weights, load_bonus_joined)
+        df = load_bonus_joined().query("draw_number <= 3195")
+        est = bonus_number_weights(df)
+        assert est["low12"] > est["mid"] > est["high"]
+        boots = pd.DataFrame(_bootstrap(df, bonus_number_weights, 200, seed=0))
+        for key, lo, _ in BUCKETS:
+            low, high = boots[key].quantile([.025, .975])
+            assert low <= number_weight(lo) <= high, key
+
+
+class TestBigJackpotFlattening:
+    def test_big_draws_pick_more_uniformly(self):
+        """Polin et al. (2021), on this archive: the low/high contrast is
+        smaller on big-jackpot draws. Pinned so a regression in the split or
+        the fit shows up, not as a claim that the gap is large."""
+        from scripts.calibrate_popularity import (
+            CALIB_TIER, big_draw_flag, load_joined)
+        df = add_multiplier(load_joined(CALIB_TIER), tier_prob=P_MATCH_3)
+        df = df[df["draw_number"] <= 3195]
+        big = big_draw_flag(df["draw_number"])
+        ordinary, loud = fit_bucket_weights(df[~big]), fit_bucket_weights(df[big])
+        assert 400 < big.sum() < 600
+        ratio = lambda b: b["low12"] / b["high"]  # noqa: E731
+        assert ratio(ordinary) == pytest.approx(1.542, abs=0.01)
+        assert ratio(loud) == pytest.approx(1.401, abs=0.01)

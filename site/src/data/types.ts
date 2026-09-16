@@ -105,7 +105,17 @@ export interface Ev {
     high_gbp: number;
     median_gbp: number;
     era_from_draw: number;
+    /** How many of them fell on each weekday, e.g. { Saturday: 3, Wednesday: 1 }. */
+    by_weekday: Record<string, number>;
   } | null;
+  /** The operator's own Must-Be-Won draws - a guaranteed pool with a campaign
+   *  behind it - sell far more than a capped roll, so they have their own
+   *  thresholds: at the central sales estimate, and at the busy end of the
+   *  specials on file (what a robust PLAY has to clear). Keyed by weekday. */
+  special_break_even_by_weekday: Record<
+    string,
+    { tickets_sold: number; break_even_jackpot: number; robust_break_even_jackpot: number }
+  > | null;
   /** The Must-Be-Won draw this roll is heading for, priced before it arrives.
    *  Null when the draw being priced IS that draw, or when the collected pools
    *  do not reach far enough back to project one honestly. */

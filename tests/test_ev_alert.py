@@ -131,3 +131,17 @@ class TestOperatorSecondOpinion:
         monkeypatch.delenv("EV_ALERT_TEST", raising=False)
         ev_alert.main()
         assert sent and "Operator's page:      agrees" in sent[0][1]
+
+
+def test_the_alert_does_not_load_the_legacy_predictor():
+    """The PLAY email used to import TensorFlow by way of nightly_backtest ->
+    backtest -> new_predict. An import failure anywhere in that legacy stack
+    would have taken the one output that matters down with it."""
+    import subprocess
+    import sys
+    probe = ("import sys; import scripts.monitoring.ev_alert; "
+             "print(','.join(m for m in ('tensorflow', 'scripts.new_predict', "
+             "'scripts.validations.backtest') if m in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True,
+                         text=True, check=True, env={"PYTHONPATH": "."})
+    assert out.stdout.strip() == ""

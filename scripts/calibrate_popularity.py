@@ -259,6 +259,129 @@ def oos_report(window: int = TREND_WINDOW) -> None:
         print(f"  {name:>13}: corr {corr:.3f}  mse {mse:.5f}")
 
 
+# --- two checks from the literature (added 2026-09-16) ----------------------
+
+BUCKETS = (("low12", 1, 12), ("mid", 13, 31), ("high", 32, N_BALLS))
+
+
+def _bucket_of(n: int) -> str:
+    return "low12" if n <= 12 else ("mid" if n <= 31 else "high")
+
+
+def load_bonus_joined() -> pd.DataFrame:
+    """One row per (draw, round): drawn six, bonus ball, 5+B and Match 5 winners."""
+    hist = pd.read_csv(HISTORY_FILE).rename(
+        columns={"DrawNumber": "draw_number", "Round": "round"})
+    tiers = pd.read_csv(TIERS_HISTORY_FILE)
+    pick = lambda tier, name: tiers[tiers["tier"] == tier][  # noqa: E731
+        ["draw_number", "round", "winners"]].rename(columns={"winners": name})
+    df = hist.merge(pick(2, "w5b"), on=["draw_number", "round"]).merge(
+        pick(3, "w5"), on=["draw_number", "round"])
+    return df[df["w5"] > 0].reset_index(drop=True)
+
+
+def bonus_number_weights(df: pd.DataFrame, iterations: int = 5) -> dict:
+    """Bucket pick-rates from the bonus ball alone (Roger & Broihanne 2007;
+    Hanley & Cronin 2023, Significance 20(1)).
+
+    A Match 5 ticket holds five drawn numbers and one other, x. It is a 5+B
+    ticket exactly when x is the bonus ball b. The five drawn numbers are the
+    same set either way, so their popularity cancels, and
+
+        E[5+B winners] / E[Match 5 winners] = w(b) / sum of w over the 52
+                                               numbers neither drawn nor b
+
+    - a measurement of how popular b is that needs no sales figure at all,
+    unlike the Match 3 multiplier. Pooled per bucket and normalised to a mean
+    pick-rate of 1. The denominator depends weakly on the weights being
+    estimated, hence a few fixed-point iterations from uniform.
+    """
+    nums = df[NUMBER_COLS].to_numpy().astype(int) - 1
+    bonus = df["Bonus"].to_numpy().astype(int) - 1
+    w5b, w5 = df["w5b"].to_numpy(), df["w5"].to_numpy()
+    of_bonus = np.array([_bucket_of(b + 1) for b in bonus])
+    est = {k: 1.0 for k, _, _ in BUCKETS}
+    for _ in range(iterations):
+        per_number = np.array([est[_bucket_of(n)] for n in range(1, N_BALLS + 1)])
+        rest = per_number.sum() - per_number[nums].sum(axis=1) - per_number[bonus]
+        raw = {k: w5b[of_bonus == k].sum() / (w5 / rest)[of_bonus == k].sum()
+               for k, _, _ in BUCKETS}
+        scale = N_BALLS / sum(raw[k] * (hi - lo + 1) for k, lo, hi in BUCKETS)
+        est = {k: v * scale for k, v in raw.items()}
+    return est
+
+
+def _bootstrap(df: pd.DataFrame, fit, n_boot: int, seed: int) -> list:
+    rng = np.random.default_rng(seed)
+    return [fit(df.iloc[rng.integers(0, len(df), len(df))]) for _ in range(n_boot)]
+
+
+def bonus_number_report(n_boot: int = 500, seed: int = 0) -> None:
+    """The bucket weights, measured a second way. First run (2026-09-16,
+    1,147 draw-rounds, 1,437 5+B winners): 1.217 / 1.174 / 0.789 against the
+    installed 1.23 / 1.10 / 0.83, every installed value inside its 95%
+    interval (low12 1.10-1.35, mid 1.06-1.28, high 0.69-0.88). An independent
+    confirmation of the weights, from a tier the Match 3 fit never sees."""
+    df = load_bonus_joined()
+    est = bonus_number_weights(df)
+    boots = pd.DataFrame(_bootstrap(df, bonus_number_weights, n_boot, seed))
+    print(f"\nBonus-number estimator ({len(df)} draw-rounds, "
+          f"{int(df['w5b'].sum()):,} 5+B winners; no sales needed):")
+    print(f"  {'bucket':>7} {'estimate':>9} {'95% interval':>15} {'installed':>10}")
+    for key, lo, _ in BUCKETS:
+        low, high = boots[key].quantile([.025, .975])
+        installed = number_weight(lo)
+        inside = "" if low <= installed <= high else "   OUTSIDE"
+        print(f"  {key:>7} {est[key]:>9.3f} {low:>7.3f}-{high:<7.3f} {installed:>10.3f}{inside}")
+
+
+def big_draw_flag(draw_numbers: pd.Series) -> pd.Series:
+    """Draws the whole country hears about: third rollover or later, every
+    roll-down, every guaranteed special."""
+    from scripts.calibrate_mbw_uplift import rolldown_draws, special_event_draws
+    from scripts.rolldown_history import rollover_streaks
+    tiers = pd.read_csv(TIERS_HISTORY_FILE, parse_dates=["draw_date"])
+    boosted = rolldown_draws(tiers)
+    streaks = rollover_streaks(pd.read_csv(HISTORY_FILE), boosted)
+    specials = special_event_draws(tiers, boosted)
+    return ((draw_numbers.map(streaks).fillna(0) >= 3)
+            | draw_numbers.isin(boosted) | draw_numbers.isin(specials))
+
+
+def flattening_report(window: int = TREND_WINDOW, n_boot: int = 1000,
+                      seed: int = 1) -> None:
+    """Do players pick more uniformly when the jackpot is big?
+
+    Polin, Ben Isaac & Aharon (2021, JDM 16(4)) found exactly that on 115m
+    Israeli tickets: occasional players arrive for big jackpots, and they pick
+    less like regulars. Measured here as the low12/high weight ratio on
+    ordinary draws against big ones (Match 3 fit). First run (2026-09-16):
+    1.542 against 1.401 - big draws ~9% flatter, bootstrap difference
+    0.144 (95% 0.032-0.260), P(<=0) 0.006. Real, and nearly irrelevant: the
+    reference line's popularity goes 0.316 -> 0.387 on the big-draw weights,
+    which moves EV by GBP 0.002-0.010 a line on the draws that matter,
+    because co-winners from the other round (popularity 1.0) dominate the
+    share. Hence reported, not modelled. The bonus-number version of the same
+    split is too noisy to say anything (intervals ~1.1-2.4).
+    """
+    df = add_multiplier(load_joined(CALIB_TIER), window, tier_prob=P_MATCH_3)
+    big = big_draw_flag(df["draw_number"])
+    ordinary, loud = df[~big], df[big]
+    ratio = lambda b: b["low12"] / b["high"]  # noqa: E731
+    boots_o = _bootstrap(ordinary, fit_bucket_weights, n_boot, seed)
+    boots_b = _bootstrap(loud, fit_bucket_weights, n_boot, seed + 1)
+    diff = np.array([ratio(o) - ratio(b) for o, b in zip(boots_o, boots_b)])
+    print("\nBig-jackpot flattening (Polin et al. 2021), Match 3 fit:")
+    for label, part in (("ordinary", ordinary), ("big", loud)):
+        b = fit_bucket_weights(part)
+        print(f"  {label:>9} n={len(part):>4}  {b['low12']:.3f} / {b['mid']:.3f} / "
+              f"{b['high']:.3f}   low12/high {ratio(b):.3f}")
+    print(f"  difference {diff.mean():+.3f} (95% {np.quantile(diff, .025):+.3f}.."
+          f"{np.quantile(diff, .975):+.3f}), P(<=0) {np.mean(diff <= 0):.3f}")
+    print("  EV effect on the draws that matter is under a penny a line - reported,"
+          " not modelled.")
+
+
 def report(df: pd.DataFrame, recovered: np.ndarray) -> None:
     print("\n" + "=" * 66)
     print(f"POPULARITY CALIBRATION  ({len(df)} draw-rounds, "
@@ -335,6 +458,8 @@ def main() -> int:
         cross_tier_report(args.window)
         cowinner_tail_report()
         oos_report(args.window)
+        bonus_number_report()
+        flattening_report(args.window)
     return 0
 
 

@@ -6,8 +6,9 @@ LATEST draw, so a missed collection window (Wed->Sat, ~72h) loses that draw's
 prize-tier data permanently - this check makes any failure loud while the
 data is still recoverable.
 
-Exits non-zero when data is missing (which also triggers GitHub's own
-workflow-failure notification) and attempts an SMTP alert if configured.
+Exits non-zero when data is missing, which reds the run and triggers
+GitHub's own failure notification. It sends no email of its own (see the end
+of main).
 """
 
 import sys

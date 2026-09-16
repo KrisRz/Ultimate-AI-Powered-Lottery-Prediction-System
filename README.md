@@ -58,10 +58,15 @@ make install-cron                                # auto post-draw routine (Wed/S
 - **Popularity model**: number weights (dates over-played, high numbers
   under-played) + pattern multipliers (arithmetic sequences, birthday-only
   tickets), calibrated against 1,126 draws of Match-3 winner counts and
-  normalized so the average line scores exactly 1.0. Calibration data
-  accumulates in `data/prize_tiers.csv` with every fetch; re-check the fit on
-  recent draws only with
-  `python scripts/calibrate_popularity.py --last-draws 500`.
+  normalized so the average line scores exactly 1.0. Confirmed a second,
+  independent way — from how often the bonus ball turns a Match 5 into a
+  5+B (Hanley & Cronin 2023), which needs no sales figure: 1.22 / 1.17 / 0.79
+  against the installed 1.23 / 1.10 / 0.83, all inside the intervals. On
+  big-jackpot draws players pick about 9% more uniformly (Polin et al. 2021,
+  significant here too), which moves EV by under a penny a line, so it is
+  reported rather than modelled. Calibration data accumulates in
+  `data/prize_tiers.csv` with every fetch; re-check the fit on recent draws
+  only with `python scripts/calibrate_popularity.py --last-draws 500`.
 - **When the jackpot must be paid out**: rollovers are capped at 5, so the 6th
   draw of a roll is Must-Be-Won and rolls down. `make play` counts down to it
   and now prices it in advance ("Must-Be-Won in 2 draws, ~2026-09-09 —

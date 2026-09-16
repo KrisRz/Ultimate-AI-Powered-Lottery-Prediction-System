@@ -91,6 +91,16 @@ function Summary() {
   const byDay = ev.mbw_break_even_by_weekday;
   const wed = byDay?.Wednesday?.break_even_jackpot;
   const sat = byDay?.Saturday?.break_even_jackpot;
+  const special = ev.special_break_even_by_weekday;
+  const specialSat = special?.Saturday;
+  const specialWed = special?.Wednesday;
+  // "3 on Saturdays and 1 on a Wednesday", most frequent day first.
+  const reachDays = reach
+    ? Object.entries(reach.by_weekday)
+        .sort(([, a], [, b]) => b - a)
+        .map(([day, n]) => (n === 1 ? `1 on a ${day}` : `${count(n)} on ${day}s`))
+        .join(' and ')
+    : '';
 
   return (
     <section id="summary" className="summary" aria-labelledby="summary-title">
@@ -127,8 +137,7 @@ function Summary() {
           )}
           . The cap forces one every few weeks, which is not the same as an opportunity.
           Since June 2026 the jackpot takes 8.88% of sales and restarts at £2m, so the{' '}
-          {reach && count(reach.n)} forced draws of this era all landed on Saturdays
-          carrying{' '}
+          {reach && count(reach.n)} forced draws of this era ({reachDays}) carried only{' '}
           {reach && (
             <strong className="num">
               {gbpShort(reach.low_gbp)}–{gbpShort(reach.high_gbp)}
@@ -143,6 +152,23 @@ function Summary() {
             </>
           )}
         </p>
+        {specialSat && specialWed && (
+          <p>
+            <strong>The draws that can pay are the operator&rsquo;s specials</strong> — a
+            guaranteed £12m, £15m or £20m with a campaign behind it. They sell more than
+            any other draw, so one needs about{' '}
+            <strong className="num">{gbpShort(specialSat.break_even_jackpot)}</strong> on a
+            Saturday and{' '}
+            <strong className="num">{gbpShort(specialWed.break_even_jackpot)}</strong> on a
+            Wednesday to be worth playing, and{' '}
+            <strong className="num">
+              {gbpShort(Math.max(specialSat.robust_break_even_jackpot,
+                specialWed.robust_break_even_jackpot))}
+            </strong>{' '}
+            to stay worth it at the busy end of what past specials sold. A £20m special
+            clears that; a £15m one is a coin toss on sales; a £12m one does not.
+          </p>
+        )}
         <p>
           <strong>And do not believe anyone who claims more.</strong> This project tested
           four prediction methods over {count(backtest.steps)} real draws and none of them
