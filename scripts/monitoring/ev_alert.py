@@ -42,13 +42,22 @@ from lottery.ev import (  # noqa: E402
 from lottery.portfolio import build_portfolio  # noqa: E402
 from scripts.ev_play import next_draw_conditions  # noqa: E402
 from scripts.monitoring.nightly_backtest import maybe_send_email  # noqa: E402
+from scripts.monitoring.operator_page import (  # noqa: E402
+    compare as compare_with_operator,
+    fetch_operator_page,
+)
 
 DEFAULT_LINES = 5
 
 
 def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
-                n_lines: int = DEFAULT_LINES) -> tuple:
-    """(subject, body) for a PLAY verdict, portfolio included."""
+                n_lines: int = DEFAULT_LINES, operator: dict | None = None) -> tuple:
+    """(subject, body) for a PLAY verdict, portfolio included.
+
+    `operator` is the operator's own page (scripts/monitoring/operator_page),
+    read as a second opinion on the jackpot and the Must-Be-Won flag. None
+    means it was not consulted; {} means it could not be read.
+    """
     # Whether the edge survives the sales estimate belongs in the SUBJECT, not
     # twelve lines down the body. This alert arrives on a phone, hours before
     # sales close, and the difference between "+EV whatever the draw sells" and
@@ -63,6 +72,18 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         strength = "PLAY"
     subject = (f"LOTTO +EV ALERT: {strength}, {draw_date} draw, EV "
                f"£{verdict['ev_best_line']:+.2f} per line")
+
+    # A second source for the two facts the verdict stands on. A disagreement
+    # leads the subject rather than suppressing the mail: the PLAY email is
+    # the output that has to survive a bad feed, and a human with the
+    # operator's page open can settle it in a minute.
+    operator_line = ""
+    if operator is not None:
+        agrees, operator_line = compare_with_operator(cond.roll_down, cond.jackpot,
+                                                      operator)
+        operator_line += "\n"
+        if agrees is False:
+            subject = "CHECK FEEDS - " + subject
 
     lines = []
     try:
@@ -133,7 +154,7 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         f"Best-line EV:         £{verdict['ev_best_line']:+.2f} "
         f"(per £{cond.ticket_price:.0f} ticket, both rounds)\n"
         f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}\n"
-        + caveat + kelly_line
+        + operator_line + caveat + kelly_line
         + portfolio_block +
         f"\nEV is an average over a lottery-sized variance: a +EV draw is a good "
         f"bet, not a likely win.\n"
@@ -159,7 +180,8 @@ def main() -> None:
         return
 
     n_lines = int(os.environ.get("EV_ALERT_LINES", DEFAULT_LINES))
-    subject, body = build_alert(cond, verdict, upcoming_draw_date(), n_lines)
+    subject, body = build_alert(cond, verdict, upcoming_draw_date(), n_lines,
+                                operator=fetch_operator_page())
     print(body)
     maybe_send_email(subject, body)
     print(f"[ev-alert] PLAY (EV £{verdict['ev_best_line']:+.2f}) - alert attempted "
