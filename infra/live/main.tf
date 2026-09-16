@@ -89,6 +89,22 @@ module "github_oidc" {
   distribution_arn = module.site.distribution_arn
 }
 
+# --- draw trigger ------------------------------------------------------------
+# GitHub's own cron has run the collector hours late since late August 2026.
+# EventBridge now keeps the clock and asks GitHub to run the workflows through
+# the dispatch API; the workflows themselves are unchanged and still run on
+# GitHub. The token behind the call is set by hand after the first apply -
+# see the README.
+
+module "draw_trigger" {
+  source = "../modules/draw-trigger"
+
+  name_prefix = "lotto-ev"
+  github_repo = var.github_repo
+  git_ref     = var.github_branch
+  alarm_email = var.budget_alert_email
+}
+
 # --- cost alarm --------------------------------------------------------------
 # This stack should cost pennies: CloudFront's free allowance covers portfolio
 # traffic, the origin is a few megabytes, and there is no compute at all. An

@@ -94,8 +94,10 @@ DEFAULT_TICKETS_SOLD = 7_500_000
 # the same identity computed by a third party since 2003, not a second
 # independent measurement.
 #
-# The draw after a jackpot is won is the one draw this cannot price: the pool
-# resets to the minimum, so the difference measures the reset, not the sales.
+# The draw after a jackpot is paid out is the one draw this cannot price: its
+# pool is set by the operator, not grown by sales - usually the GBP 2m minimum,
+# but draw 3206 followed a won Must-Be-Won with a guaranteed GBP 12m, and the
+# difference read as 23.6m lines on a draw that sold about 10.5m.
 JACKPOT_SHARE_OF_SALES = 0.0888
 LEGACY_JACKPOT_SHARE_OF_SALES = 0.0979   # licence in force before 7 June 2026
 TWO_ROUND_FIRST_DRAW = 3179              # 2026-06-10, the first two-round draw
@@ -121,10 +123,17 @@ def exact_lines_sold(pools_df) -> dict:
     feed), not the estimate advertised beforehand. The two differ by up to ~4%,
     which is 8-10% once divided into sales - see scripts/backfill_draw_pools.py.
 
-    Returns {draw_number: lines} for every draw the identity can price, which
-    is every draw whose pool grew on its predecessor. A pool that did not grow
-    means the previous draw paid its jackpot out and this one restarted from
-    the minimum: no sales information in that difference, so no entry.
+    Returns {draw_number: lines} for every draw the identity can price: the
+    previous draw ROLLED its pool into this one, and the pool grew. The first
+    condition is the identity's premise and reads the feed's rollover_count
+    (a positive count on the previous draw; blank after a win, 0 after a
+    roll-down). Growth alone is not enough - it held for draw 3206, whose
+    guaranteed GBP 12m pool followed a jackpot won at GBP 7.8m, and priced a
+    ~10.5m-line draw at 23.6m. Frames without the column fall back to the
+    growth test, which is right whenever the reset is to the minimum.
+
+    A promotional pool set on top of a rollover cannot be told apart from
+    sales here; the scorecard routes those to winner counts itself.
 
     This is what replaces N ~ winners / P(tier) wherever it can. That estimator
     is unbiased across many draws but carries about +/-15% on a single one,
@@ -135,12 +144,20 @@ def exact_lines_sold(pools_df) -> dict:
     """
     if pools_df is None or len(pools_df) == 0:
         return {}
+    import pandas as pd
     pools = {int(r["draw_number"]): float(r["pool_gbp"])
              for _, r in pools_df.iterrows()}
+    rolled = None
+    if "rollover_count" in pools_df.columns:
+        rolled = {int(r["draw_number"]): pd.notna(r["rollover_count"])
+                  and int(r["rollover_count"]) > 0
+                  for _, r in pools_df.iterrows()}
     exact = {}
     for draw, pool in pools.items():
         previous = pools.get(draw - 1)
         if previous is None or pool <= previous:
+            continue
+        if rolled is not None and not rolled.get(draw - 1, False):
             continue
         sales = (pool - previous) / jackpot_share_of_sales(draw)
         exact[draw] = int(round(sales / TICKET_PRICE))
@@ -193,14 +210,72 @@ MBW_UPLIFT_BY_WEEKDAY = {
 }
 
 
-def mbw_uplift(draw_date: date | None = None) -> tuple:
+# A SPECIAL-EVENT Must-Be-Won - a pool the operator guarantees (GBP 12m, 15m,
+# 20m) rather than one the cap forced - is a different product, and pricing it
+# with the constants above was the most dangerous error this model carried: a
+# Christmas-style GBP 15m Wednesday read PLAY (robust) at +GBP 0.79 a line
+# where its measured sales put it at about -GBP 0.27. Those draws come with
+# national advertising and point-of-sale campaigns, and they are the usual
+# kind: 43 of them since late 2018, several a year, against the one or two
+# cap-driven draws a year that can clear break-even. Four of those were capped
+# rolls the operator topped up to a round guarantee and advertised (2578,
+# 2848, 2962, 2996); they sold like specials, so they count as specials.
+# Identified by the round-million pool of GBP 10m or more, which sales alone
+# never produce - `guaranteed_pool` is the same test for the live draw.
+#
+# Measured 2026-09-16 by `make uplift` (special_event_uplifts) on WINNER
+# COUNTS, because Merseyworld's sales for every one of them is a round
+# placeholder - a guaranteed pool breaks the identity its figures come from.
+# Same-weekday baseline over the 20 prior draws, every Must-Be-Won and
+# roll-down excluded. Saturday n=39, steady year to year, a little higher at
+# Christmas. Wednesday n=4 and every one a Christmas
+# draw (1.26 / 1.93 / 2.49 / 3.18), so that row is both wide and specific to
+# December - which is when a Wednesday special happens. On cap-driven draws
+# this winner-count definition reads 2-3% above the sales one, so these err
+# towards more sales and lower EV.
+#
+# The two-round era is in the sample only through 3206 (1.16), and the
+# constants are deliberately NOT scaled for it, although that draw and the
+# cap-driven ones (0.80-0.89 of their constants) both suggest the response
+# shrank: a lower uplift raises EV, and that change waits for evidence, as it
+# does for the constants above.
+SPECIAL_MBW_UPLIFT_BY_WEEKDAY = {
+    2: (2.21, 1.76, 2.66),   # Wednesday: (median, p25, p75)
+    5: (1.39, 1.21, 1.59),   # Saturday
+}
+
+
+SPECIAL_MIN_POOL = 10_000_000.0
+
+
+def guaranteed_pool(jackpot: float | None) -> bool:
+    """Is this jackpot a guarantee rather than a pool sales built?
+
+    A round million of GBP 10m or more. The official feed publishes the
+    estimate to the pound for a rolling pool (3205: GBP 7,706,666) and the
+    round figure for a guaranteed one (3206: GBP 12,000,000).
+    """
+    return (jackpot is not None and jackpot >= SPECIAL_MIN_POOL
+            and float(jackpot) % 1_000_000 == 0)
+
+
+def mbw_uplift(draw_date: date | None = None,
+               special_event: bool = False) -> tuple:
     """(median, p25, p75) sales uplift for a Must-Be-Won draw on `draw_date`.
 
     Day-specific when the weekday is known, mixed-baseline constants when it
     is not. Draws only ever fall on Wednesday/Saturday; any other weekday
     means the caller's date is wrong, and the mixed fallback is the least
     wrong answer available.
+
+    `special_event` selects the operator-scheduled constants. Without a
+    usable date it falls back to Saturday's, which is where 39 of the 43
+    specials on file fell.
     """
+    if special_event:
+        weekday = draw_date.weekday() if draw_date is not None else 5
+        return SPECIAL_MBW_UPLIFT_BY_WEEKDAY.get(
+            weekday, SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5])
     if draw_date is not None:
         trio = MBW_UPLIFT_BY_WEEKDAY.get(draw_date.weekday())
         if trio:
@@ -453,6 +528,10 @@ class DrawConditions:
     prizes: FixedPrizes = field(default_factory=FixedPrizes)
     rollover_count: int = 0               # consecutive rollovers so far (feed)
     draw_date: date | None = None         # picks the day-specific sales uplift
+    # An operator-scheduled Must-Be-Won (guaranteed pool) rather than a capped
+    # roll. Explicit, not derived from rollover_count: a what-if run forces a
+    # roll-down without a count, and that question is about the cap.
+    special_event: bool = False
 
 
 def line_ev(line: Sequence[int], cond: DrawConditions) -> float:
@@ -510,7 +589,7 @@ def sales_sensitivity(cond: DrawConditions, threshold: float = 0.0,
     if not cond.roll_down:
         return None
     line = list(line) if line is not None else best_unpopular_reference_line()
-    up_mid, up_p25, up_p75 = mbw_uplift(cond.draw_date)
+    up_mid, up_p25, up_p75 = mbw_uplift(cond.draw_date, cond.special_event)
     baseline = cond.tickets_sold / up_mid
 
     def ev_at(uplift: float) -> float:
@@ -604,14 +683,15 @@ def must_be_won_after_cap(pools_df) -> set:
     `pools_df` is data/draw_pools.csv, whose rollover_count comes straight from
     the feed. The count belongs to the draw it is on - 5 means "this pool has
     rolled five times" - so it identifies the NEXT draw, which the cap forces
-    to pay out. Verified on 3183 -> 3184, 3189 -> 3190 and 3195 -> 3196, the
-    only three Must-Be-Won draws of the two-round era.
+    to pay out. Verified on 3183 -> 3184, 3189 -> 3190, 3195 -> 3196 and
+    3204 -> 3205, the four cap-driven Must-Be-Won draws of the two-round era.
 
     What it cannot see is a PROMOTIONAL Must-Be-Won: the procedures let Allwyn
-    designate any draw one (special draws are the usual case), and no rollover
-    count precedes that. `must_be_won_draw_numbers` catches those, from the
-    forward-looking flag the collector stores. Neither has happened in the
-    two-round era yet.
+    designate any draw one, and no rollover count precedes that. The first of
+    the era was 3206, a guaranteed GBP 12m straight after 3205 was won.
+    `must_be_won_draw_numbers` catches those from the forward-looking flag the
+    collector stores; the pool baseline does not need to, because a pool that
+    follows a win is never priced (`exact_lines_sold`).
     """
     empty: set = set()
     if pools_df is None or len(pools_df) == 0:
@@ -700,7 +780,8 @@ def must_be_won_draw_numbers(tiers_df) -> set:
 def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
                           roll_down: bool = False,
                           draw_date: date | None = None,
-                          pools_df=None) -> int | None:
+                          pools_df=None,
+                          special_event: bool = False) -> int | None:
     """Estimate lines sold for the UPCOMING draw from recent draws.
 
     For fixed-prize tiers the expected winner count is N x P(tier), so each
@@ -739,9 +820,10 @@ def estimate_tickets_sold(tiers_df, last_n_draws: int = 20,
        found 2026-08-06: the 2026-08-08 alert priced a Must-Be-Won draw at
        ordinary-draw sales and reported EV +GBP 0.038 when break-even sat only
        3.2% away in N. The one Must-Be-Won draw with full data, 3190, returned
-       GBP 1.586 per GBP 2 line.
+       GBP 1.586 per GBP 2 line. `special_event` picks the operator-scheduled
+       constants (SPECIAL_MBW_UPLIFT_BY_WEEKDAY), which run far higher.
     """
-    uplift = mbw_uplift(draw_date)[0] if roll_down else 1.0
+    uplift = mbw_uplift(draw_date, special_event)[0] if roll_down else 1.0
 
     # Measured beats inferred: where data/draw_pools.csv covers enough of the
     # window, the baseline is an identity rather than an estimate.

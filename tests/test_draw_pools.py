@@ -21,7 +21,12 @@ from lottery.ev import (
     must_be_won_after_cap,
 )
 
-POOLS = pd.read_csv("data/draw_pools.csv")
+# The collector appends to data/draw_pools.csv twice a week and those pushes do
+# not run CI, so a test that reads the live file goes red on some later pull
+# request for a reason that has nothing to do with it - three did, between
+# 3205 and 3206. The assertions below were written against draws up to 3206.
+SNAPSHOT_LAST_DRAW = 3206
+POOLS = pd.read_csv("data/draw_pools.csv").query("draw_number <= @SNAPSHOT_LAST_DRAW")
 SALES = pd.read_csv("data/sales_history.csv").set_index("draw_number")
 
 WED, SAT = date(2026, 9, 9), date(2026, 9, 5)
@@ -56,6 +61,30 @@ class TestTheIdentity:
         assert exact[3201] == round(
             (2_865_432.72 - 2_000_000.0) / JACKPOT_SHARE_OF_SALES / TICKET_PRICE)
 
+    def test_a_guaranteed_pool_after_a_win_is_not_sales(self):
+        """3205 was won at GBP 7.8m and 3206 carried a guaranteed GBP 12m: the
+        pool grew, and the difference read as 23.6m lines on a draw whose
+        winner counts say ~10.5m. The premise is a rollover, not growth."""
+        pools = _pools([(3204, "2026-09-05", 6_756_506.09, 5),
+                        (3205, "2026-09-09", 7_807_591.37, None),
+                        (3206, "2026-09-12", 12_000_000.0, None)])
+        exact = exact_lines_sold(pools)
+        assert 3206 not in exact
+        assert exact[3205] == 5_918_273
+        assert 3206 not in exact_lines_sold(POOLS)
+
+    def test_the_pool_after_a_roll_down_is_not_sales_either(self):
+        """A roll-down pays the pool out (rollover_count 0), so the next draw
+        starts over even if its pool happened to come in higher."""
+        pools = _pools([(3190, "2026-07-18", 9_559_451.1, 0),
+                        (3191, "2026-07-22", 12_000_000.0, 1)])
+        assert exact_lines_sold(pools) == {}
+
+    def test_frames_without_the_count_keep_the_growth_test(self):
+        pools = pd.DataFrame({"draw_number": [3201, 3202],
+                              "pool_gbp": [2_865_432.72, 4_349_673.92]})
+        assert exact_lines_sold(pools) == {3202: 8_357_214}
+
     def test_the_first_draw_on_file_has_no_predecessor(self):
         assert exact_lines_sold(_pools([(3179, "2026-06-10", 2_000_000.0, 1)])) == {}
 
@@ -65,8 +94,9 @@ class TestTheIdentity:
 
 
 class TestMustBeWonDetection:
-    def test_finds_exactly_the_three_two_round_must_be_won_draws(self):
-        assert sorted(must_be_won_after_cap(POOLS)) == [3184, 3190, 3196]
+    def test_finds_exactly_the_four_cap_driven_must_be_won_draws(self):
+        """3206 was Must-Be-Won too, but promotional - no cap precedes it."""
+        assert sorted(must_be_won_after_cap(POOLS)) == [3184, 3190, 3196, 3205]
 
     def test_the_cap_marks_the_next_draw_not_its_own(self):
         pools = _pools([(3195, "2026-08-05", 6_855_189.0, 5),
@@ -92,7 +122,7 @@ class TestTheBaseline:
         assert exact_sales_baseline(POOLS, SAT) > 1.4 * exact_sales_baseline(POOLS, WED)
 
     def test_too_few_observations_declines_to_answer(self):
-        thin = POOLS[POOLS.draw_number >= 3201]        # one Saturday with a pool
+        thin = POOLS[POOLS.draw_number >= 3201]   # Saturdays priced: 3202, 3204
         assert exact_sales_baseline(thin, SAT) is None
 
     def test_the_estimator_falls_back_to_winner_counts(self):

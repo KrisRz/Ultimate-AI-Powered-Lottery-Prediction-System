@@ -57,12 +57,16 @@ from lottery.ev import (  # noqa: E402
     P_MATCH_2,
     P_MATCH_3,
     P_MATCH_4,
+    SPECIAL_MBW_UPLIFT_BY_WEEKDAY,
+    SPECIAL_MIN_POOL,
     TIER_MATCH_3,
 )
 
 TIERS_HISTORY_FILE = Path("data/prize_tiers_history.csv")
 SALES_HISTORY_FILE = Path("data/sales_history.csv")
 DRAW_POOLS_FILE = Path("data/draw_pools.csv")
+PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
+FULL_HISTORY_FILE = Path("data/lotto_full_history.csv")
 TIER_PROBS = {4: P_MATCH_4, 5: P_MATCH_3, 6: P_MATCH_2}
 TWO_ROUND_ERA = "2026-06-10"
 BALLS_59_ERA = "2018-11-01"
@@ -201,6 +205,125 @@ def day_aware_report(boosted: set) -> None:
               f"{r.quantile(.75):>7.3f}   {inst}")
 
 
+SPECIAL_WINDOW = 20         # prior draws, same as the estimator's baseline
+SPECIAL_MIN_PRIORS = 4
+
+
+def draw_pools_from_tiers(df: pd.DataFrame) -> dict:
+    """draw_number -> the jackpot pool the draw carried, from its prize table.
+
+    Match 6's per-winner prize is the whole pool when nobody won (a roll-down
+    records it anyway) and a share of it otherwise, so pool = prize x
+    max(winners, 1). Preferred over lotto_full_history's `Jackpot` column,
+    which holds the advertised estimate for older draws and is simply wrong
+    for some: draw 3131, the GBP 15m Christmas Eve 2025 draw, is recorded
+    there as GBP 5m.
+    """
+    m6 = df[df["tier"] == 1].groupby("draw_number").agg(
+        winners=("winners", "sum"), prize=("prize_per_winner", "max"))
+    return {int(d): float(r.prize) * max(float(r.winners), 1.0)
+            for d, r in m6.iterrows() if pd.notna(r.prize) and r.prize > 0}
+
+
+def special_event_draws(df: pd.DataFrame, boosted: set) -> set:
+    """Operator-scheduled Must-Be-Won draws: a round-million pool of at least
+    GBP 10m that was paid out.
+
+    A pool grown by sales is never a round million, so the round figure is the
+    guarantee - including the four capped rolls the operator also topped up
+    and advertised (2578 and 2848 at GBP 20m, 2962 and 2996 at GBP 15m), which
+    sold like specials (2848: ~22.5m lines against ~11m) and are specials in
+    every sense that moves sales. Paid out, because a Must-Be-Won draw cannot
+    roll: in 2019 the archive records the ADVERTISED jackpot, rounded, for some
+    draws nobody won - 2415 shows a flat GBP 14m and simply rolled on. Outright
+    wins leave no roll-down signature but sold like specials, which is why they
+    are counted: 2400, Christmas 2018, went to two tickets at GBP 7.5m each.
+    """
+    pools = draw_pools_from_tiers(df)
+    m6 = df[df["tier"] == 1].groupby("draw_number")["winners"].sum()
+    paid_out = boosted | {int(d) for d, w in m6.items() if w > 0}
+    return {d for d, pool in pools.items()
+            if pool >= SPECIAL_MIN_POOL and pool % 1_000_000 == 0
+            and d in paid_out}
+
+
+def special_event_uplifts(df: pd.DataFrame, full: pd.DataFrame) -> pd.DataFrame:
+    """Sales uplift of every special-event Must-Be-Won draw, on WINNER COUNTS.
+
+    Not on data/sales_history.csv: Merseyworld derives sales from the pool, a
+    guaranteed pool breaks that identity, and every one of the specials there
+    carries a round placeholder (13.5m, 14.5m...) instead of a measurement.
+    Winner counts are noisy per draw (+/-15%), but the noise is the same on
+    both sides of the ratio and a sample of ~35 averages it.
+
+    Baseline: median winner-count sales of the same-weekday draws among the
+    SPECIAL_WINDOW before it, excluding every Must-Be-Won draw of either kind
+    and every roll-down - the estimator's definition, measured the same way on
+    both sides. On cap-driven roll-downs this definition reads 2-3% above the
+    sales-history one the cap constants use (Sat 1.29 vs 1.265, Wed 1.48 vs
+    1.44), so installing it as measured errs towards more sales, lower EV.
+    """
+    from scripts.rolldown_history import rollover_streaks
+
+    boosted = rolldown_draws(df)
+    streaks = rollover_streaks(full, boosted)
+    specials = special_event_draws(df, boosted)
+    capped = {d for d, n in streaks.items() if n >= 5}
+    excluded = boosted | specials | capped
+    sales = implied_sales(df)
+    dates = df.groupby("draw_number")["draw_date"].first()
+    pools = draw_pools_from_tiers(df)
+    order = sorted(sales)
+
+    rows = []
+    for draw in sorted(specials):
+        if draw not in sales:
+            continue
+        when = pd.Timestamp(dates[draw])
+        position = order.index(draw)
+        window = order[max(0, position - SPECIAL_WINDOW):position]
+        prior = [sales[d] for d in window if d not in excluded
+                 and pd.Timestamp(dates[d]).weekday() == when.weekday()]
+        if len(prior) < SPECIAL_MIN_PRIORS:
+            continue
+        rows.append({
+            "draw": draw, "date": when.date(), "weekday": when.weekday(),
+            "pool": pools[draw], "christmas": when.month == 12 and when.day >= 20,
+            "uplift": sales[draw] / sorted(prior)[len(prior) // 2],
+        })
+    return pd.DataFrame(rows)
+
+
+def special_event_report(df: pd.DataFrame) -> None:
+    full = pd.read_csv(FULL_HISTORY_FILE)
+    # The archive stops where collection took over; the collected file carries
+    # the specials since (3206 onward).
+    if PRIZE_TIERS_FILE.exists():
+        collected = pd.read_csv(PRIZE_TIERS_FILE, parse_dates=["draw_date"])
+        df = pd.concat([df, collected[collected["draw_number"]
+                                      > df["draw_number"].max()]],
+                       ignore_index=True)
+    rows = special_event_uplifts(df, full)
+    print("\nSpecial-event Must-Be-Won draws (guaranteed round pool >= GBP 10m,"
+          " paid out),\nwinner-count sales, same-weekday baseline:")
+    if rows.empty:
+        print("  none found")
+        return
+    print(f"  {'day':>9} {'n':>4} {'median':>8} {'p25':>7} {'p75':>7}"
+          f" {'Christmas':>10}   installed")
+    for dow, label in ((5, "Saturday"), (2, "Wednesday")):
+        r = rows[rows["weekday"] == dow]
+        if r.empty:
+            continue
+        u = r["uplift"]
+        print(f"  {label:>9} {len(u):>4} {u.median():>8.3f} {u.quantile(.25):>7.3f}"
+              f" {u.quantile(.75):>7.3f} {int(r['christmas'].sum()):>10}"
+              f"   {SPECIAL_MBW_UPLIFT_BY_WEEKDAY.get(dow)}")
+    print("  A special sells on the operator's marketing, not on the pool it"
+          " carries -\n  every Wednesday one on file is a Christmas draw, which"
+          " is why that row is wide.")
+
+
 def exact_era_uplifts(pools) -> list:
     """The two-round era on exact sales, in the estimator's own definition.
 
@@ -295,6 +418,7 @@ def main() -> int:
     if not boosted:
         raise SystemExit("No roll-down draws identified - check the archive.")
     report(df, implied_sales(df), boosted, args.windows)
+    special_event_report(df)
     exact_era_report()
     return 0
 

@@ -18,6 +18,15 @@ permissions:
   contents: write
   actions: write    # to dispatch site-deploy - see "Publish the refreshed site"
 
+# Two clocks now start this workflow: GitHub's cron above and EventBridge's
+# dispatch five minutes later (infra/modules/draw-trigger). When both are on
+# time they would race each other to `git push`; queued instead, the second
+# finds the draw already collected and commits nothing. Never cancelled - a
+# half-finished collection is worse than a late one.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
@@ -189,3 +198,17 @@ jobs:
                     "collected and committed; this run is red for the pools only.")
               sys.exit(1)
           EOF
+
+      # The collector's push raises no `push` event (see "Publish the refreshed
+      # site"), so CI never sees the data it commits - and three tests that
+      # read the collected files went red with draws 3205-3206 while main
+      # looked green, until the next pull request would have inherited them.
+      # Running the suite here puts that failure on the night that causes it.
+      # Same placement argument as the pools check: after the commit and the
+      # alert, never in front of them. `!cancelled()` so a stale-pools failure
+      # above does not hide a second one.
+      - name: Run the test suite on the new data
+        if: ${{ !cancelled() }}
+        run: |
+          pip install pytest
+          PYTHONPATH=. python -m pytest -q

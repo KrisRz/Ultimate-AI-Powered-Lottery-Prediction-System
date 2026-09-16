@@ -63,7 +63,7 @@ variable "monthly_budget_usd" {
 }
 
 variable "budget_alert_email" {
-  description = "Where the budget alarm goes."
+  description = "Where the budget alarm and the draw-trigger failure alarms go."
   type        = string
   default     = "krisgrzepka@gmail.com"
 }

@@ -33,6 +33,19 @@ those files are always a subset of the remote ones and are never worth keeping �
 refuses to run the model on a half-merged tree. Do not "fix" a conflict in them
 by hand; take the collector's copy.
 
+**A test that reads a collected file pins it to a snapshot** —
+`pd.read_csv("data/draw_pools.csv").query("draw_number <= 3206")`, not the bare
+file. The collector's pushes raise no `push` event, so CI never runs on them:
+three tests that asserted on the live tail went red with draws 3205–3206 while
+`main` looked green. `collect.yml` now runs the suite after every collection,
+so this fails on the night instead of on somebody's next pull request.
+
+**The pool identity needs a rollover, not just a bigger pool.** A draw after a
+win carries a pool the operator set — usually £2M, but 3206 carried a
+guaranteed £12M after 3205 was won, and differencing it read 23.6M lines.
+`exact_lines_sold` checks the previous draw's `rollover_count`; the scorecard
+sends promotional Must-Be-Won draws to winner counts.
+
 **`make site-data` belongs in the same commit as a model change.** The page
 quotes the model, and CI runs `export_site_data.py --check` on every pull
 request: a code change that moves any published figure cannot land without the
@@ -65,6 +78,15 @@ to 4%.
 conflicts there with every other one. Resolve by re-running `make site-data`,
 never by editing the JSON.
 
+**There are two kinds of Must-Be-Won, priced with different uplifts.** A
+capped roll uses `MBW_UPLIFT_BY_WEEKDAY`; a special — a guaranteed round pool
+of £10M or more, with or without a cap under it — uses
+`SPECIAL_MBW_UPLIFT_BY_WEEKDAY` (Sat ×1.39, Wed ×2.21, measured on winner
+counts because the archive's sales for every special are round placeholders).
+Only the live feed flag sets `DrawConditions.special_event`; `--roll-down`
+what-ifs price the cap. Any archive figure that is a round £1M of sales
+(`sales_history.csv`, 153 rows) is a placeholder, not a measurement.
+
 ## After a Must-Be-Won draw
 
 `make uplift`. Its last section measures the uplift on exact pools in the same
@@ -72,7 +94,10 @@ definition `estimate_tickets_sold` uses, which is the only definition whose
 output can be installed. It reports; it never edits `lottery/ev.py`. Lowering
 `MBW_UPLIFT_BY_WEEKDAY` RAISES expected value on every Must-Be-Won draw, so
 that edit wants n >= 4 and at least one observation on the weekday being
-changed — as of 2026-09-05 there are two, both Saturdays.
+changed — as of 2026-09-16 there are three: Saturdays 3190 (1.127) and 3196
+(1.023), Wednesday 3205 (1.152), every one below the installed p25. 3205 is
+the cost of waiting: at its realised sales it was +£0.06 a line, and the model
+called it SKIP at −£0.21.
 
 ## Where the reasoning lives
 

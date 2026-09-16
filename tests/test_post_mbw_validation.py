@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from lottery.ev import P_MATCH_2, P_MATCH_3, P_MATCH_4
+from lottery.ev import P_MATCH_2, P_MATCH_3, P_MATCH_4, SPECIAL_MBW_UPLIFT_BY_WEEKDAY
 from scripts.monitoring.post_mbw_validation import (
     _pool_line,
     append_scorecard,
@@ -16,7 +16,7 @@ from scripts.monitoring.post_mbw_validation import (
 
 
 def _draw_rows(draw_no, draw_date, n_lines, m3_prize=10.0, m2_prize=1.0,
-               next_roll_down=False, next_jackpot=5_000_000.0):
+               next_roll_down=False, next_jackpot=5_000_000.0, rollover_count=3):
     """Tier rows for one draw (both rounds) implying exactly n_lines sold."""
     rows = []
     for rnd in (1, 2):
@@ -28,19 +28,21 @@ def _draw_rows(draw_no, draw_date, n_lines, m3_prize=10.0, m2_prize=1.0,
                 "tier": tier, "winners": winners,
                 "prize_total": winners * prize,
                 "prize_per_winner": prize,
-                "rollover": True, "rollover_count": 3,
+                "rollover": True, "rollover_count": rollover_count,
                 "next_jackpot_estimate": next_jackpot,
                 "next_jackpot_roll_down": next_roll_down,
             })
     return rows
 
 
-def _history(mbw_lines=9_000_000):
-    """Ten ordinary Saturdays then a Must-Be-Won Saturday at mbw_lines."""
+def _history(mbw_lines=9_000_000, count_before=5):
+    """Ten ordinary Saturdays then a Must-Be-Won Saturday at mbw_lines -
+    cap-driven by default, because the last of them carries the fifth rollover."""
     rows = []
     for i in range(10):
         rows += _draw_rows(3180 + i, f"2026-05-{2 + 7 * (i % 4):02d}", 7_000_000,
-                           next_roll_down=(i == 9), next_jackpot=8_000_000.0)
+                           next_roll_down=(i == 9), next_jackpot=8_000_000.0,
+                           rollover_count=count_before if i == 9 else 3)
     rows += _draw_rows(3190, "2026-07-18", mbw_lines,
                        m3_prize=24.0, m2_prize=5.0)
     return pd.DataFrame(rows)
@@ -90,11 +92,52 @@ class TestScorecard:
         assert r["pool_ratio"] == pytest.approx(r["redistributed"] / 8_000_000.0)
         assert "scorecard" in format_report(r)
 
+    def test_a_flag_the_cap_did_not_force_is_scored_as_a_special(self):
+        """Same draw, but the one before it had rolled only twice: the
+        operator scheduled it, so the forecast it is held to is the
+        special-event one."""
+        r = validate(_history(count_before=2))
+        assert r["kind"] == "special-event"
+        assert r["uplift_installed"] == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5][0]
+        assert r["predicted_lines"] == pytest.approx(
+            7_000_000 * SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5][0], rel=0.02)
+        assert "special-event" in format_report(r)
+
     def test_validate_returns_none_for_ordinary(self):
         rows = []
         for i in range(3):
             rows += _draw_rows(3180 + i, "2026-05-02", 7_000_000)
         assert validate(pd.DataFrame(rows)) is None
+
+
+class TestOnTheCollectedDraws:
+    """The two September 2026 Must-Be-Won draws, from the collected files as
+    they stood after 3206 - pinned, because the collector keeps appending."""
+
+    @pytest.fixture(scope="class")
+    def data(self):
+        tiers = pd.read_csv("data/prize_tiers.csv").query("draw_number <= 3206")
+        pools = pd.read_csv("data/draw_pools.csv").query("draw_number <= 3206")
+        return tiers, pools
+
+    def test_the_cap_driven_wednesday_is_read_off_the_pool(self, data):
+        r = validate(*data, draw_number=3205)
+        assert r["kind"] == "cap-driven"
+        assert r["lines_source"] == "pool identity"
+        assert r["measured_lines"] == 5_918_273
+        assert r["uplift_measured"] == pytest.approx(1.152, abs=0.001)
+        assert r["carried_pool"] == pytest.approx(7_807_591.37)
+        assert "£7,807,591" in format_report(r)
+
+    def test_the_promotional_saturday_falls_back_to_winner_counts(self, data):
+        """3206's GBP 12m was a guarantee. Differencing it gave 23.6m lines and
+        an uplift of 2.79 - the row this test exists to keep out."""
+        r = validate(*data, draw_number=3206)
+        assert r["kind"] == "special-event"
+        assert r["uplift_installed"] == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5][0]
+        assert r["lines_source"] == "winner counts"
+        assert 9_000_000 < r["measured_lines"] < 12_000_000
+        assert r["uplift_measured"] < 1.5
 
 
 class TestAccumulation:

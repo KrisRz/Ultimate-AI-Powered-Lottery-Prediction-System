@@ -37,7 +37,11 @@ from lottery.ev import (
     MBW_SALES_UPLIFT,
     MBW_SALES_UPLIFT_P25,
     MBW_SALES_UPLIFT_P75,
+    MBW_UPLIFT_BY_WEEKDAY,
+    SPECIAL_MBW_UPLIFT_BY_WEEKDAY,
     estimate_tickets_sold,
+    guaranteed_pool,
+    mbw_uplift,
     rolldown_draw_numbers,
     sales_sensitivity,
 )
@@ -521,6 +525,79 @@ class TestSalesSensitivity:
         verdict = should_play(cond)
         assert verdict["play"] is True
         assert verdict["sales_sensitivity"]["robust"] is True
+
+
+class TestSpecialEventMustBeWon:
+    """A guaranteed pool with a campaign behind it is not a capped roll.
+
+    Priced with the cap constants, a Christmas-style GBP 15m Wednesday read
+    PLAY (robust) at +GBP 0.79 a line; the four Wednesday specials on file sold
+    1.3x-3.2x an ordinary Wednesday, which puts it at the margin at best.
+    """
+
+    WED, SAT = date(2026, 12, 23), date(2026, 12, 19)
+    WED_BASE, SAT_BASE = 5_138_237, 8_451_176     # exact baselines, 2026-09
+
+    def _cond(self, when, base, jackpot, special):
+        up = mbw_uplift(when, special)[0]
+        return DrawConditions(jackpot=jackpot, tickets_sold=int(base * up),
+                              roll_down=True, draw_date=when,
+                              special_event=special)
+
+    def test_the_special_constants_are_selected_by_the_flag(self):
+        assert mbw_uplift(self.WED, special_event=True) == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[2]
+        assert mbw_uplift(self.SAT, special_event=True) == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5]
+        assert mbw_uplift(self.WED) == MBW_UPLIFT_BY_WEEKDAY[2]
+        assert mbw_uplift(None, special_event=True) == SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5]
+
+    def test_a_guarantee_is_a_round_ten_million_or_more(self):
+        assert guaranteed_pool(12_000_000) and guaranteed_pool(20_000_000.0)
+        assert not guaranteed_pool(7_706_666)          # 3205, a rolling pool
+        assert not guaranteed_pool(5_000_000)           # a minimum, not a campaign
+        assert not guaranteed_pool(None)
+
+    def test_a_special_sells_more_than_a_capped_roll_on_either_day(self):
+        for day in (2, 5):
+            assert SPECIAL_MBW_UPLIFT_BY_WEEKDAY[day][0] > MBW_UPLIFT_BY_WEEKDAY[day][0]
+
+    def test_the_christmas_wednesday_is_no_longer_a_robust_play(self):
+        """The regression. Same pool, same day, same baseline."""
+        as_cap = should_play(self._cond(self.WED, self.WED_BASE, 15_000_000, False))
+        as_special = should_play(self._cond(self.WED, self.WED_BASE, 15_000_000, True))
+        assert as_cap["sales_sensitivity"]["robust"] is True
+        assert as_special["sales_sensitivity"]["robust"] is False
+        assert as_special["ev_best_line"] < as_cap["ev_best_line"] - 0.5
+        # at the sales the 2025 draw actually saw (x3.18), it loses outright
+        late = DrawConditions(jackpot=15_000_000, tickets_sold=int(self.WED_BASE * 3.18),
+                              roll_down=True, draw_date=self.WED, special_event=True)
+        assert line_ev(best_unpopular_reference_line(), late) < 0
+
+    def test_a_twenty_million_saturday_still_pays_across_the_range(self):
+        verdict = should_play(self._cond(self.SAT, self.SAT_BASE, 20_000_000, True))
+        assert verdict["play"] is True
+        assert verdict["sales_sensitivity"]["robust"] is True
+
+    def test_the_twelve_million_saturday_of_3206_is_a_skip(self):
+        verdict = should_play(self._cond(self.SAT, self.SAT_BASE, 12_000_000, True))
+        assert verdict["play"] is False
+
+    def test_the_estimator_applies_the_special_uplift(self):
+        import pandas as pd
+        tiers = pd.DataFrame(_tiers_rows(3190, 6_000_000))
+        cap = estimate_tickets_sold(tiers, roll_down=True, draw_date=self.SAT)
+        special = estimate_tickets_sold(tiers, roll_down=True, draw_date=self.SAT,
+                                        special_event=True)
+        ordinary = estimate_tickets_sold(tiers, draw_date=self.SAT)
+        assert special == pytest.approx(ordinary * SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5][0], abs=1)
+        assert special > cap
+
+    def test_the_range_is_the_special_one(self):
+        cond = self._cond(self.SAT, self.SAT_BASE, 15_000_000, True)
+        sens = sales_sensitivity(cond)
+        _, p25, p75 = SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5]
+        baseline = cond.tickets_sold / SPECIAL_MBW_UPLIFT_BY_WEEKDAY[5][0]
+        assert sens["tickets_low"] == int(baseline * p25)
+        assert sens["tickets_high"] == int(baseline * p75)
 
 
 class TestAugust2026Regression:

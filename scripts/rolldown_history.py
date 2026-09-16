@@ -17,7 +17,12 @@ What it does, per roll-down:
   3. Price it at its OWN measured sales. This is the part that matters. Every
      roll-down's EV is dominated by pool / lines-sold, so using an era average
      would flatter the busy draws and punish the quiet ones. Real per-draw
-     sales come from data/sales_history.csv.
+     sales come from data/sales_history.csv - except where that file holds a
+     round placeholder, which it does whenever the pool identity it is built
+     on fails: every guaranteed special, 32 of the roll-downs. Those are
+     priced at winner-count sales instead (+/-15% a draw, but a measurement).
+     The pool is the one the prize table records, not the history file's
+     `Jackpot`, which has Christmas Eve 2025's GBP 15m as GBP 5m.
 
 The result is a counterfactual and is labelled as one wherever it surfaces:
 historical draws re-priced under the two-round rules that only began in June
@@ -47,7 +52,11 @@ from lottery.ev import (  # noqa: E402
     best_unpopular_reference_line,
     line_ev,
 )
-from scripts.calibrate_mbw_uplift import rolldown_draws  # noqa: E402
+from scripts.calibrate_mbw_uplift import (  # noqa: E402
+    draw_pools_from_tiers,
+    implied_sales,
+    rolldown_draws,
+)
 
 DATA_DIR = Path("data")
 TIERS_HISTORY = DATA_DIR / "prize_tiers_history.csv"
@@ -102,8 +111,13 @@ def replay_rolldowns() -> list[dict]:
     boosted = rolldown_draws(tiers)
     streaks = rollover_streaks(full, boosted)
     lines_by_draw = dict(zip(sales["draw_number"].astype(int), sales["lines_sold"]))
+    placeholders = set(sales.loc[sales["sales_gbp"] % 1_000_000 == 0,
+                                 "draw_number"].astype(int))
+    counted = implied_sales(tiers)
 
-    # The pool that was redistributed: the advertised jackpot for that draw.
+    # The pool that was redistributed: what the prize table recorded for
+    # Match 6, falling back to the advertised jackpot.
+    table_pools = draw_pools_from_tiers(tiers)
     jackpot_by_draw = (
         full.groupby("DrawNumber")["Jackpot"].max().to_dict()
         if "Jackpot" in full else {}
@@ -115,8 +129,9 @@ def replay_rolldowns() -> list[dict]:
     rows: list[dict] = []
 
     for draw in sorted(boosted):
-        pool = jackpot_by_draw.get(draw)
-        tickets = lines_by_draw.get(draw)
+        pool = table_pools.get(draw) or jackpot_by_draw.get(draw)
+        tickets = (counted.get(draw) if draw in placeholders
+                   else lines_by_draw.get(draw))
         if not pool or not tickets or pool <= 0 or tickets <= 0:
             continue  # cannot price it honestly without both
 

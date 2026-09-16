@@ -97,3 +97,37 @@ class TestSkipStaysSilent:
         ev_alert.main()
         assert sent == []
         assert "SKIP" in capsys.readouterr().out
+
+
+class TestOperatorSecondOpinion:
+    AGREES = {"phase": "MUST_BE_WON", "must_be_won": True,
+              "jackpot": 12_800_000.0, "sales_close": None}
+
+    def _with(self, operator):
+        return ev_alert.build_alert(MBW, should_play(MBW), DRAW, 5, operator=operator)
+
+    def test_agreement_is_stated_and_the_subject_untouched(self):
+        subject, body = self._with(self.AGREES)
+        assert subject.startswith("LOTTO +EV ALERT")
+        assert "Operator's page:      agrees" in body
+
+    def test_disagreement_leads_the_subject(self):
+        subject, body = self._with({**self.AGREES, "phase": "INITIAL",
+                                    "must_be_won": False})
+        assert subject.startswith("CHECK FEEDS - LOTTO +EV ALERT")
+        assert "DISAGREES" in body
+        assert "Lines to play" in body            # still actionable
+
+    def test_an_unreachable_page_does_not_block_the_mail(self):
+        subject, body = self._with({})
+        assert subject.startswith("LOTTO +EV ALERT")
+        assert "unreachable" in body
+
+    def test_main_consults_the_page_on_a_play(self, monkeypatch):
+        monkeypatch.setattr(ev_alert, "next_draw_conditions", lambda: MBW)
+        monkeypatch.setattr(ev_alert, "fetch_operator_page", lambda: self.AGREES)
+        sent = []
+        monkeypatch.setattr(ev_alert, "maybe_send_email", lambda *a: sent.append(a))
+        monkeypatch.delenv("EV_ALERT_TEST", raising=False)
+        ev_alert.main()
+        assert sent and "Operator's page:      agrees" in sent[0][1]
