@@ -18,6 +18,15 @@ permissions:
   contents: write
   actions: write    # to dispatch site-deploy - see "Publish the refreshed site"
 
+# Two clocks now start this workflow: GitHub's cron above and EventBridge's
+# dispatch five minutes later (infra/modules/draw-trigger). When both are on
+# time they would race each other to `git push`; queued instead, the second
+# finds the draw already collected and commits nothing. Never cancelled - a
+# half-finished collection is worse than a late one.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest

@@ -28,3 +28,37 @@ output "distribution_domain_name" {
   description = "Reachable immediately, before the alias records propagate."
   value       = module.site.distribution_domain_name
 }
+
+# --- draw trigger ------------------------------------------------------------
+# None of these is a secret. The token goes in through set_token_command,
+# which prompts for it and never writes it anywhere Terraform can see:
+#
+#   bash -c "$(terraform output -raw set_token_command)"
+
+output "draw_trigger_connection_name" {
+  value = module.draw_trigger.connection_name
+}
+
+output "draw_trigger_connection_arn" {
+  value = module.draw_trigger.connection_arn
+}
+
+output "draw_trigger_rule_names" {
+  value = module.draw_trigger.rule_names
+}
+
+output "draw_trigger_alarm_topic_arn" {
+  value = module.draw_trigger.alarm_topic_arn
+}
+
+output "draw_trigger_dead_letter_queue_url" {
+  value = module.draw_trigger.dead_letter_queue_url
+}
+
+output "set_token_command" {
+  value = module.draw_trigger.set_token_command
+}
+
+output "test_dispatch_command" {
+  value = module.draw_trigger.test_dispatch_command
+}
