@@ -50,10 +50,19 @@ PRIZES_OLD_RULES = {(6, False): 3_000_000, (5, True): 1_000_000, (5, False): 1_7
 # pins the code, the rest pins the inputs, so the verdict is reproducible
 # from the row alone. Blank for rows added without a verdict on file.
 PROVENANCE_COLUMNS = [
-    "git_sha", "jackpot", "estimated_lines", "ev_best_line",
-    "break_even_jackpot", "model_stability", "ev_spec_min", "ev_spec_max",
-    "roll_down", "rounds",
+    "provenance_status", "git_sha", "jackpot", "estimated_lines",
+    "ev_best_line", "break_even_jackpot", "model_stability", "ev_spec_min",
+    "ev_spec_max", "roll_down", "rounds",
 ]
+
+# Why the status is explicit rather than inferred from blank fields: a row
+# with no verdict because the file was missing looks identical to a row
+# written before provenance existed, and years later that difference is the
+# whole question. "complete" is every field present; "partial" is a verdict
+# that was read but was missing something; "missing" is no verdict at all.
+PROVENANCE_COMPLETE = "complete"
+PROVENANCE_PARTIAL = "partial"
+PROVENANCE_MISSING = "missing"
 
 LEDGER_COLUMNS = [
     "added_at", "draw_date", "line", "cost", "settled",
@@ -82,6 +91,7 @@ def _provenance() -> dict:
     """
     blank = {c: None for c in PROVENANCE_COLUMNS}
     blank["git_sha"] = _git_sha()
+    blank["provenance_status"] = PROVENANCE_MISSING
     try:
         data = json.loads(LATEST_PREDICTIONS.read_text())
         v = data["metadata"]["verdict"]
@@ -100,6 +110,11 @@ def _provenance() -> dict:
             "roll_down": cond.get("roll_down"),
             "rounds": cond.get("rounds"),
         })
+        required = [c for c in PROVENANCE_COLUMNS
+                    if c not in ("provenance_status", "git_sha")]
+        blank["provenance_status"] = (
+            PROVENANCE_COMPLETE if all(blank[c] is not None for c in required)
+            else PROVENANCE_PARTIAL)
     except Exception:
         pass
     return blank
@@ -187,12 +202,15 @@ def cmd_add(args) -> None:
     ledger.to_csv(LEDGER_FILE, index=False)
     print(f"Recorded {len(lines)} line(s) for draw {draw_date} "
           f"(cost £{len(lines) * args.cost_per_line:.2f}) in {LEDGER_FILE}")
-    if prov.get("ev_best_line") is not None:
-        print(f"  verdict on file: EV £{prov['ev_best_line']:+.3f}, "
+    status = prov.get("provenance_status")
+    if status == PROVENANCE_MISSING:
+        print("  provenance: MISSING - no verdict on file. The ticket is "
+              "recorded; run `make play` before buying to capture why.")
+    else:
+        flag = "" if status == PROVENANCE_COMPLETE else "  [PARTIAL]"
+        print(f"  verdict on file{flag}: EV £{prov['ev_best_line']:+.3f}, "
               f"{prov['model_stability']}, pool £{prov['jackpot']:,.0f}, "
               f"code {prov['git_sha'] or '(no git)'}")
-    else:
-        print("  no verdict on file - run `make play` first to record why")
 
 
 def _prize_for(matches: int, bonus_hit: bool, draw_date: date,

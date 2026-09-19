@@ -40,6 +40,8 @@ make play                                        # should I play? with what?
 python scripts/roi_ledger.py add --from-latest   # record lines you actually bought
 make roi                                         # settle & report after the draw
 make backtest                                    # method-vs-random, p-values
+make contract                                    # data contract: KNOWN/UNKNOWN/INVALID
+make pre-ev                                      # inputs tonight's verdict needs
 make fairness                                    # is the machine fair? six tests
 make ensemble                                    # score+MonteCarlo vs random
 #   --repeat N (seed distribution), --null-sims N (full-pipeline null),
