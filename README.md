@@ -40,6 +40,7 @@ make play                                        # should I play? with what?
 python scripts/roi_ledger.py add --from-latest   # record lines you actually bought
 make roi                                         # settle & report after the draw
 make backtest                                    # method-vs-random, p-values
+make fairness                                    # is the machine fair? five tests
 make install-cron                                # auto post-draw routine (Wed/Sat 22:30)
 ```
 
@@ -123,6 +124,7 @@ scripts/
   dashboard.py          static dashboard generator (make dashboard)
   new_predict.py        legacy frequency/LSTM path (kept as a sanity-check)
   validations/backtest.py   walk-forward backtest + significance tests
+  validations/fairness.py   is the machine fair? five tests (make fairness)
   monitoring/           nightly backtest, post-draw routine
 data/               draw history, prize tiers, ledger (local, not committed)
 outputs/            predictions, validation runs, dashboard (not committed)
@@ -151,6 +153,50 @@ export EMAIL_TO=you@gmail.com
 ```
 
 Test it: `make post-draw` (sends only on a PLAY verdict).
+
+## Playing when the model says SKIP
+
+SKIP is the usual verdict, and on most draws it is simply correct. But the
+model answers two questions, not one, and the second has an answer even when
+the first says no:
+
+- **When to play** — is this draw's EV above zero? Usually no.
+- **What to play** — which lines share a jackpot with the fewest people?
+  Always answerable.
+
+So if you are going to buy a ticket regardless — for the fun of it, for a
+syndicate, because it is a rollover and you want to be in it — buy the lines
+that share least:
+
+```bash
+PYTHONPATH=. python scripts/ev_play.py --force   # portfolio + the cost, stated
+PYTHONPATH=. python scripts/wheel_play.py        # 6-line wheel, its own file
+```
+
+`--force` prints the same verdict and EV it always would, then builds the
+portfolio anyway. It does not pretend the draw is worth playing: the saved
+`latest.json` still records `"play": false`, so the ROI ledger tells the truth
+about what the advisor actually recommended.
+
+**What those lines do and do not do.** They do not improve your chance of
+matching six — nothing can; it is 1 in 45,057,474 for every combination, and
+`make fairness` demonstrates that on eleven years of draws. What they do is
+avoid the numbers other people pick. Measured on this archive, draws made
+mostly of 1–31 (birthday numbers) produce **77% more winners per ticket** than
+draws dominated by numbers above 31. That is the entire edge, it is real, and
+it only ever pays out in the branch where you win.
+
+**Is the machine fair?** `make fairness` runs five tests over the 59-ball era
+(1,171 draw-rounds, both rounds): chi-square uniformity, the most deviant ball
+corrected for having searched all 59, gap analysis against the gambler's
+fallacy, draw-to-draw dependence against the hypergeometric, and pair
+co-occurrence corrected for having searched 1,711 pairs. All five come back
+clean. The two corrected tests are the ones that matter: on genuinely random
+data the largest |z| among 59 balls sits near 2.5, which an uncorrected test
+reads as "significant" — so an uncorrected search finds a hot number in clean
+noise every time. `tests/test_fairness.py` plants a real bias in simulated
+draws and checks each detector fires, which is what makes "no signal" on the
+real archive mean something.
 
 ## Honest expectations
 

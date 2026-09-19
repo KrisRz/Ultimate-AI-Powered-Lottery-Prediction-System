@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update predict play dashboard backtest fairness backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -55,6 +55,9 @@ uplift:
 
 backtest:
 	PYTHONPATH=. $(PY) scripts/validations/backtest.py --lookback 200 --step 5 --method frequency --compare random,probmap --seed 42 --offline
+
+fairness:
+	PYTHONPATH=. $(PY) scripts/validations/fairness.py --sims 2000
 
 nightly:
 	PYTHONPATH=. $(PY) scripts/monitoring/nightly_backtest.py
