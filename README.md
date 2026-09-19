@@ -42,6 +42,7 @@ make roi                                         # settle & report after the dra
 make backtest                                    # method-vs-random, p-values
 make fairness                                    # is the machine fair? six tests
 make ensemble                                    # score+MonteCarlo vs random
+#   add --nested for train/validation/test, --strategies for the percentile
 make install-cron                                # auto post-draw routine (Wed/Sat 22:30)
 ```
 

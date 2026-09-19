@@ -134,3 +134,145 @@ def test_single_component_runs_are_possible():
     r = walk_forward(_frame(fair(700, seed=11)), 3000, 5, 50, 500, 10,
                      weights, np.random.default_rng(12))
     assert r["lines"] > 0
+
+
+# --- regularised triples --------------------------------------------------
+
+def test_triple_matrix_is_starved_by_construction():
+    """C(59,3)=32,509 cells, 20 per draw: the data cannot fill them.
+
+    This is the number that justifies the regularisation rather than a raw
+    triple table - at ~1,000 draws the average cell holds about half an
+    observation, so the biggest counts are noise.
+    """
+    from math import comb as _comb
+    from scripts.validations.ensemble_score import triple_matrix
+    history = fair(900, seed=20)
+    expected_per_cell = 900 * _comb(6, 3) / _comb(59, 3)
+    assert expected_per_cell < 1.0
+
+    kept_loose = triple_matrix(history, min_obs=2)
+    kept_tight = triple_matrix(history, min_obs=5)
+    assert len(kept_tight) < len(kept_loose) < _comb(59, 3) / 5
+
+
+def test_triple_shrinkage_damps_small_counts():
+    """A triple seen 3 times must not outscore one seen 30 times."""
+    from scripts.validations.ensemble_score import triple_matrix
+    history = fair(400, seed=21)
+    # Plant a triple that genuinely travels together.
+    for i in range(0, 400, 3):
+        history[i, :3] = [5, 11, 23]
+    t = triple_matrix(history, min_obs=3, shrink=20.0)
+    planted = t.get((5, 11, 23))
+    assert planted is not None
+    others = [v for k, v in t.items() if k != (5, 11, 23)]
+    assert planted > max(others), "real support should win over accidents"
+
+
+def test_triple_score_is_zero_without_a_table():
+    from scripts.validations.ensemble_score import triple_score
+    assert np.allclose(triple_score(fair(10, seed=22), {}), 0.0)
+
+
+# --- the random-strategy benchmark ---------------------------------------
+
+def test_random_strategy_percentile_centres_on_theory():
+    """A strategy scoring exactly the theoretical mean sits near the median."""
+    from scripts.validations.ensemble_score import random_strategy_percentile
+    rng = np.random.default_rng(23)
+    theory = N_PICK * N_PICK / N_BALLS
+    r = random_strategy_percentile(theory, 100, 10, 20_000, rng)
+    assert 40 < r["percentile"] < 60
+    assert r["p5"] < theory < r["p95"]
+
+
+def test_random_strategy_spread_shrinks_with_more_lines():
+    """More lines per strategy = tighter distribution = a harder bar.
+
+    The reason a short backtest flatters a strategy: with few lines the 95th
+    percentile of pure luck sits far above the mean.
+    """
+    from scripts.validations.ensemble_score import random_strategy_percentile
+    rng = np.random.default_rng(24)
+    narrow = random_strategy_percentile(0.61, 500, 10, 5_000, rng)
+    wide = random_strategy_percentile(0.61, 50, 10, 5_000, rng)
+    assert (narrow["p95"] - narrow["p5"]) < (wide["p95"] - wide["p5"])
+
+
+def test_percentile_exposes_a_significant_looking_run():
+    """p < 0.05 against the mean, yet thousands of random strategies match it.
+
+    Both readings are of the same run; the percentile is the one that says
+    how many coin-flippers would have done as well.
+    """
+    from scripts.validations.ensemble_score import random_strategy_percentile
+    rng = np.random.default_rng(25)
+    r = random_strategy_percentile(0.6646, 48, 10, 100_000, rng)
+    assert r["percentile"] < 99.0
+    assert r["best"] > 0.70, "pure luck reaches well past any single result"
+
+
+# --- nested train / validation / test ------------------------------------
+
+def test_fitted_weights_do_not_carry_from_validation_to_test():
+    """The objection, answered on fair data: weights chosen on one slice
+    have no reason to work on the next, and do not."""
+    from scripts.validations.ensemble_score import fit_weights
+    frame = _frame(fair(900, seed=26))
+    rng = np.random.default_rng(27)
+    fitted, val_score = fit_weights(frame, 2000, 5, 50, 500, 700, 20, 6, rng)
+    assert set(fitted) == set(DEFAULT_WEIGHTS)
+
+    test = walk_forward(frame, 2000, 5, 50, 700, 10, fitted,
+                        np.random.default_rng(28))
+    # Validation is where they were chosen, so they look good there;
+    # the test slice is the honest read and must not inherit the flattery.
+    assert val_score >= test["ensemble_avg"] - 0.25
+
+
+# --- concentration matching ----------------------------------------------
+
+def test_top_lines_are_concentrated_unlike_random_ones():
+    """Top-scoring lines share numbers; random ones do not.
+
+    This is why the benchmark has to match concentration: a portfolio whose
+    lines overlap swings wider, because one lucky ball lifts several lines
+    at once.
+    """
+    from scripts.validations.ensemble_score import portfolio_concentration
+    rng = np.random.default_rng(30)
+    lines = np.array([[11, 37, 42, 44, 52, 58], [11, 22, 36, 39, 46, 52],
+                      [11, 29, 36, 37, 54, 58], [8, 11, 31, 37, 42, 58]])
+    c = portfolio_concentration(lines)
+    assert c["mean_overlap"] > 1.0
+    assert c["distinct_balls"] < 24
+
+    r = portfolio_concentration(random_lines(4, rng))
+    assert r["mean_overlap"] < c["mean_overlap"]
+
+
+def test_concentrated_benchmark_is_wider_than_the_independent_one():
+    """The bug this fixes: an independent benchmark is too narrow.
+
+    Matching concentration widens the reference distribution, which LOWERS
+    the percentile a concentrated portfolio earns - i.e. the naive version
+    flattered it.
+    """
+    from scripts.validations.ensemble_score import random_strategy_percentile
+    rng = np.random.default_rng(31)
+    indep = random_strategy_percentile(0.66, 48, 10, 4_000, rng)
+    matched = random_strategy_percentile(0.66, 48, 10, 4_000, rng,
+                                         pool_size=27)
+    assert (matched["p95"] - matched["p5"]) > (indep["p95"] - indep["p5"])
+    assert matched["percentile"] < indep["percentile"]
+
+
+def test_full_pool_matches_the_independent_case():
+    """pool_size >= 59 must fall back to the independent sampler."""
+    from scripts.validations.ensemble_score import random_strategy_percentile
+    a = random_strategy_percentile(0.61, 50, 10, 3_000,
+                                   np.random.default_rng(32))
+    b = random_strategy_percentile(0.61, 50, 10, 3_000,
+                                   np.random.default_rng(32), pool_size=59)
+    assert a["percentile"] == pytest.approx(b["percentile"], abs=2.0)
