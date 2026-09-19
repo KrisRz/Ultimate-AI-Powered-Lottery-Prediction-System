@@ -350,6 +350,26 @@ class TestLiveVerdict:
     def test_verdict_is_one_of_two_words(self, payload):
         assert payload["ev"]["live"]["verdict"] in ("PLAY", "SKIP")
 
+    def test_the_page_can_say_whether_the_verdict_rests_on_the_model(self, payload):
+        """The slip panel generates its lines from the popularity model and
+        then reports whether the advice survives that model being wrong. If
+        this block stops being exported the panel silently stops making the
+        claim, which is worse than never having made it."""
+        live = payload["ev"]["live"]
+        stability = live["model_stability"]
+        assert stability["label"] in ("ROBUST PLAY", "ROBUST SKIP", "MODEL-SENSITIVE")
+        # The label and the flag are two statements of one fact; a page that
+        # showed "ROBUST" beside a range crossing the threshold would be lying
+        # in two directions at once.
+        assert stability["stable"] is (stability["label"] != "MODEL-SENSITIVE")
+        # The range is the spread across specifications, so it must contain
+        # the figure the page prints beside it.
+        assert stability["ev_spec_min"] <= live["ev_best_line"] <= stability["ev_spec_max"]
+        if stability["stable"]:
+            positive = live["verdict"] == "PLAY"
+            assert (stability["ev_spec_min"] > 0) is positive
+            assert (stability["ev_spec_max"] > 0) is positive
+
     def test_snapshot_prices_the_draw_after_the_data(self, payload):
         as_of = date.fromisoformat(payload["snapshot"]["as_of_draw_date"])
         through = date.fromisoformat(payload["snapshot"]["data_through"])

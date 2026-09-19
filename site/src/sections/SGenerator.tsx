@@ -18,7 +18,7 @@ import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import { generatePortfolio } from '@/data/generator';
 import { expectedShare, popularityRatio } from '@/data/popularity';
-import { count, gbp } from '@/data/format';
+import { count, gbp, gbpPence, longDate } from '@/data/format';
 import type { Ev, Hook, Popularity } from '@/data/types';
 
 const LINES = 5;
@@ -80,6 +80,12 @@ export function SGenerator({
     [model, bands],
   );
 
+  // Whether the verdict survives a different popularity model - a different
+  // question from `ev.live.robust`, which asks whether it survives the sales
+  // forecast being wrong.
+  const stability = ev.live.model_stability;
+  const specRange = `${gbpPence(stability.ev_spec_min)} to ${gbpPence(stability.ev_spec_max)}`;
+
   const best = lines[0];
   const yourShare = best
     ? jackpot * expectedShare(best.ratio, entries, hook.total_combinations, rounds)
@@ -100,17 +106,39 @@ export function SGenerator({
         </h2>
       </div>
 
+      {/* The meaning of the percentage is stated once, here, instead of being
+          repeated on all five cards - five copies of the same sentence read as
+          noise and forced a two-line wrap into every card head. */}
+      <p className="slips-caption small quiet">
+        The bar on each line is how many people play it, against an average line
+        at 100%. Shorter is better: fewer people to split a jackpot with.
+      </p>
+
       <ol className="slips">
         {lines.map(({ line, ratio }, index) => (
-          <li className="slip-card" key={`${nonce}-${index}`}>
+          <li
+            className="slip-card"
+            data-featured={index === 0 ? 'true' : undefined}
+            key={`${nonce}-${index}`}
+          >
             <header className="slip-card-head">
-              <span className="slip-index num">{String(index + 1).padStart(2, '0')}</span>
-              <span className="slip-share small">
-                played by <strong className="num">{Math.round(ratio * 100)}%</strong> as
-                many people
+              <span className="slip-index num">
+                {index === 0 ? 'Your first line' : String(index + 1).padStart(2, '0')}
               </span>
+              <span className="slip-share num">{Math.round(ratio * 100)}%</span>
             </header>
-            <ol className="slip-numbers" aria-label={`Line ${index + 1}`}>
+            {/* Decorative: the figure beside it already carries the number, so
+                a screen reader hearing both would hear it twice. */}
+            <div className="slip-meter" aria-hidden="true">
+              <div
+                className="slip-meter-fill"
+                style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
+              />
+            </div>
+            <ol
+              className="slip-numbers"
+              aria-label={`Line ${index + 1}, played by ${Math.round(ratio * 100)}% as many people as an average line`}
+            >
               {line.map((n) => (
                 <li className="slip-ball num" key={n}>
                   {n}
@@ -159,6 +187,42 @@ export function SGenerator({
           Both lines have exactly the same chance of winning a {gbp(jackpot)} jackpot.
           The difference of <strong className="num">{gbp(difference)}</strong> is what
           you keep instead of splitting it with everyone who played their birthdays.
+        </p>
+      </aside>
+
+      {/* The honest counterweight, and the only place on the page that says
+          whether the ADVICE depends on the model the lines came from. The
+          toolkit re-prices every verdict with a flat popularity model and
+          with one twice as strong; if the answer survives all three it is
+          labelled robust, and if it does not, saying so is the whole point.
+          A page that hands out lines and hides a SKIP would be the exact
+          failure this project calls a bug in prose. */}
+      <aside
+        className="stability"
+        data-sensitive={stability.stable ? undefined : 'true'}
+      >
+        <p className="eyebrow">Does the advice depend on this model?</p>
+        <p className="stability-line">
+          The lines above come from the toolkit&rsquo;s popularity model — and so does
+          its answer to whether this draw is worth playing at all:{' '}
+          <strong className="stability-verdict">{ev.live.verdict}</strong> for{' '}
+          {longDate(ev.live.draw_date)}, at{' '}
+          <span className="num">{gbpPence(ev.live.ev_best_line)}</span> a line.
+        </p>
+        <p className="stability-note small">
+          {!stability.stable ? (
+            <>
+              Re-priced with a flat popularity model and with one twice as strong, that
+              answer <strong>changes</strong> — {specRange}. Read it as marginal, not as
+              a recommendation.
+            </>
+          ) : (
+            <>
+              Re-priced with a flat popularity model and with one twice as strong, that
+              answer does not change — {specRange} across every specification tested.
+            </>
+          )}{' '}
+          <span className="stability-label num">{stability.label}</span>
         </p>
       </aside>
     </section>

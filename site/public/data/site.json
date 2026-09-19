@@ -5694,7 +5694,7 @@
       "window_days": 180
     },
     "tests": {
-      "count": 451,
+      "count": 452,
       "files": 32
     },
     "workflows": [
@@ -5761,6 +5761,12 @@
       "ev_best_line": -1.1354,
       "jackpot_gbp": 3447440,
       "mbw_type": null,
+      "model_stability": {
+        "ev_spec_max": -1.1325,
+        "ev_spec_min": -1.1493,
+        "label": "ROBUST SKIP",
+        "stable": true
+      },
       "robust": false,
       "roll_down": false,
       "rollover_cap": 5,
