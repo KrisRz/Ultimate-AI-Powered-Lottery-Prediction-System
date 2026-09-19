@@ -177,6 +177,19 @@ def main() -> None:
     print(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{args.threshold:+.2f})")
     print(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
           f"{' (roll-down)' if cond.roll_down else ''}")
+    # Whether the verdict rests on the popularity model being the right
+    # SHAPE, not just well fitted. The weights are pinned to 0.2% on the
+    # threshold, but a flat model and a doubled one disagree on ordinary
+    # draws near break-even - see scripts/validations/popularity_audit.py.
+    stab = verdict.get("model_stability")
+    if stab:
+        note = ("verdict holds from a flat popularity model to a doubled one"
+                if stab["stable"] else
+                "VERDICT DEPENDS ON THE POPULARITY MODEL'S SHAPE - "
+                "flat and doubled disagree")
+        print(f"Model stability:      {stab['label']} - {note}")
+        print(f"  across specs:       £{stab['ev_spec_min']:+.3f} ... "
+              f"£{stab['ev_spec_max']:+.3f}  (flat -> doubled popularity)")
     ag = abrams_garibaldi_screen(cond)
     if ag:
         # Second opinion for ordinary draws (Abrams & Garibaldi 2010). Their

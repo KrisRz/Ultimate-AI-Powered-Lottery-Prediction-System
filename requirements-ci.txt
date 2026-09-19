@@ -10,4 +10,8 @@
 # touches tensorflow, scikit-learn, matplotlib or tqdm. See audit item C1.
 numpy==1.24.3
 pandas==2.0.3
+# scipy came in locally as a scikit-learn dependency and was never declared.
+# The fairness and ensemble reports import it directly (chi2, hypergeom,
+# norm), so a clean CI install failed on it - which is the check working.
+scipy==1.15.3
 requests>=2.27.0

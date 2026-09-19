@@ -134,6 +134,15 @@ jobs:
             echo "HEALTHCHECK_URL not set - skipping (see the comment above)"
           fi
 
+      # The ONLY checks allowed in front of the alert: the inputs tonight's
+      # verdict is computed from. PR #40 moved every check behind the alert
+      # after a freshness gate suppressed a PLAY email, and that was right
+      # for freshness - stale history does not make tonight's number wrong.
+      # It is not right for a missing pool or a NaN jackpot, which do. A
+      # confidently wrong PLAY costs more than a missed one.
+      - name: Pre-EV gate (inputs tonight's verdict depends on)
+        run: PYTHONPATH=. python scripts/monitoring/pre_ev_gate.py
+
       - name: EV verdict + email alert on PLAY
         env:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
@@ -153,6 +162,16 @@ jobs:
       # yet - and took the PLAY email with it. Measured 2026-09-19 15:16 UTC:
       # "latest collected: 2026-09-16, expected: 2026-09-19", exit 1, alert
       # step skipped.
+      # Archive-level, so it runs after the alert with everything else that
+      # cannot make tonight's figure wrong. INVALID means the history is
+      # structurally broken; UNKNOWN_BUT_VALID means the feed introduced a
+      # value we have not seen - a new drawing machine, say - which is
+      # ingested and announced rather than dropped. That middle state is
+      # what "Lotto 4" vs "Lotto4" needed and did not have.
+      - name: Data contract
+        if: ${{ !cancelled() }}
+        run: PYTHONPATH=. python scripts/data_contract.py
+
       - name: Verify collected data is fresh
         if: ${{ !cancelled() }}
         run: |

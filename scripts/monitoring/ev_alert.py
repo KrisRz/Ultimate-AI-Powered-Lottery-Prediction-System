@@ -70,6 +70,12 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         strength = "PLAY - marginal, central estimate only"
     else:
         strength = "PLAY"
+    # A PLAY that only survives one shape of the popularity model is a
+    # different decision from one that survives all of them, and the
+    # difference belongs where it will be read - not twelve lines down.
+    stab = verdict.get("model_stability") or {}
+    if stab.get("label") == "MODEL-SENSITIVE":
+        strength += " / model-sensitive"
     subject = (f"LOTTO +EV ALERT: {strength}, {draw_date} draw, EV "
                f"£{verdict['ev_best_line']:+.2f} per line")
 
