@@ -1,0 +1,84 @@
+{
+  "frozen_commit": "17746e0",
+  "run_at": "20260919T183501Z",
+  "slices": {
+    "retrospective 2066-2638": {
+      "rows": 573,
+      "draws": 573,
+      "mse_smooth": 0.03276653441692333,
+      "mse_bucket": 0.036722588432845704,
+      "d_mean": 0.0039560540159223855,
+      "d_mean_uncentred": 0.004178612526190861,
+      "ci": [
+        -0.0009568106067703186,
+        0.00738974321048409
+      ],
+      "ci_method": "block",
+      "ci_t": [
+        0.0002925380277814366,
+        0.007619570004063334
+      ],
+      "ci_block": [
+        -0.0009568106067703186,
+        0.00738974321048409
+      ],
+      "draws_favouring_smooth": 328,
+      "t_on_draws": 1.7790793515233336,
+      "level_shift": -0.010944882064897295,
+      "verdict": "inconclusive - collect prospective evidence",
+      "note": "reverse-temporal validation, NOT an independent holdout"
+    },
+    "prospective 3196-3205 (exact sales)": {
+      "rows": 16,
+      "draws": 8,
+      "mse_smooth": 0.017185898687416427,
+      "mse_bucket": 0.015185656135758938,
+      "d_mean": -0.002000242551657489,
+      "d_mean_uncentred": -0.001936106962154698,
+      "ci": [
+        -0.008040552426250618,
+        0.004040067322935639
+      ],
+      "ci_method": "t",
+      "ci_t": [
+        -0.008040552426250618,
+        0.004040067322935639
+      ],
+      "ci_block": [
+        -0.007175606164591614,
+        0.002620625140050228
+      ],
+      "draws_favouring_smooth": 3,
+      "t_on_draws": -0.6273878032720593,
+      "level_shift": -0.014097272767481675,
+      "verdict": "inconclusive - collect prospective evidence",
+      "note": "the real holdout; (3196, 3205) seen by the scorecard"
+    },
+    "prospective 3196-3207 (trend)": {
+      "rows": 24,
+      "draws": 12,
+      "mse_smooth": 0.11810705690169628,
+      "mse_bucket": 0.10912231020089862,
+      "d_mean": -0.008984746700797677,
+      "d_mean_uncentred": -0.007366977268886216,
+      "ci": [
+        -0.019947173571720676,
+        0.0019776801701253243
+      ],
+      "ci_method": "t",
+      "ci_t": [
+        -0.019947173571720676,
+        0.0019776801701253243
+      ],
+      "ci_block": [
+        -0.01879375359338405,
+        0.0004287835387643571
+      ],
+      "draws_favouring_smooth": 6,
+      "t_on_draws": -1.4718976363398868,
+      "level_shift": -0.09384550421653082,
+      "verdict": "inconclusive - collect prospective evidence",
+      "note": "reported always, decisive never"
+    }
+  }
+}
