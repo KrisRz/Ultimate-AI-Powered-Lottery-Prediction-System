@@ -40,7 +40,8 @@ make play                                        # should I play? with what?
 python scripts/roi_ledger.py add --from-latest   # record lines you actually bought
 make roi                                         # settle & report after the draw
 make backtest                                    # method-vs-random, p-values
-make fairness                                    # is the machine fair? five tests
+make fairness                                    # is the machine fair? six tests
+make ensemble                                    # score+MonteCarlo vs random
 make install-cron                                # auto post-draw routine (Wed/Sat 22:30)
 ```
 
@@ -124,7 +125,8 @@ scripts/
   dashboard.py          static dashboard generator (make dashboard)
   new_predict.py        legacy frequency/LSTM path (kept as a sanity-check)
   validations/backtest.py   walk-forward backtest + significance tests
-  validations/fairness.py   is the machine fair? five tests (make fairness)
+  validations/fairness.py   is the machine fair? six tests (make fairness)
+  validations/ensemble_score.py  the scoring ensemble, walk-forward tested
   monitoring/           nightly backtest, post-draw routine
 data/               draw history, prize tiers, ledger (local, not committed)
 outputs/            predictions, validation runs, dashboard (not committed)
@@ -186,12 +188,14 @@ mostly of 1–31 (birthday numbers) produce **77% more winners per ticket** than
 draws dominated by numbers above 31. That is the entire edge, it is real, and
 it only ever pays out in the branch where you win.
 
-**Is the machine fair?** `make fairness` runs five tests over the 59-ball era
+**Is the machine fair?** `make fairness` runs six tests over the 59-ball era
 (1,171 draw-rounds, both rounds): chi-square uniformity, the most deviant ball
 corrected for having searched all 59, gap analysis against the gambler's
 fallacy, draw-to-draw dependence against the hypergeometric, and pair
-co-occurrence corrected for having searched 1,711 pairs. All five come back
-clean. The two corrected tests are the ones that matter: on genuinely random
+co-occurrence corrected for having searched 1,711 pairs, and per drawing
+machine and ball set — the one hypothesis with a physical mechanism behind
+it. All six come back clean, and each reports the smallest bias it could
+have seen, because a null result without its power is only half a finding. The two corrected tests are the ones that matter: on genuinely random
 data the largest |z| among 59 balls sits near 2.5, which an uncorrected test
 reads as "significant" — so an uncorrected search finds a hot number in clean
 noise every time. `tests/test_fairness.py` plants a real bias in simulated
