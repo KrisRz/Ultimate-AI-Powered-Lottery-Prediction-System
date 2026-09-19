@@ -505,6 +505,24 @@ def build_ev(live: DrawConditions, ordinary: DrawConditions,
             "break_even_jackpot": gbp(verdict["break_even_jackpot"]),
             "verdict": "PLAY" if verdict["play"] else "SKIP",
             "robust": bool((verdict["sales_sensitivity"] or {}).get("robust", False)),
+            # Two different robustness questions, and the page had only the
+            # first. `robust` above asks whether the verdict survives the
+            # SALES forecast being wrong; this asks whether it survives the
+            # POPULARITY MODEL being wrong - the specification range added in
+            # PR #41, after a test refuted the claim that roll-downs were
+            # immune to it. The slip panel generates its lines from that same
+            # popularity model, so "does the answer depend on it?" is a
+            # question that panel owes its reader.
+            #
+            # Indexed rather than defaulted: should_play has returned this
+            # since PR #41, and a silent {} here would publish a page that
+            # quietly stopped making the claim.
+            "model_stability": {
+                "label": verdict["model_stability"]["label"],
+                "stable": bool(verdict["model_stability"]["stable"]),
+                "ev_spec_min": verdict["model_stability"]["ev_spec_min"],
+                "ev_spec_max": verdict["model_stability"]["ev_spec_max"],
+            },
         },
     }
 

@@ -140,7 +140,17 @@ export interface Ev {
     ev_best_line: number;
     break_even_jackpot: number;
     verdict: 'PLAY' | 'SKIP';
+    /** Survives the SALES forecast being wrong. */
     robust: boolean;
+    /** Survives the POPULARITY MODEL being wrong - a different question, and
+     *  the one the slip panel depends on, since it generates its lines from
+     *  that model. */
+    model_stability: {
+      label: 'ROBUST PLAY' | 'ROBUST SKIP' | 'MODEL-SENSITIVE';
+      stable: boolean;
+      ev_spec_min: number;
+      ev_spec_max: number;
+    };
   };
 }
 
