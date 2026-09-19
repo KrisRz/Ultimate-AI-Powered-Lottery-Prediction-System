@@ -2,8 +2,8 @@
 """Replay every roll-down this archive holds, priced under today's rules.
 
 The figures this project quotes about Must-Be-Won draws - roughly nine a year,
-fewer than half of them actually worth playing - have until now lived only as
-prose in plan.md. A public page cannot make a quantitative claim backed by a
+of which one or two clear break-even in the two-round era - have until now
+lived only as prose in plan.md. A public page cannot make a quantitative claim backed by a
 memo, so this rebuilds them from the data and the tests pin the counts.
 
 What it does, per roll-down:

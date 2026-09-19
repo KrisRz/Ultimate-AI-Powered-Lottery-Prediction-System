@@ -5673,7 +5673,7 @@
   "built": {
     "alerts": {
       "default": "silent",
-      "fires_on": "a PLAY verdict, and nothing else - roughly nine draws a year",
+      "fires_on": "a PLAY verdict, and nothing else - one or two draws a year, not the ~9 the Must-Be-Won calendar produces",
       "transport": "SMTP",
       "why": "Everything else writes to a file or reds a workflow run, which GitHub already notifies about. An inbox that only ever says 'act' is one you still read a year later"
     },
