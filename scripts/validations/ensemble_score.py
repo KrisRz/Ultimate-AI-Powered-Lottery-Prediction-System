@@ -242,20 +242,22 @@ def random_strategy_percentile(ens_avg: float, n_draws: int, n_lines: int,
                                    size=(n_strategies, per_strategy))
         means = draws.mean(axis=1)
     else:
-        # Concentration-matched: a pool per strategy, lines drawn from it.
-        means = np.empty(n_strategies)
-        for i in range(n_strategies):
-            pool = rng.choice(N_BALLS, size=pool_size, replace=False) + 1
-            lines = pool[rng.random((per_strategy, pool_size))
-                         .argsort(axis=1)[:, :N_PICK]]
-            # Each draw's six are a fresh random six; counting overlap with
-            # a fixed line is symmetric, so sample the drawn sets instead.
-            hits = np.empty(per_strategy)
-            for j in range(0, per_strategy, n_lines):
-                actual = rng.choice(N_BALLS, size=N_PICK, replace=False) + 1
-                block = lines[j:j + n_lines]
-                hits[j:j + len(block)] = np.isin(block, actual).sum(axis=1)
-            means[i] = hits.mean()
+        # Concentration-matched, in closed form rather than by simulation.
+        #
+        # A strategy holds a pool P of `pool_size` balls and draws every
+        # line from it. For one draw, let m = |drawn six ∩ P|; that is
+        # hypergeometric(59, pool_size, 6). Conditional on m, a line is a
+        # random 6-subset of P, so its hits are hypergeometric(pool_size,
+        # m, 6) - and every line of that strategy shares the same m, which
+        # is exactly the correlation that materialising pools reproduced by
+        # brute force. Same distribution, ~100x faster, and it is the
+        # correlation structure written down instead of sampled.
+        m = rng.hypergeometric(pool_size, N_BALLS - pool_size, N_PICK,
+                               size=(n_strategies, n_draws))
+        m_per_line = np.repeat(m, n_lines, axis=1)
+        hits = rng.hypergeometric(np.maximum(m_per_line, 0),
+                                  pool_size - m_per_line, N_PICK)
+        means = hits.mean(axis=1)
 
     return {
         "n_strategies": n_strategies,
