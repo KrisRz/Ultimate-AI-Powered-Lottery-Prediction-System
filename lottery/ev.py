@@ -617,6 +617,90 @@ def sales_sensitivity(cond: DrawConditions, threshold: float = 0.0,
     }
 
 
+# How far the pick-rate spread is stretched and squashed when asking whether
+# the verdict survives the popularity model's SHAPE. 0.0 is a flat model (no
+# popularity effect at all), 1.0 is installed, 2.0 is twice as biased as
+# measured. These are deliberately wider than the calibration's own
+# uncertainty - bootstrapping the weights moves the break-even pool by 0.2%
+# (scripts/validations/popularity_audit.py), so sampling error is not the
+# exposure. Misspecification is, and that is what this brackets.
+STABILITY_SPREADS = (0.0, 1.0, 2.0)
+
+
+def _scaled_weight_fn(factor: float, base_fn):
+    """number_weight with its distance from 1.0 multiplied by `factor`.
+
+    `base_fn` is passed in rather than read from the module: the caller
+    rebinds the global `number_weight` while scanning spreads, so a closure
+    over the global would scale an already-scaled function - and recurse
+    until the stack runs out.
+    """
+    def nw(n: int) -> float:
+        return 1.0 + (base_fn(n) - 1.0) * factor
+    return nw
+
+
+def decision_stability(cond: DrawConditions, threshold: float = 0.0) -> dict:
+    """Does the verdict survive a different popularity model, not just a
+    different estimate of it?
+
+    The audit found the exposure is the model's SHAPE rather than its
+    fitted values: the weights are pinned to 0.2% on the break-even pool,
+    but going from a flat model to a doubled one flips PLAY/SKIP on draws
+    near break-even (measured: -0.012 SKIP to +0.015 PLAY at a GBP 32m
+    ordinary pool).
+
+    It is NOT confined to ordinary draws, which is what a test asserting
+    that found out. A roll-down's EV is dominated by J/N only while it sits
+    well away from the threshold; at a GBP 15m pool against 12m lines it
+    reads -0.053 (SKIP) flat and +0.024 (PLAY) installed. That is the
+    special-draw case this project is most likely to actually meet - the
+    audit calls GBP 15m a marginal PLAY - so the sensitivity lands exactly
+    where it is least welcome. What governs the label is distance from the
+    threshold relative to model uncertainty, not the kind of draw.
+
+    So the verdict comes with a label:
+
+        ROBUST PLAY      every spread in STABILITY_SPREADS says play
+        ROBUST SKIP      every one says skip
+        MODEL-SENSITIVE  they disagree - the decision is resting on the
+                         popularity model being the right shape, which is
+                         the one thing the audit cannot confirm
+
+    This reports; it never overrides. A MODEL-SENSITIVE PLAY is still a
+    PLAY, flagged as one a careful reader should not take on the point
+    estimate alone.
+    """
+    global number_weight, MEAN_WEIGHT, POPULARITY_NORMALIZATION
+    saved = (number_weight, MEAN_WEIGHT, POPULARITY_NORMALIZATION)
+    verdicts = {}
+    try:
+        for factor in STABILITY_SPREADS:
+            number_weight = (saved[0] if factor == 1.0
+                             else _scaled_weight_fn(factor, saved[0]))
+            MEAN_WEIGHT = sum(number_weight(n)
+                              for n in range(1, N_BALLS + 1)) / N_BALLS
+            POPULARITY_NORMALIZATION = _popularity_normalization()
+            ref = best_unpopular_reference_line()
+            verdicts[factor] = {
+                "play": line_ev(ref, cond) >= threshold,
+                "ev": line_ev(ref, cond),
+            }
+    finally:
+        number_weight, MEAN_WEIGHT, POPULARITY_NORMALIZATION = saved
+
+    plays = {v["play"] for v in verdicts.values()}
+    if len(plays) > 1:
+        label = "MODEL-SENSITIVE"
+    else:
+        label = "ROBUST PLAY" if plays.pop() else "ROBUST SKIP"
+    return {
+        "label": label,
+        "stable": label != "MODEL-SENSITIVE",
+        "by_spread": {f"x{f:g}": verdicts[f] for f in STABILITY_SPREADS},
+    }
+
+
 def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
     """Decide whether the draw is worth entering at all.
 
@@ -637,6 +721,7 @@ def should_play(cond: DrawConditions, threshold: float = 0.0) -> dict:
         "threshold": threshold,
         "break_even_jackpot": break_even_jackpot(cond, reference),
         "sales_sensitivity": sales_sensitivity(cond, threshold, reference),
+        "model_stability": decision_stability(cond, threshold),
         "conditions": {
             "jackpot_event_pool": cond.jackpot,
             "rounds": cond.rounds,

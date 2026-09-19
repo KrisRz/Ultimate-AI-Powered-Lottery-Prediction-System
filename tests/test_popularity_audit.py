@@ -133,3 +133,101 @@ def test_popularity_does_flip_a_big_ordinary_draw():
     set_weights(*scale_spread(2.0))
     doubled = ev.should_play(cond)["play"]
     assert installed is False and doubled is True
+
+
+# --- decision stability (the grey zone label) -----------------------------
+
+def test_stability_labels_match_the_audit_grid():
+    """Every scenario the audit measured, pinned to its label."""
+    from dataclasses import replace
+    from lottery.ev import should_play
+    from scripts.ev_play import next_draw_conditions
+
+    base = next_draw_conditions()
+    cases = [
+        ({}, "ROBUST SKIP"),                                        # today
+        (dict(jackpot=32_000_000), "MODEL-SENSITIVE"),
+        (dict(jackpot=36_000_000), "MODEL-SENSITIVE"),
+        (dict(jackpot=9_000_000, roll_down=True,
+              tickets_sold=9_500_000), "ROBUST SKIP"),
+        (dict(jackpot=20_000_000, roll_down=True,
+              tickets_sold=15_000_000), "ROBUST PLAY"),
+    ]
+    for kw, expected in cases:
+        v = should_play(replace(base, **kw))
+        assert v["model_stability"]["label"] == expected, kw
+
+
+def test_stability_restores_the_module_after_scanning():
+    """It rebinds globals; leaving them changed would poison every later
+    call in the process - including the verdict it was asked about."""
+    from dataclasses import replace
+    from lottery.ev import decision_stability, popularity_ratio
+    from scripts.ev_play import next_draw_conditions
+
+    line = [32, 34, 37, 39, 41, 43]
+    before = popularity_ratio(line)
+    before_norm = ev.POPULARITY_NORMALIZATION
+    decision_stability(replace(next_draw_conditions(), jackpot=32_000_000))
+    assert popularity_ratio(line) == pytest.approx(before)
+    assert ev.POPULARITY_NORMALIZATION == pytest.approx(before_norm)
+
+
+def test_stability_survives_an_exception_midway():
+    """The restore is in a finally block, and that has to stay true."""
+    from lottery.ev import decision_stability, popularity_ratio
+
+    line = [32, 34, 37, 39, 41, 43]
+    before = popularity_ratio(line)
+    with pytest.raises(Exception):
+        decision_stability(None)          # None has no .tickets_sold
+    assert popularity_ratio(line) == pytest.approx(before)
+
+
+def test_roll_downs_are_not_automatically_robust():
+    """A roll-down near the threshold IS model-sensitive.
+
+    This test was originally written the other way round - asserting every
+    roll-down is robust, on the reasoning that J/N dominates its EV - and
+    it failed. The GBP 15m special against 12m lines reads -0.053 (SKIP)
+    with a flat popularity model and +0.024 (PLAY) with the installed one,
+    and the audit calls GBP 15m the marginal PLAY this project is most
+    likely to meet. The label tracks distance from the threshold, not the
+    kind of draw, and ev.py now says so.
+    """
+    from dataclasses import replace
+    from lottery.ev import should_play
+    from scripts.ev_play import next_draw_conditions
+
+    base = next_draw_conditions()
+    labels = {}
+    for pool in (7_000_000, 9_000_000, 12_000_000, 15_000_000, 20_000_000):
+        v = should_play(replace(base, jackpot=pool, roll_down=True,
+                                tickets_sold=12_000_000))
+        labels[pool] = v["model_stability"]["label"]
+
+    assert labels[15_000_000] == "MODEL-SENSITIVE", (
+        "the marginal special is the case this flag exists for")
+    # Far from the threshold in either direction, the shape stops mattering.
+    assert labels[7_000_000] == "ROBUST SKIP"
+    assert labels[20_000_000] == "ROBUST PLAY"
+
+
+def test_label_tracks_distance_from_threshold_not_draw_type():
+    """The same pool, two sales levels, two labels.
+
+    GBP 15m against 13.5m lines is a comfortable SKIP; against 12m lines it
+    is a marginal PLAY and the flag fires. Nothing about the draw's TYPE
+    changed between them.
+    """
+    from dataclasses import replace
+    from lottery.ev import should_play
+    from scripts.ev_play import next_draw_conditions
+
+    base = next_draw_conditions()
+    busy = should_play(replace(base, jackpot=15_000_000, roll_down=True,
+                               tickets_sold=13_500_000))
+    quiet = should_play(replace(base, jackpot=15_000_000, roll_down=True,
+                                tickets_sold=12_000_000))
+    assert busy["model_stability"]["label"] == "ROBUST SKIP"
+    assert quiet["model_stability"]["label"] == "MODEL-SENSITIVE"
