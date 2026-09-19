@@ -55,25 +55,6 @@ jobs:
       - name: Backfill any missing draw pools
         run: PYTHONPATH=. python scripts/backfill_draw_pools.py
 
-      # download_fresh_data() returns True even when the network fails and it
-      # falls back to cached data - verify we actually hold the expected draw,
-      # so a quiet no-op run turns into a loud red one.
-      - name: Verify collected data is fresh
-        run: |
-          PYTHONPATH=. python - <<'EOF'
-          import sys
-          from datetime import date, datetime
-          import pandas as pd
-          from scripts.monitoring.collection_watchdog import most_recent_draw_date
-
-          today = date.today()
-          expected = today if today.weekday() in (2, 5) else most_recent_draw_date()
-          tiers = pd.read_csv("data/prize_tiers.csv")
-          latest = max(datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"])
-          print(f"latest collected: {latest}, expected: {expected}")
-          sys.exit(0 if latest >= expected else 1)
-          EOF
-
       # Scores the model against the draw when it was a Must-Be-Won, capped
       # or special: measured sales vs forecast, carried pool vs what rolled
       # down. Runs before the commit so its scorecard CSV rides the same push.
@@ -162,6 +143,35 @@ jobs:
           EV_ALERT_TEST: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
         run: PYTHONPATH=. python scripts/monitoring/ev_alert.py
 
+      # Same placement argument as the pools check below: AFTER the alert. This
+      # check used to sit before it, where a failure skipped the email step
+      # entirely - `EV verdict` has no `if:`, so it inherits `success()`.
+      #
+      # It also used to expect the day's draw from midnight, while the balls
+      # fall at ~19:00 UTC. The crons run at 21:45/21:50 so they never saw it,
+      # but any run earlier on a draw day went red on a draw that did not exist
+      # yet - and took the PLAY email with it. Measured 2026-09-19 15:16 UTC:
+      # "latest collected: 2026-09-16, expected: 2026-09-19", exit 1, alert
+      # step skipped.
+      - name: Verify collected data is fresh
+        if: ${{ !cancelled() }}
+        run: |
+          PYTHONPATH=. python - <<'EOF'
+          import sys
+          from datetime import datetime, timezone
+          import pandas as pd
+          from scripts.monitoring.collection_watchdog import most_recent_draw_date
+
+          now = datetime.now(timezone.utc)
+          today = now.date()
+          drawn_today = today.weekday() in (2, 5) and now.hour >= 20
+          expected = today if drawn_today else most_recent_draw_date(today)
+          tiers = pd.read_csv("data/prize_tiers.csv")
+          latest = max(datetime.strptime(d, "%Y-%m-%d").date() for d in tiers["draw_date"])
+          print(f"latest collected: {latest}, expected: {expected}")
+          sys.exit(0 if latest >= expected else 1)
+          EOF
+
       # Deliberately LAST. A stall in the pools does not show up in
       # the tier data at all - that data was complete and correct the whole time
       # the pools were frozen, which is exactly how it went unnoticed - so it
@@ -173,6 +183,7 @@ jobs:
       # the one output that has to survive everything. So: do the work, send
       # the mail, then go red and say which file is behind.
       - name: Verify the pools kept up
+        if: ${{ !cancelled() }}
         run: |
           PYTHONPATH=. python - <<'EOF'
           import sys
