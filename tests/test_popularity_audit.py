@@ -231,3 +231,86 @@ def test_label_tracks_distance_from_threshold_not_draw_type():
                                 tickets_sold=12_000_000))
     assert busy["model_stability"]["label"] == "ROBUST SKIP"
     assert quiet["model_stability"]["label"] == "MODEL-SENSITIVE"
+
+
+# --- specification contest ------------------------------------------------
+
+def test_three_buckets_lose_out_of_sample_to_a_smooth_model():
+    """The installed shape is too rigid, and the data say so consistently.
+
+    Not a close call and not a split-count artefact: smooth beats buckets
+    at every split count tried, by roughly 10%. Recorded rather than acted
+    on - installing it would move published figures and the PLAY
+    threshold, which is Kris's call, not the audit's.
+    """
+    import logging
+
+    from scripts.calibrate_popularity import add_multiplier, load_joined
+    from scripts.validations.popularity_audit import specification_contest
+
+    logging.getLogger().setLevel(logging.WARNING)
+    df = add_multiplier(load_joined())
+    draws_arr = df[[f"Number_{i}" for i in range(1, 7)]].to_numpy(int)
+    mult = df["multiplier"].to_numpy()
+
+    for n_splits in (3, 5, 10):
+        rows = {r["name"]: r for r in specification_contest(draws_arr, mult,
+                                                            n_splits=n_splits)}
+        buckets = rows["3-bucket (installed)"]["oos_mse"]
+        smooth = rows["smooth + hinges"]["oos_mse"]
+        assert smooth < buckets, f"at {n_splits} splits: {smooth} vs {buckets}"
+
+
+def test_the_overfit_yardstick_behaves_like_one():
+    """59 parameters must fit best in-sample - otherwise the contest is
+    not measuring what it claims, and 'smooth wins' means nothing."""
+    import logging
+
+    from scripts.calibrate_popularity import add_multiplier, load_joined
+    from scripts.validations.popularity_audit import specification_contest
+
+    logging.getLogger().setLevel(logging.WARNING)
+    df = add_multiplier(load_joined())
+    draws_arr = df[[f"Number_{i}" for i in range(1, 7)]].to_numpy(int)
+    rows = {r["name"]: r
+            for r in specification_contest(draws_arr,
+                                           df["multiplier"].to_numpy())}
+    per_number = rows["per-number (overfit)"]
+    assert per_number["params"] == 60
+    assert per_number["in_mse"] < rows["smooth + hinges"]["in_mse"]
+    assert per_number["in_mse"] < rows["3-bucket (installed)"]["in_mse"]
+    assert per_number["oos_mse"] > per_number["in_mse"]
+
+
+def test_the_smooth_challenger_flips_a_verdict_the_label_already_flagged():
+    """The audit's payoff: a better-supported model moves a decision, and
+    the MODEL-SENSITIVE label had already marked that draw.
+
+    If this ever fails because the flag stops firing there, the label has
+    lost the case it exists for.
+    """
+    import logging
+    from dataclasses import replace
+
+    from lottery.ev import should_play
+    from scripts.calibrate_popularity import add_multiplier, load_joined
+    from scripts.ev_play import next_draw_conditions
+    from scripts.validations.popularity_audit import (
+        install_weight_fn, smooth_weight_fn,
+    )
+
+    logging.getLogger().setLevel(logging.WARNING)
+    df = add_multiplier(load_joined())
+    draws_arr = df[[f"Number_{i}" for i in range(1, 7)]].to_numpy(int)
+    smooth = smooth_weight_fn(draws_arr, df["multiplier"].to_numpy())
+
+    cond = replace(next_draw_conditions(), jackpot=32_000_000,
+                   roll_down=False)
+    set_weights(*INSTALLED)
+    installed = should_play(cond)
+    assert installed["play"] is False
+    assert installed["model_stability"]["label"] == "MODEL-SENSITIVE"
+
+    install_weight_fn(smooth)
+    assert should_play(cond)["play"] is True
+    set_weights(*INSTALLED)

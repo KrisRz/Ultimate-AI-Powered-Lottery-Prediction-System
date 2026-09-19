@@ -6,7 +6,7 @@ ignores. This tests the component it cannot ignore. `expected_cowinner_share`
 is the only place a fitted number reaches `line_ev`, so if the pick-rate
 weights are wrong, the PLAY threshold moves and real money follows.
 
-Four questions, in order of how much they cost to get wrong:
+Five questions, in order of how much they cost to get wrong:
 
   1. DECISION SENSITIVITY - can plausible weight error flip PLAY/SKIP, and
      on which draws? This is the only question with money attached.
@@ -16,15 +16,24 @@ Four questions, in order of how much they cost to get wrong:
   3. POWER - how wrong could the weights be before this archive noticed?
   4. UNCERTAINTY - the interval around the installed weights, propagated
      into the break-even jackpot, so a marginal PLAY can be read as marginal.
+  5. SPECIFICATION - do the data support three buckets at all, judged
+     out-of-sample against challengers?
 
-The answer to (1) turns out to bound the whole thing: on Must-Be-Won and
-special draws - the only draws this project ever plays - the EV is dominated
-by the roll-down term J/N, which popularity does not touch. Weight error
-moves the verdict only on ORDINARY draws with a jackpot near break-even,
-which in this era means above roughly GBP 32m: rarer than the p99 of the
-59-ball era. That is the honest scope of the risk, and it is smaller than
-the model's prominence suggests - but it is not zero, and `ev.py` said "no
-decision moves" without qualifying it.
+Two findings shape how the rest should be read.
+
+The risk is NOT confined to ordinary draws. An earlier version of this file
+said roll-downs are immune because their EV is carried by J/N; a test
+asserting that failed. A GBP 15m special against 12m lines reads -0.053
+(SKIP) with a flat popularity model and +0.024 (PLAY) with the installed
+one - and GBP 15m is the marginal PLAY this project is most likely to meet.
+What governs sensitivity is distance from the threshold relative to model
+uncertainty, not the kind of draw.
+
+And the exposure is misspecification rather than sampling error. The weights
+are pinned to 0.2% on the break-even pool (section 4), but three buckets
+lose to a smooth alternative out of sample by about 10%, consistently across
+split counts (section 5). The installed shape is too rigid - which so far
+changes no verdict, because the smooth fit implies almost the same weights.
 
 Run:  PYTHONPATH=. python scripts/validations/popularity_audit.py
 """
@@ -204,6 +213,129 @@ def threshold_interval(base_cond, n_draws: int, noise: float, n_boot: int,
     }
 
 
+# --- 5. specification challengers -------------------------------------------
+
+def _design_buckets(draws: np.ndarray) -> np.ndarray:
+    """The installed model: counts in <=12 / 13-31 / >31 (mid is reference)."""
+    return np.column_stack([np.ones(len(draws)),
+                            (draws <= 12).sum(axis=1),
+                            (draws > 31).sum(axis=1)])
+
+
+def _design_smooth(draws: np.ndarray, knots=(12, 31)) -> np.ndarray:
+    """A challenger with no step at 12 or 31: linear in n, plus a hinge.
+
+    If players really treat 31 as a cliff - the last day of a month - the
+    bucket model should beat this. If the truth is a gentle decline in
+    popularity as numbers rise, this should win. That is the question:
+    not which model scores higher EV, but which shape the data support.
+    """
+    n = draws.astype(float)
+    cols = [np.ones(len(draws)), n.sum(axis=1)]
+    for k in knots:
+        cols.append(np.maximum(n - k, 0).sum(axis=1))
+    return np.column_stack(cols)
+
+
+def _design_per_number(draws: np.ndarray) -> np.ndarray:
+    """One coefficient per ball: the overfit yardstick.
+
+    59 parameters on ~1,100 observations. Included precisely because it
+    will fit in-sample and should fail out-of-sample - a challenger set
+    without a known-bad member cannot show that the comparison works.
+    """
+    X = np.zeros((len(draws), N_BALLS + 1))
+    X[:, 0] = 1.0
+    for i, row in enumerate(draws):
+        for b in row:
+            X[i, int(b)] += 1.0
+    return X
+
+
+DESIGNS = {
+    "3-bucket (installed)": _design_buckets,
+    "smooth + hinges": _design_smooth,
+    "per-number (overfit)": _design_per_number,
+}
+
+
+def specification_contest(draws: np.ndarray, mult: np.ndarray,
+                          n_splits: int = 5) -> list:
+    """Compare specifications OUT OF SAMPLE, on rolling forward splits.
+
+    Walk-forward rather than random folds: the calibration is used on
+    future draws, so the test has to be future draws. In-sample error is
+    reported alongside only to show the overfit member doing what it is
+    there to do.
+    """
+    y = np.log(mult)
+    n = len(draws)
+    edges = np.linspace(n // 2, n, n_splits + 1).astype(int)
+
+    rows = []
+    for name, design in DESIGNS.items():
+        X = design(draws)
+        oos, ins = [], []
+        for i in range(n_splits):
+            train_end = edges[i]
+            test_end = edges[i + 1]
+            if test_end <= train_end:
+                continue
+            Xtr, ytr = X[:train_end], y[:train_end]
+            Xte, yte = X[train_end:test_end], y[train_end:test_end]
+            beta, *_ = np.linalg.lstsq(Xtr, ytr, rcond=None)
+            oos.append(float(np.mean((yte - Xte @ beta) ** 2)))
+            ins.append(float(np.mean((ytr - Xtr @ beta) ** 2)))
+        rows.append({"name": name, "params": X.shape[1],
+                     "oos_mse": float(np.mean(oos)),
+                     "in_mse": float(np.mean(ins))})
+    return rows
+
+
+def smooth_weight_fn(draws: np.ndarray, mult: np.ndarray):
+    """The smooth challenger as a per-number weight function.
+
+    Projecting it onto three buckets (below) throws away the very thing it
+    fits differently, so the verdict comparison uses the curve itself.
+    """
+    X = _design_smooth(draws)
+    beta, *_ = np.linalg.lstsq(X, np.log(mult), rcond=None)
+    ns = np.arange(1, N_BALLS + 1, dtype=float)
+    logw = UNDAMP * (beta[1] * ns + beta[2] * np.maximum(ns - 12, 0)
+                     + beta[3] * np.maximum(ns - 31, 0))
+    w = np.exp(logw - logw.mean())
+    w = w * N_BALLS / w.sum()
+    table = {int(n): float(x) for n, x in zip(ns, w)}
+    return lambda n: table[int(n)]
+
+
+def install_weight_fn(fn) -> None:
+    """Put an arbitrary per-number weight function into the EV module."""
+    ev.number_weight = fn
+    ev.MEAN_WEIGHT = sum(fn(n) for n in range(1, N_BALLS + 1)) / N_BALLS
+    ev.POPULARITY_NORMALIZATION = ev._popularity_normalization()
+
+
+def challenger_weights(draws: np.ndarray, mult: np.ndarray) -> tuple:
+    """Bucket weights implied by the SMOOTH fit, for an EV comparison.
+
+    The smooth model has no buckets, so it is projected onto them: the
+    mean fitted pick-rate of the numbers in each range. That is the only
+    way to ask "would this specification change the verdict?" using
+    machinery that takes three weights.
+    """
+    X = _design_smooth(draws)
+    beta, *_ = np.linalg.lstsq(X, np.log(mult), rcond=None)
+    ns = np.arange(1, N_BALLS + 1, dtype=float)
+    # Per-number log-weight from the same coefficients, un-damped.
+    logw = UNDAMP * (beta[1] * ns + beta[2] * np.maximum(ns - 12, 0)
+                     + beta[3] * np.maximum(ns - 31, 0))
+    w = np.exp(logw - logw.mean())
+    w = w * N_BALLS / w.sum()            # population mean pick-rate 1.0
+    return (float(w[:12].mean()), float(w[12:31].mean()),
+            float(w[31:].mean()))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--reps", type=int, default=300)
@@ -304,6 +436,54 @@ def main() -> int:
     print("   A draw inside that interval is a coin flip on the weights, not")
     print("   a PLAY. `should_play` returns a point estimate; this is the")
     print("   band it should be read against.")
+    print()
+
+    # 5 --------------------------------------------------------------------
+    print("5. SPECIFICATION - do the data support three buckets?")
+    print()
+    try:
+        from scripts.calibrate_popularity import add_multiplier, load_joined
+        import logging
+        logging.getLogger().setLevel(logging.WARNING)
+        df = add_multiplier(load_joined())
+        real = df[[f"Number_{i}" for i in range(1, 7)]].to_numpy(int)
+        real_mult = df["multiplier"].to_numpy()
+    except Exception as exc:
+        print(f"   calibration data unavailable ({exc})")
+        return 0
+
+    print(f"   {'specification':24} {'params':>7} {'in-sample':>11} "
+          f"{'out-of-sample':>14}")
+    for row in specification_contest(real, real_mult):
+        print(f"   {row['name']:24} {row['params']:>7} {row['in_mse']:>11.5f} "
+              f"{row['oos_mse']:>14.5f}")
+    print()
+    print("   Lower out-of-sample is better. The per-number row is the")
+    print("   yardstick: it must fit best in-sample and worse out of it.")
+    print()
+
+    ch = challenger_weights(real, real_mult)
+    print(f"   Smooth model projected onto buckets: {ch[0]:.3f} / {ch[1]:.3f} "
+          f"/ {ch[2]:.3f}")
+    print(f"   Installed:                           {INSTALLED[0]:.3f} / "
+          f"{INSTALLED[1]:.3f} / {INSTALLED[2]:.3f}")
+    print()
+    print("   Does the challenger change any verdict? (full smooth curve)")
+    smooth_fn = smooth_weight_fn(real, real_mult)
+    for label, kw in draws:
+        cond = replace(base, **kw)
+        set_weights(*INSTALLED)
+        a = ev.should_play(cond)
+        install_weight_fn(smooth_fn)
+        b = ev.should_play(cond)
+        if a["play"] != b["play"]:
+            print(f"      {label:22} installed "
+                  f"{'PLAY' if a['play'] else 'SKIP'} -> challenger "
+                  f"{'PLAY' if b['play'] else 'SKIP'}   *** FLIP")
+        else:
+            print(f"      {label:22} {'PLAY' if a['play'] else 'SKIP':4} both "
+                  f"(EV {a['ev_best_line']:+.3f} vs {b['ev_best_line']:+.3f})")
+    set_weights(*INSTALLED)
     return 0
 
 
