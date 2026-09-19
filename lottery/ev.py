@@ -478,9 +478,20 @@ def expected_cowinner_share(line: Sequence[int], tickets_sold: int,
     exposure to sharing does not depend on what you write on the slip, and the
     page said otherwise.
 
-    No decision moves: an ordinary draw would need a jackpot near GBP 32m
-    before the term matters, and a roll-down's EV is dominated by J/N, which
-    this does not touch.
+    Scope of the risk, measured 2026-09-19 by
+    scripts/validations/popularity_audit.py rather than asserted here: the
+    verdict DOES move if these weights are wrong, but only on ordinary draws
+    near break-even. At a GBP 32m pool the reference line reads -0.012 (SKIP)
+    on the installed weights and +0.015 (PLAY) at twice the spread; at 36m it
+    reads +0.145 (PLAY) installed and -0.000 (SKIP) with no popularity bias
+    at all. On roll-downs - every draw this project has ever played - the EV
+    is dominated by J/N, which this term does not touch, and the verdict is
+    identical from a flat model to a doubled one.
+
+    The weights themselves are precise: bootstrapping the calibration puts
+    the break-even pool in GBP 32.24m-32.39m, a 0.2% band. The exposure is
+    therefore MISSPECIFICATION, not sampling error - whether three buckets
+    are the right shape, not whether they are well estimated.
     """
     per_round = tickets_sold / TOTAL_COMBOS
     lam = per_round * popularity_ratio(line) + per_round * max(rounds - 1, 0)

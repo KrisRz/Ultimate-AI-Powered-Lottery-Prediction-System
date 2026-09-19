@@ -48,7 +48,7 @@ jobs:
       # meaningless, so they run before anything expensive.
       - name: Injection tests (do the detectors still fire?)
         run: PYTHONPATH=. python -m pytest tests/test_fairness.py
-             tests/test_ensemble_score.py -q
+             tests/test_ensemble_score.py tests/test_popularity_audit.py -q
 
       - name: Fairness report
         run: |
@@ -65,6 +65,13 @@ jobs:
             --repeat ${{ github.event.inputs.repeats || '10' }} \
             --null-sims ${{ github.event.inputs.null_sims || '40' }} \
             | tee reports/ensemble.txt
+
+      # The component that reaches ev.py, so it gets the same treatment as
+      # the hypotheses that do not.
+      - name: Popularity audit
+        run: |
+          PYTHONPATH=. python scripts/validations/popularity_audit.py \
+            | tee reports/popularity.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
