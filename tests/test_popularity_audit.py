@@ -7,6 +7,9 @@ sensitivity grid must report a flip when one really happens.
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import datetime, timezone
+
 import numpy as np
 import pytest
 
@@ -18,6 +21,30 @@ from scripts.validations.popularity_audit import (
     set_weights,
     synthetic_multipliers,
 )
+
+# A Saturday draw, priced from pinned inputs instead of the wall clock.
+#
+# These conditions used to come from a bare `pinned_conditions()`, which
+# reads the clock: on a draw day at 18:30 UTC the upcoming draw becomes the
+# NEXT one, the weekday flips Saturday -> Wednesday and the sales baseline
+# drops from 8.45m lines to 5.14m. Three tests here were green at 18:20 UTC
+# on 2026-09-19 and red at 18:40, having changed nothing - and the
+# collector's 21:45 run executes this suite, so the failure would have
+# landed on a night with a real draw in it.
+#
+# What these tests assert is how the POPULARITY MODEL moves a verdict, not
+# which draw happens to be next, so both the moment and the sales figure are
+# pinned. `next_draw_conditions` already takes `now` for exactly this reason
+# (the site exporter pins it so CI diffs stay stable).
+PINNED_NOW = datetime(2026, 9, 19, 12, 0, tzinfo=timezone.utc)
+PINNED_TICKETS = 8_451_176      # the Saturday estimate at that moment
+
+
+def pinned_conditions():
+    """The draw these tests were written against, and always will be."""
+    from scripts.ev_play import next_draw_conditions
+    return replace(next_draw_conditions(now=PINNED_NOW),
+                   tickets_sold=PINNED_TICKETS)
 
 
 @pytest.fixture(autouse=True)
@@ -104,9 +131,7 @@ def test_popularity_never_flips_a_roll_down_verdict():
     one. If this ever fails, the audit's scope statement is wrong.
     """
     from dataclasses import replace
-    from scripts.ev_play import next_draw_conditions
-
-    base = next_draw_conditions()
+    base = pinned_conditions()
     for pool, sold in ((9_000_000, 9_500_000), (15_000_000, 13_500_000),
                        (20_000_000, 15_000_000)):
         cond = replace(base, jackpot=pool, roll_down=True, tickets_sold=sold)
@@ -124,9 +149,8 @@ def test_popularity_does_flip_a_big_ordinary_draw():
     audit exists because this is true, not because it is not.
     """
     from dataclasses import replace
-    from scripts.ev_play import next_draw_conditions
 
-    cond = replace(next_draw_conditions(), jackpot=32_000_000,
+    cond = replace(pinned_conditions(), jackpot=32_000_000,
                    roll_down=False)
     set_weights(*INSTALLED)
     installed = ev.should_play(cond)["play"]
@@ -141,9 +165,8 @@ def test_stability_labels_match_the_audit_grid():
     """Every scenario the audit measured, pinned to its label."""
     from dataclasses import replace
     from lottery.ev import should_play
-    from scripts.ev_play import next_draw_conditions
 
-    base = next_draw_conditions()
+    base = pinned_conditions()
     cases = [
         ({}, "ROBUST SKIP"),                                        # today
         (dict(jackpot=32_000_000), "MODEL-SENSITIVE"),
@@ -163,12 +186,11 @@ def test_stability_restores_the_module_after_scanning():
     call in the process - including the verdict it was asked about."""
     from dataclasses import replace
     from lottery.ev import decision_stability, popularity_ratio
-    from scripts.ev_play import next_draw_conditions
 
     line = [32, 34, 37, 39, 41, 43]
     before = popularity_ratio(line)
     before_norm = ev.POPULARITY_NORMALIZATION
-    decision_stability(replace(next_draw_conditions(), jackpot=32_000_000))
+    decision_stability(replace(pinned_conditions(), jackpot=32_000_000))
     assert popularity_ratio(line) == pytest.approx(before)
     assert ev.POPULARITY_NORMALIZATION == pytest.approx(before_norm)
 
@@ -197,9 +219,8 @@ def test_roll_downs_are_not_automatically_robust():
     """
     from dataclasses import replace
     from lottery.ev import should_play
-    from scripts.ev_play import next_draw_conditions
 
-    base = next_draw_conditions()
+    base = pinned_conditions()
     labels = {}
     for pool in (7_000_000, 9_000_000, 12_000_000, 15_000_000, 20_000_000):
         v = should_play(replace(base, jackpot=pool, roll_down=True,
@@ -222,9 +243,8 @@ def test_label_tracks_distance_from_threshold_not_draw_type():
     """
     from dataclasses import replace
     from lottery.ev import should_play
-    from scripts.ev_play import next_draw_conditions
 
-    base = next_draw_conditions()
+    base = pinned_conditions()
     busy = should_play(replace(base, jackpot=15_000_000, roll_down=True,
                                tickets_sold=13_500_000))
     quiet = should_play(replace(base, jackpot=15_000_000, roll_down=True,
@@ -294,7 +314,6 @@ def test_the_smooth_challenger_flips_a_verdict_the_label_already_flagged():
 
     from lottery.ev import should_play
     from scripts.calibrate_popularity import add_multiplier, load_joined
-    from scripts.ev_play import next_draw_conditions
     from scripts.validations.popularity_audit import (
         install_weight_fn, smooth_weight_fn,
     )
@@ -304,7 +323,7 @@ def test_the_smooth_challenger_flips_a_verdict_the_label_already_flagged():
     draws_arr = df[[f"Number_{i}" for i in range(1, 7)]].to_numpy(int)
     smooth = smooth_weight_fn(draws_arr, df["multiplier"].to_numpy())
 
-    cond = replace(next_draw_conditions(), jackpot=32_000_000,
+    cond = replace(pinned_conditions(), jackpot=32_000_000,
                    roll_down=False)
     set_weights(*INSTALLED)
     installed = should_play(cond)

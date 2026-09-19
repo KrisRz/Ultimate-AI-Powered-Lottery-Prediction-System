@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest fairness ensemble ensemble-null popularity-audit contract pre-ev backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update predict play dashboard backtest fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -78,6 +78,21 @@ pre-ev:
 # The audit of the one fitted input EV actually spends on.
 popularity-audit:
 	PYTHONPATH=. $(PY) scripts/validations/popularity_audit.py
+
+# The frozen challenger (popularity-v2-spec.md). `verify` re-derives its
+# coefficients from the archive and must report zero drift; `power` says what
+# each candidate slice could resolve if the challenger were true. Neither
+# touches a holdout row.
+popularity-v2-verify:
+	PYTHONPATH=. $(PY) scripts/validations/popularity_v2_frozen.py --verify
+
+popularity-v2-power:
+	PYTHONPATH=. $(PY) scripts/validations/popularity_v2_frozen.py --power
+
+# The evaluator on planted data: it must find a smooth truth, find an
+# incumbent truth, and stay quiet when the two models are equally wrong.
+popularity-v2-selftest:
+	PYTHONPATH=. $(PY) scripts/validations/popularity_v2_final_test.py --self-test --power
 
 nightly:
 	PYTHONPATH=. $(PY) scripts/monitoring/nightly_backtest.py

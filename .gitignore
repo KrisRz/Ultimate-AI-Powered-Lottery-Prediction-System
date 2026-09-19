@@ -43,7 +43,15 @@ wheels/
 
 # Output data
 data/output/
-outputs/
+outputs/*
+# ...except the one-shot record of the popularity-v2 experiment. It is a
+# reproducibility artefact: the frozen specification, the frozen evaluator
+# and this file together are what make the INCONCLUSIVE reading checkable
+# by somebody who was not there. Re-including it needs the whole directory
+# chain un-excluded, which is why `outputs/` became `outputs/*`.
+!outputs/popularity_v2/
+outputs/popularity_v2/*
+!outputs/popularity_v2/final-test-*.json
 *.csv
 # Public lottery data IS tracked (versioning + backup + the cloud collector
 # commits it); the ledger with real money stays local-only
