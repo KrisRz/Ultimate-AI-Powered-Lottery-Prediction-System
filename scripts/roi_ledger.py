@@ -43,10 +43,66 @@ PRIZES_NEW_RULES = {(6, False): 2_000_000, (5, True): 1_000_000, (5, False): 1_0
 PRIZES_OLD_RULES = {(6, False): 3_000_000, (5, True): 1_000_000, (5, False): 1_750,
                     (4, False): 140, (3, False): 30, (2, False): 0}
 
+# Decision provenance travels with the ticket. A ledger that records what
+# was bought but not WHY cannot answer the only interesting question years
+# later - "what made it say PLAY?" - and reconstructing that from git
+# history means guessing which commit was live on the night. The git SHA
+# pins the code, the rest pins the inputs, so the verdict is reproducible
+# from the row alone. Blank for rows added without a verdict on file.
+PROVENANCE_COLUMNS = [
+    "git_sha", "jackpot", "estimated_lines", "ev_best_line",
+    "break_even_jackpot", "model_stability", "ev_spec_min", "ev_spec_max",
+    "roll_down", "rounds",
+]
+
 LEDGER_COLUMNS = [
     "added_at", "draw_date", "line", "cost", "settled",
     "matches_r1", "bonus_r1", "matches_r2", "bonus_r2", "prize", "prize_source",
-]
+] + PROVENANCE_COLUMNS
+
+
+def _git_sha() -> str:
+    """The commit that produced this verdict, or "" outside a checkout."""
+    import subprocess
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                             cwd=Path(__file__).resolve().parent.parent,
+                             capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def _provenance() -> dict:
+    """Read the advisor's saved verdict, if there is one to read.
+
+    outputs/predictions/latest.json is written by every ev_play run, and it
+    records `play` honestly even for a --force portfolio, so a forced ticket
+    is stored with the SKIP that the advisor actually returned.
+    """
+    blank = {c: None for c in PROVENANCE_COLUMNS}
+    blank["git_sha"] = _git_sha()
+    try:
+        data = json.loads(LATEST_PREDICTIONS.read_text())
+        v = data["metadata"]["verdict"]
+        cond = v["conditions"]
+        stab = v.get("model_stability") or {}
+        blank.update({
+            "jackpot": cond.get("jackpot_event_pool"),
+            "estimated_lines": cond.get("tickets_sold"),
+            "ev_best_line": round(v["ev_best_line"], 6),
+            "break_even_jackpot": round(v["break_even_jackpot"], 2),
+            "model_stability": stab.get("label"),
+            "ev_spec_min": (round(stab["ev_spec_min"], 6)
+                            if "ev_spec_min" in stab else None),
+            "ev_spec_max": (round(stab["ev_spec_max"], 6)
+                            if "ev_spec_max" in stab else None),
+            "roll_down": cond.get("roll_down"),
+            "rounds": cond.get("rounds"),
+        })
+    except Exception:
+        pass
+    return blank
 
 
 def _load_ledger() -> pd.DataFrame:
@@ -57,7 +113,15 @@ def _load_ledger() -> pd.DataFrame:
         for col in ("matches_r1", "bonus_r1", "matches_r2", "bonus_r2", "prize_source"):
             if col in ledger.columns:
                 ledger[col] = ledger[col].astype("object")
-        return ledger
+        # Rows written before decision provenance existed keep their tickets
+        # and their settlement; they simply have no verdict attached. Adding
+        # the columns on read (rather than leaving concat to invent them)
+        # keeps the CSV's column order stable across every later write.
+        for col in PROVENANCE_COLUMNS:
+            if col not in ledger.columns:
+                ledger[col] = None
+        return ledger[[c for c in LEDGER_COLUMNS if c in ledger.columns]
+                      + [c for c in ledger.columns if c not in LEDGER_COLUMNS]]
     return pd.DataFrame(columns=LEDGER_COLUMNS)
 
 
@@ -106,7 +170,9 @@ def cmd_add(args) -> None:
     lines = _lines_from_latest() if args.from_latest else _parse_lines(args.lines)
 
     ledger = _load_ledger()
+    prov = _provenance()
     new_rows = pd.DataFrame([{
+        **prov,
         "added_at": datetime.now().isoformat(timespec="seconds"),
         "draw_date": draw_date.isoformat(),
         "line": " ".join(map(str, line)),
@@ -121,6 +187,12 @@ def cmd_add(args) -> None:
     ledger.to_csv(LEDGER_FILE, index=False)
     print(f"Recorded {len(lines)} line(s) for draw {draw_date} "
           f"(cost £{len(lines) * args.cost_per_line:.2f}) in {LEDGER_FILE}")
+    if prov.get("ev_best_line") is not None:
+        print(f"  verdict on file: EV £{prov['ev_best_line']:+.3f}, "
+              f"{prov['model_stability']}, pool £{prov['jackpot']:,.0f}, "
+              f"code {prov['git_sha'] or '(no git)'}")
+    else:
+        print("  no verdict on file - run `make play` first to record why")
 
 
 def _prize_for(matches: int, bonus_hit: bool, draw_date: date,

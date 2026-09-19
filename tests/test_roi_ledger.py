@@ -127,3 +127,82 @@ class TestAddSettleReport:
         roi.cmd_settle(Namespace())
         ledger = pd.read_csv(isolated_ledger / "ledger.csv")
         assert bool(ledger.iloc[0]["settled"]) is False
+
+
+# --- decision provenance --------------------------------------------------
+
+def test_provenance_columns_are_added_to_an_old_ledger(tmp_path, monkeypatch):
+    """A ledger written before provenance existed must still load.
+
+    Old rows keep their tickets and settlements and simply carry no
+    verdict; the columns appear so later writes keep a stable order.
+    """
+    import pandas as pd
+    import scripts.roi_ledger as rl
+
+    old = tmp_path / "ledger.csv"
+    pd.DataFrame([{
+        "added_at": "2026-08-08T12:00:00", "draw_date": "2026-08-08",
+        "line": "1 2 3 4 5 6", "cost": 2.0, "settled": True,
+        "matches_r1": 2, "bonus_r1": False, "matches_r2": 1,
+        "bonus_r2": False, "prize": 0.0, "prize_source": "table",
+    }]).to_csv(old, index=False)
+    monkeypatch.setattr(rl, "LEDGER_FILE", old)
+
+    ledger = rl._load_ledger()
+    assert list(ledger.columns) == rl.LEDGER_COLUMNS
+    assert ledger["git_sha"].isna().all()
+    assert ledger.loc[0, "line"] == "1 2 3 4 5 6"
+
+
+def test_provenance_reads_the_saved_verdict(tmp_path, monkeypatch):
+    """The row must record WHY, not just what."""
+    import json
+    import scripts.roi_ledger as rl
+
+    latest = tmp_path / "latest.json"
+    latest.write_text(json.dumps({"metadata": {"verdict": {
+        "ev_best_line": 0.0241,
+        "break_even_jackpot": 14_500_000.0,
+        "model_stability": {"label": "MODEL-SENSITIVE",
+                            "ev_spec_min": -0.0532, "ev_spec_max": 0.0409},
+        "conditions": {"jackpot_event_pool": 15_000_000.0,
+                       "tickets_sold": 12_000_000, "roll_down": True,
+                       "rounds": 2},
+    }}}))
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", latest)
+
+    p = rl._provenance()
+    assert p["jackpot"] == 15_000_000.0
+    assert p["model_stability"] == "MODEL-SENSITIVE"
+    assert p["ev_spec_min"] == pytest.approx(-0.0532)
+    assert p["ev_spec_max"] == pytest.approx(0.0409)
+    assert p["roll_down"] is True
+
+
+def test_provenance_survives_a_missing_or_broken_verdict(tmp_path, monkeypatch):
+    """Recording a ticket must never fail because the verdict file is gone.
+
+    Buying is the irreversible act; losing the reason is bad, losing the
+    ticket record is worse.
+    """
+    import scripts.roi_ledger as rl
+
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", tmp_path / "absent.json")
+    p = rl._provenance()
+    assert set(p) == set(rl.PROVENANCE_COLUMNS)
+    assert p["ev_best_line"] is None
+
+    broken = tmp_path / "broken.json"
+    broken.write_text("{not json")
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", broken)
+    assert rl._provenance()["ev_best_line"] is None
+
+
+def test_git_sha_is_recorded_or_blank():
+    """Pins the code that produced the verdict; never raises."""
+    import scripts.roi_ledger as rl
+    sha = rl._git_sha()
+    assert isinstance(sha, str)
+    if sha:
+        assert 6 <= len(sha) <= 12 and all(c in "0123456789abcdef" for c in sha)

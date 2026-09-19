@@ -694,9 +694,15 @@ def decision_stability(cond: DrawConditions, threshold: float = 0.0) -> dict:
         label = "MODEL-SENSITIVE"
     else:
         label = "ROBUST PLAY" if plays.pop() else "ROBUST SKIP"
+    evs = [v["ev"] for v in verdicts.values()]
     return {
         "label": label,
         "stable": label != "MODEL-SENSITIVE",
+        # The range is what makes a MODEL-SENSITIVE label actionable: it is
+        # the difference between "+GBP 0.02, and the shape could take it to
+        # -0.05" and "+GBP 0.45, nothing plausible reaches zero".
+        "ev_spec_min": min(evs),
+        "ev_spec_max": max(evs),
         "by_spread": {f"x{f:g}": verdicts[f] for f in STABILITY_SPREADS},
     }
 

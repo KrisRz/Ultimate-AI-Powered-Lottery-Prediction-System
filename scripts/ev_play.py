@@ -188,6 +188,8 @@ def main() -> None:
                 "VERDICT DEPENDS ON THE POPULARITY MODEL'S SHAPE - "
                 "flat and doubled disagree")
         print(f"Model stability:      {stab['label']} - {note}")
+        print(f"  across specs:       £{stab['ev_spec_min']:+.3f} ... "
+              f"£{stab['ev_spec_max']:+.3f}  (flat -> doubled popularity)")
     ag = abrams_garibaldi_screen(cond)
     if ag:
         # Second opinion for ordinary draws (Abrams & Garibaldi 2010). Their
