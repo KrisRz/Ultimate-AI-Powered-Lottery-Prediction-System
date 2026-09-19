@@ -1,0 +1,74 @@
+name: Statistical foundation
+
+# The heavy half of a two-level split.
+#
+# Level 1 is `ci.yml`, on every pull request: the pytest suite, which
+# already carries the injection tests - a planted hot ball, overdue balls
+# that really return, draws that echo, a pair travelling together, a biased
+# machine, six over-drawn balls - each at a fixed seed, each asserting its
+# detector fires. That is the part that must never regress, it is
+# deterministic, and it costs seconds.
+#
+# Level 2 is here: the full reports, with Monte Carlo counts nobody would
+# put in front of a pull request. `make fairness` at 2,000 simulations and
+# the ensemble's full-pipeline null are minutes of CPU, and their output is
+# a number to read rather than a gate to pass. Running them on a schedule
+# keeps the statistical foundation from quietly rotting between sessions,
+# without taxing development.
+#
+# Deliberately NOT a gate on anything. These report; they do not block. A
+# red run here means "go and read the numbers", which is why the reports
+# are uploaded as an artifact.
+
+on:
+  schedule:
+    - cron: "0 4 1 * *"     # 04:00 UTC on the 1st of each month
+  workflow_dispatch:
+    inputs:
+      null_sims:
+        description: "Full-pipeline null simulations (slow; 0 to skip)"
+        default: "40"
+      repeats:
+        description: "Seeds for the repeated-run distribution"
+        default: "10"
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements-ci.txt pytest
+
+      # The detectors first. If these fail, every number below is
+      # meaningless, so they run before anything expensive.
+      - name: Injection tests (do the detectors still fire?)
+        run: PYTHONPATH=. python -m pytest tests/test_fairness.py
+             tests/test_ensemble_score.py -q
+
+      - name: Fairness report
+        run: |
+          mkdir -p reports
+          PYTHONPATH=. python scripts/validations/fairness.py --sims 2000 \
+            | tee reports/fairness.txt
+
+      # Pinned to the draw the report was last read at, so a month of new
+      # draws changes the numbers deliberately rather than silently.
+      - name: Ensemble, repeated seeds + full-pipeline null
+        run: |
+          PYTHONPATH=. python scripts/validations/ensemble_score.py \
+            --candidates 20000 --step 8 --strategies 20000 \
+            --repeat ${{ github.event.inputs.repeats || '10' }} \
+            --null-sims ${{ github.event.inputs.null_sims || '40' }} \
+            | tee reports/ensemble.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: statistical-reports
+          path: reports/
+          retention-days: 90

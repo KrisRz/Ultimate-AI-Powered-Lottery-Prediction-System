@@ -42,7 +42,8 @@ make roi                                         # settle & report after the dra
 make backtest                                    # method-vs-random, p-values
 make fairness                                    # is the machine fair? six tests
 make ensemble                                    # score+MonteCarlo vs random
-#   add --nested for train/validation/test, --strategies for the percentile
+#   --repeat N (seed distribution), --null-sims N (full-pipeline null),
+#   --nested (train/validation/test), --strategies N (percentile)
 make install-cron                                # auto post-draw routine (Wed/Sat 22:30)
 ```
 
@@ -196,7 +197,9 @@ fallacy, draw-to-draw dependence against the hypergeometric, and pair
 co-occurrence corrected for having searched 1,711 pairs, and per drawing
 machine and ball set — the one hypothesis with a physical mechanism behind
 it. All six come back clean, and each reports the smallest bias it could
-have seen, because a null result without its power is only half a finding. The two corrected tests are the ones that matter: on genuinely random
+have seen — so "clean" means no bias big enough for this many draws to SEE,
+which bounds the effect rather than proving it zero. The two corrected
+tests are the ones that matter: on genuinely random
 data the largest |z| among 59 balls sits near 2.5, which an uncorrected test
 reads as "significant" — so an uncorrected search finds a hot number in clean
 noise every time. `tests/test_fairness.py` plants a real bias in simulated

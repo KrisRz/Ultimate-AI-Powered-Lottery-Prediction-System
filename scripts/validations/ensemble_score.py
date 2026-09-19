@@ -34,6 +34,15 @@ What makes the test honest:
     the TEST slice is read. Weights are 1.0 by default and never fitted, so
     the default run has no leak to begin with; the flag exists to show that
     even weights chosen to win do not carry to unseen draws.
+  * `--repeat N`: the same backtest under N seeds, reported as a
+    distribution with a warning when the DECISION flips between them. A
+    single seed is not a safeguard - this project has already produced two
+    sub-0.05 p-values that vanished on replication.
+  * `--null-sims N`: the whole research process - features, candidate
+    generation, scoring, top-N selection - repeated on N fair synthetic
+    histories. Whatever the method does to flatter itself it does under the
+    null too, so concentration, selection bias and the triple table's own
+    overfit all cancel. This is the benchmark the others approximate.
   * Triples are regularised, not tabulated. C(59,3) = 32,509 cells against
     ~20 observations per draw means the average cell holds half a sighting,
     so raw triple counts are pure overfit; `triple_matrix` needs both a
@@ -43,6 +52,11 @@ The expected result is a dead heat, because the draws are independent. The
 value of running it is that it is measured rather than asserted - and that
 the same harness would show a real edge if one existed, which is what the
 planted-signal test in tests/test_ensemble_score.py checks.
+
+What a null result here does NOT establish is that the signal is zero. It
+bounds it: no edge large enough for this many draws to see. Every report
+in this directory is written to keep that distinction, because dropping it
+is the most tempting overstatement available in this project.
 
 Run:  PYTHONPATH=. python scripts/validations/ensemble_score.py
       PYTHONPATH=. python scripts/validations/ensemble_score.py --candidates 200000
@@ -154,20 +168,45 @@ def triple_matrix(history: np.ndarray, min_obs: int = 3,
     }
 
 
-def triple_score(cands: np.ndarray, triples: dict) -> np.ndarray:
-    """Sum the 20 regularised triple scores of each candidate line."""
+def triple_lookup(triples: dict) -> np.ndarray:
+    """Pack the sparse triple dict into a flat table for vector indexing.
+
+    59^3 = 205,379 floats (1.6 MB) buys the difference between a Python
+    loop over 20 keys per candidate and a single fancy-index. With 20,000
+    candidates per draw and hundreds of draws per run, that loop was the
+    whole cost of the backtest - and the null simulation below runs the
+    backtest hundreds of times more.
+    """
+    table = np.zeros(N_BALLS ** 3, dtype=np.float64)
+    if triples:
+        keys = np.fromiter(
+            ((a - 1) * N_BALLS * N_BALLS + (b - 1) * N_BALLS + (c - 1)
+             for a, b, c in triples),
+            dtype=np.int64, count=len(triples))
+        table[keys] = np.fromiter(triples.values(), dtype=np.float64,
+                                  count=len(triples))
+    return table
+
+
+def triple_score(cands: np.ndarray, triples) -> np.ndarray:
+    """Sum the 20 regularised triple scores of each candidate line.
+
+    `triples` may be the dict or an already-packed lookup table; the walk
+    packs it once per draw rather than once per call.
+    """
     from itertools import combinations as _c
 
+    if triples is None or (isinstance(triples, dict) and not triples):
+        return np.zeros(len(cands))
+    table = triples if isinstance(triples, np.ndarray) else triple_lookup(triples)
+    if not table.any():
+        return np.zeros(len(cands))
+
+    srt = np.sort(cands, axis=1) - 1
     out = np.zeros(len(cands))
-    if not triples:
-        return out
-    idx = list(_c(range(N_PICK), 3))
-    srt = np.sort(cands, axis=1)
-    for i, row in enumerate(srt):
-        s = 0.0
-        for a, b, c in idx:
-            s += triples.get((int(row[a]), int(row[b]), int(row[c])), 0.0)
-        out[i] = s
+    for a, b, c in _c(range(N_PICK), 3):
+        out += table[srt[:, a] * N_BALLS * N_BALLS
+                     + srt[:, b] * N_BALLS + srt[:, c]]
     return _z(out)
 
 
@@ -312,7 +351,7 @@ def score_candidates(cands: np.ndarray, feats: dict, pairs: np.ndarray,
     if weights.get("shape") and history is not None:
         score = score + weights["shape"] * shape_score(cands, history)
 
-    if weights.get("triple") and triples:
+    if weights.get("triple") and triples is not None:
         score = score + weights["triple"] * triple_score(cands, triples)
     return score
 
@@ -344,7 +383,8 @@ def walk_forward(frame, n_candidates: int, n_lines: int, recent_window: int,
 
         feats = ball_features(history, recent_window, machine_rows)
         pairs = pair_matrix(history) if weights["pair"] else None
-        triples = triple_matrix(history) if weights.get("triple") else None
+        triples = (triple_lookup(triple_matrix(history))
+                   if weights.get("triple") else None)
 
         cands = random_lines(n_candidates, rng)
         scores = score_candidates(cands, feats, pairs, weights, history,
@@ -386,6 +426,110 @@ def walk_forward(frame, n_candidates: int, n_lines: int, recent_window: int,
         "random_popularity": float(np.mean(rnd_pop)),
         "mean_overlap": float(np.mean([c["mean_overlap"] for c in conc])),
         "distinct_balls": float(np.mean([c["distinct_balls"] for c in conc])),
+    }
+
+
+def synthetic_frame(frame, rng: np.random.Generator):
+    """A fair history with the real one's SHAPE: same length, same machine
+    and ball-set sequence, only the numbers replaced by honest draws.
+
+    Keeping the machine/ball-set columns matters: the machine feature would
+    otherwise see one homogeneous block and behave differently under the
+    null than it does on the real archive.
+    """
+    out = frame.copy()
+    out[NUMBER_COLS] = random_lines(len(frame), rng)
+    return out
+
+
+def full_pipeline_null(frame, n_sims: int, n_candidates: int, n_lines: int,
+                       recent_window: int, min_history: int, step: int,
+                       weights: dict, rng: np.random.Generator) -> dict:
+    """Run the ENTIRE research process on fair synthetic histories.
+
+    This is the benchmark the other ones approximate. Rather than modelling
+    the portfolio's correlation, or its selection bias, or the way the score
+    picks candidates, it simply repeats everything - features, candidate
+    generation, scoring, top-N selection - on lotteries we KNOW are fair,
+    and asks how often that process produces a result as good as the one
+    the real archive produced.
+
+    Whatever the pipeline does to flatter itself, it does under the null
+    too, so the comparison cancels it: concentration, the top-of-N
+    selection, the triple table's own overfit, all of it. The question it
+    answers is the right one - "how often does my whole method find this
+    much in data that certainly contains nothing?"
+
+    The statistic is the ensemble-minus-random gap, because that is what
+    the report quotes; using the raw average would let a lucky set of
+    synthetic draws move the null for reasons unrelated to the method.
+    """
+    observed = walk_forward(frame, n_candidates, n_lines, recent_window,
+                            min_history, step, weights, rng)
+    gaps = np.empty(n_sims)
+    for i in range(n_sims):
+        synth = synthetic_frame(frame, rng)
+        r = walk_forward(synth, n_candidates, n_lines, recent_window,
+                         min_history, step, weights, rng)
+        gaps[i] = r["difference"]
+
+    obs_gap = observed["difference"]
+    return {
+        "observed": observed,
+        "observed_gap": obs_gap,
+        "n_sims": n_sims,
+        "null_mean": float(gaps.mean()),
+        "null_sd": float(gaps.std()),
+        "p5": float(np.percentile(gaps, 5)),
+        "p50": float(np.percentile(gaps, 50)),
+        "p95": float(np.percentile(gaps, 95)),
+        "best": float(gaps.max()),
+        "percentile": float((gaps < obs_gap).mean() * 100),
+        "p_one_sided": float((gaps >= obs_gap).mean()),
+    }
+
+
+def repeat_runs(frame, n_repeats: int, n_candidates: int, n_lines: int,
+                recent_window: int, min_history: int, step: int,
+                weights: dict, base_seed: int) -> dict:
+    """The same backtest under N seeds, reported as a distribution.
+
+    Single-seed runs mislead: this project has already produced p = 0.044
+    and p = 0.045 that vanished on replication. Printing "re-run with
+    another seed" and trusting the reader to do it is not a safeguard, so
+    the script does it.
+
+    The warning that matters is not the median p - it is whether the
+    DECISION flips across seeds, because that is the case where a single
+    run would have been reported as a finding.
+    """
+    diffs, ps, pcts = [], [], []
+    for i in range(n_repeats):
+        rng = np.random.default_rng(base_seed + i)
+        r = walk_forward(frame, n_candidates, n_lines, recent_window,
+                         min_history, step, weights, rng)
+        pc = random_strategy_percentile(
+            r["ensemble_avg"], r["points"], n_lines, 20_000, rng,
+            pool_size=int(round(r["distinct_balls"])))
+        diffs.append(r["difference"])
+        ps.append(r["p"])
+        pcts.append(pc["percentile"])
+
+    ps_arr = np.array(ps)
+    n_sig = int((ps_arr < 0.05).sum())
+    return {
+        "n": n_repeats,
+        "diffs": diffs, "ps": ps, "percentiles": pcts,
+        "median_diff": float(np.median(diffs)),
+        "median_p": float(np.median(ps_arr)),
+        "min_p": float(ps_arr.min()), "max_p": float(ps_arr.max()),
+        "median_percentile": float(np.median(pcts)),
+        "n_significant": n_sig,
+        "decision_flips": 0 < n_sig < n_repeats,
+        # Binomial standard error on the significant-run share: how precise
+        # "1 of 10 seeds cleared 0.05" actually is.
+        "se_significant": float(np.sqrt(
+            (n_sig / n_repeats) * (1 - n_sig / n_repeats) / n_repeats)),
     }
 
 
@@ -432,6 +576,11 @@ def main() -> int:
                     help="fit weights on a validation slice, score on a "
                          "test slice that the fit never saw")
     ap.add_argument("--fit-trials", type=int, default=25)
+    ap.add_argument("--repeat", type=int, default=0,
+                    help="re-run under N seeds and report the distribution")
+    ap.add_argument("--null-sims", type=int, default=0,
+                    help="run the WHOLE pipeline on N fair synthetic "
+                         "histories (the gold-standard benchmark)")
     ap.add_argument("--seed", type=int, default=20260919)
     args = ap.parse_args()
 
@@ -497,6 +646,45 @@ def main() -> int:
     print("    generous, because concentrated portfolios swing wider)")
     print()
 
+    if args.repeat:
+        print("-" * 70)
+        print(f"REPEATED UNDER {args.repeat} SEEDS")
+        print("-" * 70)
+        rp = repeat_runs(frame, args.repeat, args.candidates, args.lines,
+                         args.recent_window, args.min_history, args.step,
+                         weights, args.seed)
+        print(f"   difference: median {rp['median_diff']:+.4f}   "
+              f"range {min(rp['diffs']):+.4f} .. {max(rp['diffs']):+.4f}")
+        print(f"   p:          median {rp['median_p']:.3f}   "
+              f"range {rp['min_p']:.3f} .. {rp['max_p']:.3f}")
+        print(f"   percentile: median {rp['median_percentile']:.1f}")
+        print(f"   seeds clearing p<0.05: {rp['n_significant']}/{rp['n']} "
+              f"(SE {rp['se_significant']:.2f})")
+        if rp["decision_flips"]:
+            print("   *** WARNING: the DECISION flips across seeds. A single")
+            print("       run would have been reported as a finding. Treat")
+            print("       any significant seed here as noise until it "
+                  "replicates.")
+        print()
+
+    if args.null_sims:
+        print("-" * 70)
+        print(f"FULL-PIPELINE NULL: {args.null_sims} fair synthetic histories")
+        print("-" * 70)
+        print("   Every step repeated on lotteries known to be fair, so the")
+        print("   null carries the same selection bias the real run has.")
+        nl = full_pipeline_null(frame, args.null_sims, args.candidates,
+                                args.lines, args.recent_window,
+                                args.min_history, args.step, weights, rng)
+        print(f"   observed gap (ensemble - random): {nl['observed_gap']:+.4f}")
+        print(f"   null gaps: mean {nl['null_mean']:+.4f}  sd {nl['null_sd']:.4f}")
+        print(f"      5th {nl['p5']:+.4f} | median {nl['p50']:+.4f} | "
+              f"95th {nl['p95']:+.4f} | best {nl['best']:+.4f}")
+        print(f"   the real archive sits at the {nl['percentile']:.1f}th "
+              f"percentile of the process run on fair data")
+        print(f"   one-sided p = {nl['p_one_sided']:.3f}")
+        print()
+
     if args.nested:
         n = len(frame)
         val_end = args.min_history + (n - args.min_history) // 2
@@ -523,11 +711,17 @@ def main() -> int:
         print()
 
     if r["p"] >= 0.05:
-        print("VERDICT: no edge. The ensemble picks lines that look special")
-        print("against history and land exactly where random lines land.")
+        print("VERDICT: no edge DETECTED, at the power this archive gives.")
+        print("The ensemble picks lines that look special against history")
+        print("and land where random lines land. That is a bound on how big")
+        print("a signal could be hiding here - not a proof of zero. The")
+        print("distinction matters: see `fairness.py` for what these data")
+        print("can and cannot see.")
     else:
-        print("VERDICT: difference is significant - re-run with another seed")
-        print("and more draws before believing it.")
+        print("VERDICT: difference is significant ON THIS SEED - which is")
+        print("not yet a finding. Re-run with --repeat before believing it;")
+        print("this project has already produced p=0.044 and p=0.045 that")
+        print("did not replicate.")
     print()
     print("-" * 70)
     print("AND THE PART THAT COSTS MONEY")

@@ -276,3 +276,87 @@ def test_full_pool_matches_the_independent_case():
     b = random_strategy_percentile(0.61, 50, 10, 3_000,
                                    np.random.default_rng(32), pool_size=59)
     assert a["percentile"] == pytest.approx(b["percentile"], abs=2.0)
+
+
+# --- full-pipeline null ---------------------------------------------------
+
+def test_synthetic_frame_keeps_shape_but_replaces_numbers():
+    """The null history must look structurally like the real one.
+
+    Machine and ball-set columns are kept so the machine feature behaves
+    the same under the null as it does on the archive; only the balls are
+    re-drawn.
+    """
+    from scripts.validations.ensemble_score import synthetic_frame
+    frame = _frame(fair(200, seed=40))
+    frame.loc[:99, "MachineNorm"] = "Merlin"
+    synth = synthetic_frame(frame, np.random.default_rng(41))
+    assert len(synth) == len(frame)
+    assert (synth["MachineNorm"] == frame["MachineNorm"]).all()
+    assert (synth["BallSetStr"] == frame["BallSetStr"]).all()
+    assert not (synth[NUM_COLS].to_numpy() == frame[NUM_COLS].to_numpy()).all()
+
+
+def test_full_pipeline_null_centres_on_zero_for_fair_data():
+    """Fair archive in, fair nulls out: the observed gap should be ordinary.
+
+    This is the benchmark's own sanity check - if a fair archive landed in
+    the tail of its own null, the null would be built wrong.
+    """
+    from scripts.validations.ensemble_score import full_pipeline_null
+    frame = _frame(fair(700, seed=42))
+    r = full_pipeline_null(frame, 8, 1500, 5, 50, 550, 25, DEFAULT_WEIGHTS,
+                           np.random.default_rng(43))
+    assert r["n_sims"] == 8
+    assert 0.0 <= r["percentile"] <= 100.0
+    assert r["null_sd"] > 0, "null gaps must vary"
+
+
+def test_full_pipeline_null_flags_a_planted_edge():
+    """With a real edge in the archive, the observed gap must beat the null.
+
+    The null histories are fair by construction, so a genuinely exploitable
+    archive has to land above them - otherwise the benchmark could never
+    detect anything and its null result would be meaningless.
+    """
+    from scripts.validations.ensemble_score import full_pipeline_null
+    rng = np.random.default_rng(44)
+    n = 700
+    hot = np.array([3, 17, 25, 38, 44, 51])
+    draws = fair(n, seed=44)
+    for i in range(n):
+        if rng.random() < 0.6:
+            draws[i, :3] = rng.choice(hot, 3, replace=False)
+            if len(set(draws[i])) < N_PICK:
+                draws[i] = fair(1, seed=5000 + i)[0]
+
+    r = full_pipeline_null(_frame(draws), 8, 1500, 5, 50, 550, 12,
+                           DEFAULT_WEIGHTS, np.random.default_rng(45))
+    assert r["observed_gap"] > r["p95"], (
+        f"planted edge should clear the null's 95th "
+        f"({r['observed_gap']:.4f} vs {r['p95']:.4f})")
+
+
+# --- repeated seeds -------------------------------------------------------
+
+def test_repeat_runs_reports_a_distribution():
+    from scripts.validations.ensemble_score import repeat_runs
+    r = repeat_runs(_frame(fair(700, seed=46)), 4, 1500, 5, 50, 550, 25,
+                    DEFAULT_WEIGHTS, base_seed=47)
+    assert r["n"] == 4 and len(r["ps"]) == 4
+    assert r["min_p"] <= r["median_p"] <= r["max_p"]
+    assert 0.0 <= r["median_percentile"] <= 100.0
+
+
+def test_repeat_runs_flags_a_decision_that_flips():
+    """The warning exists for runs where one seed would have been a finding.
+
+    Constructed directly: a decision flips when some seeds clear 0.05 and
+    others do not, which is exactly the situation a single-seed run hides.
+    """
+    from scripts.validations.ensemble_score import repeat_runs
+    r = repeat_runs(_frame(fair(700, seed=48)), 3, 1500, 5, 50, 550, 25,
+                    DEFAULT_WEIGHTS, base_seed=49)
+    n_sig = sum(p < 0.05 for p in r["ps"])
+    assert r["decision_flips"] == (0 < n_sig < r["n"])
+    assert r["n_significant"] == n_sig

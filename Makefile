@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest fairness ensemble backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update predict play dashboard backtest fairness ensemble ensemble-null backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -60,7 +60,12 @@ fairness:
 	PYTHONPATH=. $(PY) scripts/validations/fairness.py --sims 2000
 
 ensemble:
-	PYTHONPATH=. $(PY) scripts/validations/ensemble_score.py --candidates 100000
+	PYTHONPATH=. $(PY) scripts/validations/ensemble_score.py --candidates 20000 --step 8 --repeat 10
+
+# The gold-standard benchmark: the whole pipeline re-run on fair synthetic
+# histories, so selection bias and portfolio concentration cancel. Minutes.
+ensemble-null:
+	PYTHONPATH=. $(PY) scripts/validations/ensemble_score.py --candidates 20000 --step 8 --null-sims 40
 
 nightly:
 	PYTHONPATH=. $(PY) scripts/monitoring/nightly_backtest.py
