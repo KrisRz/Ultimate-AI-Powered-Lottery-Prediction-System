@@ -66,12 +66,13 @@ def _frozen_date(today: _dt.date):
     return Frozen
 
 
-def run_ev_play(tmp_path, monkeypatch, argv, when) -> tuple[str, dict | None]:
-    """ev_play.main() on frozen data and a frozen clock; (stdout, latest.json)."""
+def freeze(tmp_path, monkeypatch, when):
+    """Collected data truncated at THROUGH, a frozen clock and code version,
+    and tmp_path as the working directory. Shared with the terminal's tests."""
     data = tmp_path / "data"
-    data.mkdir()
+    data.mkdir(exist_ok=True)
     for name in ("prize_tiers.csv", "draw_pools.csv"):
-        df = pd.read_csv(Path("data") / name)
+        df = pd.read_csv(Path(__file__).parent.parent / "data" / name)
         df[df["draw_number"] <= THROUGH].to_csv(data / name, index=False)
     monkeypatch.chdir(tmp_path)
 
@@ -79,10 +80,16 @@ def run_ev_play(tmp_path, monkeypatch, argv, when) -> tuple[str, dict | None]:
     monkeypatch.setattr(ev, "datetime", _frozen_datetime(moment))
     monkeypatch.setattr(ev, "date", _frozen_date(moment.date()))
     monkeypatch.setattr(ev_play, "datetime", _frozen_datetime(moment))
-    monkeypatch.setattr(sys, "argv", ["ev_play.py", *argv])
     # The commit changes with every commit; what is pinned is that it is saved.
     monkeypatch.setattr(ev_play, "code_version",
                         lambda: {"git_sha": "0000000", "git_dirty": False})
+    return moment
+
+
+def run_ev_play(tmp_path, monkeypatch, argv, when) -> tuple[str, dict | None]:
+    """ev_play.main() on frozen data and a frozen clock; (stdout, latest.json)."""
+    freeze(tmp_path, monkeypatch, when)
+    monkeypatch.setattr(sys, "argv", ["ev_play.py", *argv])
 
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
