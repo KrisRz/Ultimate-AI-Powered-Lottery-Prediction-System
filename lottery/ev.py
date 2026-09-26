@@ -1043,6 +1043,26 @@ def upcoming_draw_date(now: datetime | date | None = None) -> date:
     return next_draw_dates(today, 1)[0]
 
 
+def last_closed_draw_date(now: datetime | date | None = None) -> date:
+    """The most recent draw whose sales have closed at `now`.
+
+    The mirror of `upcoming_draw_date`, and the draw whose results the data
+    must hold before any figure about the NEXT one can be trusted. Between
+    19:30 on a draw day and the collector's run the files still describe the
+    draw before: its jackpot estimate, its rollover counter. Priced in that
+    window on 2026-09-26, the advisor forecast a Must-Be-Won on 7 October for
+    a roll that draw 3210 had just ended.
+    """
+    moment = _london(now)
+    today = moment.date()
+    if today.weekday() in DRAW_WEEKDAYS and moment.time() >= SALES_CLOSE:
+        return today
+    d = today - timedelta(days=1)
+    while d.weekday() not in DRAW_WEEKDAYS:
+        d -= timedelta(days=1)
+    return d
+
+
 def forecast_must_be_won(rollover_count: int,
                          now: datetime | date | None = None,
                          jackpot: float | None = None,

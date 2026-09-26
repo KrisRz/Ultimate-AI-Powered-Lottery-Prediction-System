@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 """Email alert when the next draw clears the EV threshold (PLAY verdict).
 
-Runs at the end of the post-draw routine. Sends nothing on SKIP days,
-so an email in your inbox means: rare conditions, look at the dashboard.
+Runs at the end of the post-draw routine. Three kinds of mail, and nothing
+else:
+
+- PLAY: the draw clears the threshold on the installed model.
+- MARGINAL: a Must-Be-Won draw the installed model calls SKIP, but which
+  clears it at the sales uplift MEASURED in the two-round era. The installed
+  constant stays until the evidence rule allows it to move (n >= 4, see
+  CLAUDE.md); this makes the disagreement visible instead of silent. Draw 3205
+  was +GBP 0.06 a line after the fact while the model said SKIP.
+- HEARTBEAT: one short status mail on Sunday morning, sent by the
+  EventBridge-dispatched run only. Months of correct silence were
+  indistinguishable from a broken pipeline; a missing Sunday mail now means
+  something upstream of this step failed.
 
 The email carries the lines themselves. This path fires on the ~9 draws a
 year that are actually worth playing, and the cloud collector runs only this
@@ -26,21 +37,33 @@ Optional: EV_ALERT_LINES (portfolio size, default 5).
 
 import os
 import sys
-from datetime import date
+from dataclasses import replace
+from datetime import date, datetime, timezone
 from pathlib import Path
+
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     default_portfolio_seed,
+    exact_sales_baseline,
     kelly_stake,
     mbw_type,
+    mbw_uplift,
+    must_be_won_outlook,
     should_play,
     upcoming_draw_date,
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
-from scripts.ev_play import next_draw_conditions  # noqa: E402
+from scripts.calibrate_mbw_uplift import exact_era_uplifts  # noqa: E402
+from scripts.ev_play import (  # noqa: E402
+    DRAW_POOLS_FILE,
+    PRIZE_TIERS_FILE,
+    next_draw_conditions,
+    uncollected_draw,
+)
 from scripts.monitoring.notify import maybe_send_email  # noqa: E402
 from scripts.monitoring.operator_page import (  # noqa: E402
     compare as compare_with_operator,
@@ -168,30 +191,206 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
     return subject, body
 
 
+def measured_uplift(pools) -> tuple | None:
+    """(uplift, n) - the HIGHEST Must-Be-Won sales uplift measured on exact
+    pools in the two-round era, across both weekdays, or None before any.
+
+    The highest, because a higher uplift means more lines sold and a lower
+    EV: of the readings on record this is the one least likely to flatter a
+    draw. Measured by `make uplift`'s own function, so the figure in a
+    MARGINAL mail is the figure that report prints.
+    """
+    if pools is None:
+        return None
+    ratios = [r["uplift"] for r in exact_era_uplifts(pools) if r["uplift"]]
+    return (max(ratios), len(ratios)) if ratios else None
+
+
+def at_measured_uplift(cond: DrawConditions, pools) -> dict | None:
+    """The verdict on a capped Must-Be-Won draw at the measured uplift.
+
+    None when the question does not apply: not a roll-down, a special (its
+    own constants, measured on winner counts), no exact baseline, nothing
+    measured yet, or a measurement that would not lower the sales assumed.
+    """
+    if not cond.roll_down or cond.special_event or pools is None:
+        return None
+    measured = measured_uplift(pools)
+    baseline = exact_sales_baseline(pools, cond.draw_date)
+    if measured is None or baseline is None:
+        return None
+    uplift, n = measured
+    tickets = max(int(baseline * uplift), 1)
+    if tickets >= cond.tickets_sold:
+        return None
+    alt = replace(cond, tickets_sold=tickets)
+    return {"cond": alt, "verdict": should_play(alt), "uplift": uplift, "n": n,
+            "installed": mbw_uplift(cond.draw_date)[0]}
+
+
+def build_marginal_alert(cond: DrawConditions, verdict: dict, alt: dict,
+                         draw_date: date, n_lines: int = DEFAULT_LINES,
+                         operator: dict | None = None) -> tuple:
+    """(subject, body) for a draw that is +EV only at the measured uplift.
+
+    The lines and figures are the PLAY mail's, priced at the measured sales;
+    the paragraph in front says, before anything else, that the installed
+    model disagrees and why that is a judgement call rather than a signal.
+    """
+    subject, body = build_alert(alt["cond"], alt["verdict"], draw_date, n_lines,
+                                operator=operator)
+    # Rebuilt rather than relabelled: "PLAY (robust)" describes the sales band
+    # around the MEASURED figure, and next to "MARGINAL" it reads as a
+    # contradiction. Only a feed disagreement keeps its prefix.
+    prefix = "CHECK FEEDS - " if subject.startswith("CHECK FEEDS - ") else ""
+    subject = (f"{prefix}LOTTO MARGINAL: {draw_date} draw, EV "
+               f"£{alt['verdict']['ev_best_line']:+.2f} per line at measured sales "
+               f"(installed model: SKIP £{verdict['ev_best_line']:+.2f})")
+    preface = (
+        f"MARGINAL - the installed model says SKIP, the measured data says PLAY.\n\n"
+        f"Installed model:  EV £{verdict['ev_best_line']:+.2f} a line at "
+        f"{cond.tickets_sold:,} lines sold (Must-Be-Won uplift "
+        f"x{alt['installed']:.2f}, one-round era)\n"
+        f"Measured uplift:  EV £{alt['verdict']['ev_best_line']:+.2f} a line at "
+        f"{alt['cond'].tickets_sold:,} lines sold (x{alt['uplift']:.3f}, the "
+        f"highest of {alt['n']} two-round Must-Be-Won draws on exact sales)\n\n"
+        f"Every two-round Must-Be-Won so far sold less than the installed uplift "
+        f"assumes, and draw 3205 was +£0.06 a line after the fact while the model "
+        f"said SKIP. But {alt['n']} observations are not enough to install the "
+        f"lower figure. Treat this as a thin edge you may take, not a verdict.\n\n"
+        + "-" * 60 + "\n"
+    )
+    return subject, preface + body
+
+
+HEARTBEAT_WEEKDAY = 6        # Sunday (Mon=0)
+HEARTBEAT_BEFORE_HOUR = 10   # UTC; EventBridge dispatches the retry at 06:05
+
+
+def heartbeat_due(event_name: str | None, now: datetime | None = None) -> bool:
+    """Whether this run sends the weekly status mail.
+
+    Only the Sunday-morning retry dispatched by EventBridge (a
+    `workflow_dispatch`, on time to the minute): GitHub's own cron fires the
+    same retry around 11:00 UTC, and two mails a week would teach you to
+    ignore both. If EventBridge stops dispatching, the mail stops - which is
+    the alarm this exists to be.
+    """
+    now = now or datetime.now(timezone.utc)
+    return (event_name == "workflow_dispatch"
+            and now.weekday() == HEARTBEAT_WEEKDAY
+            and now.hour < HEARTBEAT_BEFORE_HOUR)
+
+
+def build_heartbeat(cond: DrawConditions, verdict: dict, draw_date: date,
+                    latest_collected: date | None, missing: date | None,
+                    outlook: dict | None, outlook_measured: dict | None) -> tuple:
+    """(subject, body) for the weekly status mail."""
+    status = ("DATA BEHIND" if missing else "OK")
+    subject = (f"LOTTO weekly: {status}, {draw_date} draw SKIP "
+               f"(EV £{verdict['ev_best_line']:+.2f})")
+    lines = [
+        "Weekly status - the pipeline ran and priced the next draw.",
+        "No PLAY this week. If this mail stops arriving on Sundays, the",
+        "collector did not run: check GitHub Actions (collect.yml).",
+        "",
+        f"Latest draw collected: {latest_collected or 'unknown'}",
+    ]
+    if missing:
+        lines.append(f"NOT COLLECTED:        the {missing} draw - figures below "
+                     f"are one draw stale")
+    lines += [
+        "",
+        f"Next draw:            {draw_date}",
+        f"Jackpot (event pool): £{cond.jackpot:,.0f}",
+        f"Rollovers:            {cond.rollover_count}",
+        f"Best-line EV:         £{verdict['ev_best_line']:+.2f} a £2 line",
+        f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}",
+    ]
+    if outlook:
+        lines += [
+            "",
+            f"Next Must-Be-Won:     ~{outlook['expected_date']} "
+            f"({outlook['draws_away']} draws away, if nobody wins first)",
+            f"  projected pool:     £{outlook['projected_pool']:,.0f} vs "
+            f"break-even £{outlook['break_even_jackpot']:,.0f}",
+            f"  EV (installed):     £{outlook['ev_best_line']:+.2f} a line",
+        ]
+        if outlook_measured:
+            lines.append(
+                f"  EV (measured x{outlook_measured['uplift']:.3f}): "
+                f"£{outlook_measured['verdict']['ev_best_line']:+.2f} a line")
+    lines += ["", "Expect a PLAY or MARGINAL mail one to two draws a year."]
+    return subject, "\n".join(lines) + "\n"
+
+
+def _latest_collected() -> date | None:
+    if not PRIZE_TIERS_FILE.exists():
+        return None
+    tiers = pd.read_csv(PRIZE_TIERS_FILE)
+    return pd.to_datetime(tiers["draw_date"]).max().date() if len(tiers) else None
+
+
 def main() -> None:
     if os.environ.get("EV_ALERT_TEST") == "1":
         maybe_send_email(
             "LOTTO: test alertu",
             "Dziala! Alerty mailowe sa skonfigurowane poprawnie.\n"
-            "Prawdziwy mail przyjdzie tylko przy werdykcie PLAY (+EV) "
-            "albo przy awarii zbierania danych.",
+            "Prawdziwy mail przyjdzie przy werdykcie PLAY albo MARGINAL, "
+            "a status co niedziele rano.",
         )
         print("[ev-alert] TEST email attempted (sent only if SMTP env is configured)")
         return
 
     cond = next_draw_conditions()
     verdict = should_play(cond, threshold=0.0)
-    if not verdict["play"]:
-        print(f"[ev-alert] SKIP (EV £{verdict['ev_best_line']:+.2f}) - no alert sent")
+    n_lines = int(os.environ.get("EV_ALERT_LINES", DEFAULT_LINES))
+    draw_date = upcoming_draw_date()
+    if verdict["play"]:
+        subject, body = build_alert(cond, verdict, draw_date, n_lines,
+                                    operator=fetch_operator_page())
+        print(body)
+        maybe_send_email(subject, body)
+        print(f"[ev-alert] PLAY (EV £{verdict['ev_best_line']:+.2f}) - alert attempted "
+              "(sent only if SMTP env is configured)")
         return
 
-    n_lines = int(os.environ.get("EV_ALERT_LINES", DEFAULT_LINES))
-    subject, body = build_alert(cond, verdict, upcoming_draw_date(), n_lines,
-                                operator=fetch_operator_page())
+    # Everything below is optional to the verdict: a failure in it must not
+    # turn a correct SKIP into a red run, nor keep the heartbeat from going.
+    pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
+    try:
+        alt = at_measured_uplift(cond, pools)
+    except Exception as exc:
+        print(f"[ev-alert] measured-uplift check failed ({type(exc).__name__}): {exc}")
+        alt = None
+    if alt and alt["verdict"]["play"]:
+        subject, body = build_marginal_alert(cond, verdict, alt, draw_date, n_lines,
+                                             operator=fetch_operator_page())
+        print(body)
+        maybe_send_email(subject, body)
+        print(f"[ev-alert] MARGINAL (EV £{verdict['ev_best_line']:+.2f} installed, "
+              f"£{alt['verdict']['ev_best_line']:+.2f} measured) - alert attempted")
+        return
+
+    print(f"[ev-alert] SKIP (EV £{verdict['ev_best_line']:+.2f}) - no alert sent")
+    if not heartbeat_due(os.environ.get("GITHUB_EVENT_NAME")):
+        return
+    try:
+        outlook = must_be_won_outlook(cond, pools)
+        outlook_measured = None
+        if outlook:
+            future = replace(cond, jackpot=outlook["projected_pool"],
+                             tickets_sold=outlook["tickets_sold"], roll_down=True,
+                             special_event=False, draw_date=outlook["expected_date"])
+            outlook_measured = at_measured_uplift(future, pools)
+    except Exception as exc:
+        print(f"[ev-alert] outlook failed ({type(exc).__name__}): {exc}")
+        outlook = outlook_measured = None
+    subject, body = build_heartbeat(cond, verdict, draw_date, _latest_collected(),
+                                    uncollected_draw(), outlook, outlook_measured)
     print(body)
     maybe_send_email(subject, body)
-    print(f"[ev-alert] PLAY (EV £{verdict['ev_best_line']:+.2f}) - alert attempted "
-          "(sent only if SMTP env is configured)")
+    print("[ev-alert] weekly heartbeat attempted")
 
 
 if __name__ == "__main__":

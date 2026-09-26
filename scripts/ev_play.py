@@ -33,6 +33,7 @@ from lottery.ev import (  # noqa: E402
     guaranteed_pool,
     must_be_won_outlook,
     kelly_stake,
+    last_closed_draw_date,
     mbw_type,
     mbw_uplift,
     should_play,
@@ -43,6 +44,26 @@ from lottery.portfolio import build_portfolio  # noqa: E402
 PRIZE_TIERS_FILE = Path("data/prize_tiers.csv")
 DRAW_POOLS_FILE = Path("data/draw_pools.csv")
 OUT_DIR = Path("outputs/predictions")
+
+
+def uncollected_draw(now: datetime | date | None = None,
+                     tiers_file: Path = PRIZE_TIERS_FILE) -> date | None:
+    """The draw that has closed but is not in the data yet, or None.
+
+    Everything `next_draw_conditions` reads - the jackpot estimate, the
+    roll-down flag, the rollover counter - describes the draw AFTER the last
+    one collected. Once sales close on a draw day and before the collector
+    runs, that is the draw that has just happened, not the one a ticket would
+    enter, and the verdict and the Must-Be-Won forecast are one draw stale.
+    """
+    if not tiers_file.exists():
+        return None
+    tiers = pd.read_csv(tiers_file)
+    if not len(tiers):
+        return None
+    latest = pd.to_datetime(tiers["draw_date"]).max().date()
+    closed = last_closed_draw_date(now)
+    return closed if latest < closed else None
 
 
 def next_draw_conditions(force_roll_down: bool = False,
@@ -143,6 +164,13 @@ def main() -> None:
     print("=" * 64)
     print("EV ADVISOR - next UK Lotto draw")
     print("=" * 64)
+    missing = uncollected_draw()
+    if missing:
+        print(f"WARNING: the {missing} draw has closed but is not collected yet.")
+        print("  Every figure below - jackpot, Must-Be-Won flag, rollover count -")
+        print("  still describes that draw, not the next one. Re-run after the")
+        print("  collector (scripts/monitoring/sync_collector_data.sh).")
+        print("-" * 64)
     print(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
     print(f"Rounds per ticket:    {cond.rounds}")
     # From the conditions, not the count: a forced what-if has no count and

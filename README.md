@@ -140,10 +140,22 @@ ops/                launchd template for the post-draw cron
 
 ## Email alerts (+EV draws)
 
-The post-draw routine emails you only when the next draw clears the EV
-threshold, which in the current structure is one or two draws a year rather
-than the ~9 Must-Be-Won draws the calendar produces. Silence is the normal
-signal. The email is self-contained: draw date,
+The cloud collector sends three kinds of mail:
+
+- **PLAY** — the next draw clears the EV threshold. In the current structure
+  that is one or two draws a year, not the ~9 Must-Be-Won draws the calendar
+  produces.
+- **MARGINAL** — a capped Must-Be-Won the installed model calls SKIP, but
+  which clears break-even at the highest sales uplift *measured* on exact pools
+  since the June 2026 redesign (`make uplift`). The installed constant is
+  one-round-era and every two-round Must-Be-Won so far sold less than it
+  assumes; draw 3205 would have raised this mail and was +£0.06 a line after
+  the fact. The constant itself only moves under the n >= 4 rule.
+- **Weekly status** — Sunday morning, from the EventBridge-dispatched retry
+  only: the verdict, the next Must-Be-Won and its EV both ways, and whether
+  the latest draw is collected. If it stops arriving, the collector stopped.
+
+The PLAY and MARGINAL mails are self-contained: draw date,
 jackpot, EV, break-even, **the lines to play**, and a ready-to-paste
 `roi_ledger add` command. Lines are seeded from the draw date, so the evening
 run and the next-morning retry propose the same portfolio rather than two
@@ -158,7 +170,8 @@ export SMTP_PASS=your-app-password
 export EMAIL_TO=you@gmail.com
 ```
 
-Test it: `make post-draw` (sends only on a PLAY verdict).
+Test it: `make post-draw` (sends only on PLAY or MARGINAL; the weekly status
+mail is sent by the cloud run alone).
 
 ## Playing when the model says SKIP
 
@@ -175,6 +188,7 @@ syndicate, because it is a rollover and you want to be in it — buy the lines
 that share least:
 
 ```bash
+make ticket                                      # same as the next line; LINES=3 for fewer
 PYTHONPATH=. python scripts/ev_play.py --force   # portfolio + the cost, stated
 PYTHONPATH=. python scripts/wheel_play.py        # 6-line wheel, its own file
 ```

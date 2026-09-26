@@ -741,12 +741,17 @@ def build_built() -> dict:
         "datastore": "git",
         "alerts": {
             "transport": "SMTP",
-            "default": "silent",
-            "fires_on": "a PLAY verdict, and nothing else - one or two draws a "
-                        "year, not the ~9 the Must-Be-Won calendar produces",
-            "why": ("Everything else writes to a file or reds a workflow run, "
-                    "which GitHub already notifies about. An inbox that only "
-                    "ever says 'act' is one you still read a year later"),
+            "default": "one status mail a week, on Sunday morning",
+            "fires_on": "a PLAY verdict - one or two draws a year, not the ~9 "
+                        "the Must-Be-Won calendar produces - or a MARGINAL one: "
+                        "a Must-Be-Won draw the installed model calls SKIP that "
+                        "clears break-even at the sales uplift measured since "
+                        "the June 2026 redesign",
+            "why": ("A year of correct silence cannot be told apart from a "
+                    "broken pipeline, so the weekly mail is the dead-man "
+                    "switch: when it stops, something upstream failed. The "
+                    "MARGINAL tier puts the model's weakest constant in front "
+                    "of the reader instead of letting it decide in silence"),
         },
         "self_healing": {
             "window_days": 180,
