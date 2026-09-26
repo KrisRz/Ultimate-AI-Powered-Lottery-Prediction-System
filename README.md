@@ -188,6 +188,7 @@ syndicate, because it is a rollover and you want to be in it — buy the lines
 that share least:
 
 ```bash
+make ticket                                      # same as the next line; LINES=3 for fewer
 PYTHONPATH=. python scripts/ev_play.py --force   # portfolio + the cost, stated
 PYTHONPATH=. python scripts/wheel_play.py        # 6-line wheel, its own file
 ```

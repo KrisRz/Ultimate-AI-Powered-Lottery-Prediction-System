@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play dashboard backtest fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update predict play ticket wheel dashboard backtest fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -7,6 +7,18 @@ PY ?= ./conda-py311/bin/python
 
 play:
 	PYTHONPATH=. $(PY) scripts/ev_play.py
+
+# Playing for fun, whatever the verdict: the same advisor, then the lines that
+# share a jackpot least. latest.json still records the real verdict, so the
+# ledger stays honest. After buying: roi_ledger.py add --from-latest
+ticket:
+	PYTHONPATH=. $(PY) scripts/ev_play.py --force --lines $(or $(LINES),5)
+
+# The 6-line (12,6,4,3) wheel over the 12 least-played numbers: same EV as the
+# lines above, wins clumped instead of scattered. Leaves latest.json alone, so
+# record it with roi_ledger.py add --lines "...".
+wheel:
+	PYTHONPATH=. $(PY) scripts/wheel_play.py
 
 dashboard:
 	PYTHONPATH=. $(PY) scripts/dashboard.py
