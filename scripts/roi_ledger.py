@@ -52,7 +52,7 @@ PRIZES_OLD_RULES = {(6, False): 3_000_000, (5, True): 1_000_000, (5, False): 1_7
 PROVENANCE_COLUMNS = [
     "provenance_status", "git_sha", "jackpot", "estimated_lines",
     "ev_best_line", "break_even_jackpot", "model_stability", "ev_spec_min",
-    "ev_spec_max", "roll_down", "rounds",
+    "ev_spec_max", "roll_down", "rounds", "advice",
 ]
 
 # Why the status is explicit rather than inferred from blank fields: a row
@@ -82,12 +82,19 @@ def _git_sha() -> str:
         return ""
 
 
-def _provenance() -> dict:
+def _provenance(draw_date: date | None = None) -> dict:
     """Read the advisor's saved verdict, if there is one to read.
 
     outputs/predictions/latest.json is written by every ev_play run, and it
     records `play` honestly even for a --force portfolio, so a forced ticket
     is stored with the SKIP that the advisor actually returned.
+
+    The commit and the advice come from the verdict itself: HEAD at the moment
+    of `add` can be a different commit from the one that priced the draw.
+    Only a verdict saved before it carried them falls back to HEAD.
+
+    A verdict saved for a different draw is no provenance at all for this
+    one, and is refused rather than attached.
     """
     blank = {c: None for c in PROVENANCE_COLUMNS}
     blank["git_sha"] = _git_sha()
@@ -95,6 +102,15 @@ def _provenance() -> dict:
     try:
         data = json.loads(LATEST_PREDICTIONS.read_text())
         v = data["metadata"]["verdict"]
+        saved = data["metadata"].get("provenance") or {}
+        if (draw_date is not None and saved.get("draw_date")
+                and saved["draw_date"] != draw_date.isoformat()):
+            blank["git_sha"] = None
+            blank["mismatch"] = saved["draw_date"]
+            return blank
+        if saved.get("git_sha"):
+            blank["git_sha"] = saved["git_sha"] + ("+dirty" if saved.get("git_dirty") else "")
+        blank["advice"] = saved.get("advice")
         cond = v["conditions"]
         stab = v.get("model_stability") or {}
         blank.update({
@@ -111,7 +127,7 @@ def _provenance() -> dict:
             "rounds": cond.get("rounds"),
         })
         required = [c for c in PROVENANCE_COLUMNS
-                    if c not in ("provenance_status", "git_sha")]
+                    if c not in ("provenance_status", "git_sha", "advice")]
         blank["provenance_status"] = (
             PROVENANCE_COMPLETE if all(blank[c] is not None for c in required)
             else PROVENANCE_PARTIAL)
@@ -185,7 +201,8 @@ def cmd_add(args) -> None:
     lines = _lines_from_latest() if args.from_latest else _parse_lines(args.lines)
 
     ledger = _load_ledger()
-    prov = _provenance()
+    prov = _provenance(draw_date)
+    mismatch = prov.pop("mismatch", None)
     new_rows = pd.DataFrame([{
         **prov,
         "added_at": datetime.now().isoformat(timespec="seconds"),
@@ -203,7 +220,11 @@ def cmd_add(args) -> None:
     print(f"Recorded {len(lines)} line(s) for draw {draw_date} "
           f"(cost £{len(lines) * args.cost_per_line:.2f}) in {LEDGER_FILE}")
     status = prov.get("provenance_status")
-    if status == PROVENANCE_MISSING:
+    if mismatch:
+        print(f"  provenance: MISSING - the saved verdict is for the {mismatch} "
+              f"draw, not {draw_date}. Run `make play` for this draw and add again "
+              f"if you want the reason recorded.")
+    elif status == PROVENANCE_MISSING:
         print("  provenance: MISSING - no verdict on file. The ticket is "
               "recorded; run `make play` before buying to capture why.")
     else:
