@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lottery.ev import N_BALLS, N_PICK  # noqa: E402
+from scripts.archive import load_tier_archive  # noqa: E402
 from scripts.wheel_play import build_wheel, unpopular_pool  # noqa: E402
 
 DATA_DIR = Path("data")
@@ -59,15 +60,14 @@ def load_draws() -> list[tuple[int, str, frozenset]]:
 def load_prizes() -> dict[int, dict[int, float]]:
     """draw_number -> {match count: actual GBP per winner}."""
     prizes: dict[int, dict[int, float]] = defaultdict(dict)
-    with open(DATA_DIR / "prize_tiers_history.csv") as f:
-        for row in csv.DictReader(f):
-            m = _CATEGORY_MATCH.get(row["category"])
-            if m is None:
-                continue
-            try:
-                prizes[int(row["draw_number"])][m] = float(row["prize_per_winner"])
-            except (TypeError, ValueError):
-                continue
+    for row in load_tier_archive().itertuples():
+        m = _CATEGORY_MATCH.get(row.category)
+        if m is None:
+            continue
+        try:
+            prizes[int(row.draw_number)][m] = float(row.prize_per_winner)
+        except (TypeError, ValueError):
+            continue
     return prizes
 
 

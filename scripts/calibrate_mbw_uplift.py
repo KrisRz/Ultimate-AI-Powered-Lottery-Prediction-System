@@ -45,6 +45,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.archive import load_tier_archive  # noqa: E402
 from lottery.ev import (  # noqa: E402
     MBW_SALES_UPLIFT,
     TWO_ROUND_FIRST_DRAW,
@@ -77,7 +78,7 @@ def load() -> pd.DataFrame:
     if not TIERS_HISTORY_FILE.exists():
         raise SystemExit(f"{TIERS_HISTORY_FILE} not found - "
                          "run scripts/backfill_prize_tiers.py first.")
-    df = pd.read_csv(TIERS_HISTORY_FILE)
+    df = load_tier_archive(TIERS_HISTORY_FILE)
     df["draw_date"] = pd.to_datetime(df["draw_date"], errors="coerce")
     return df
 
@@ -213,16 +214,28 @@ def draw_pools_from_tiers(df: pd.DataFrame) -> dict:
     """draw_number -> the jackpot pool the draw carried, from its prize table.
 
     Match 6's per-winner prize is the whole pool when nobody won (a roll-down
-    records it anyway) and a share of it otherwise, so pool = prize x
-    max(winners, 1). Preferred over lotto_full_history's `Jackpot` column,
-    which holds the advertised estimate for older draws and is simply wrong
-    for some: draw 3131, the GBP 15m Christmas Eve 2025 draw, is recorded
-    there as GBP 5m.
+    records it anyway) and a share of it otherwise. Preferred over
+    lotto_full_history's `Jackpot` column, which holds the advertised estimate
+    for older draws and is simply wrong for some: draw 3131, the GBP 15m
+    Christmas Eve 2025 draw, is recorded there as GBP 5m.
+
+    Summed over the rounds that had winners: the jackpot is one event pool
+    shared by every winning line in either round, so prize x winners summed
+    over those rounds is the pool. Taking the max prize over both rounds times
+    the total winners doubled the pool of a draw like 3196 - two winners in
+    round 2, the full pool recorded against round 1. A draw nobody won records
+    the pool against every round; that is the max.
     """
-    m6 = df[df["tier"] == 1].groupby("draw_number").agg(
-        winners=("winners", "sum"), prize=("prize_per_winner", "max"))
-    return {int(d): float(r.prize) * max(float(r.winners), 1.0)
-            for d, r in m6.iterrows() if pd.notna(r.prize) and r.prize > 0}
+    m6 = df[df["tier"] == 1]
+    pools: dict = {}
+    for draw, rows in m6.groupby("draw_number"):
+        prize = rows["prize_per_winner"]
+        won = rows[rows["winners"] > 0]
+        pool = ((won["prize_per_winner"] * won["winners"]).sum() if len(won)
+                else prize.max())
+        if pd.notna(pool) and pool > 0:
+            pools[int(draw)] = float(pool)
+    return pools
 
 
 def special_event_draws(df: pd.DataFrame, boosted: set) -> set:

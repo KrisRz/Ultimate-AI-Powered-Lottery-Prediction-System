@@ -5694,8 +5694,8 @@
       "window_days": 180
     },
     "tests": {
-      "count": 465,
-      "files": 32
+      "count": 471,
+      "files": 33
     },
     "workflows": [
       {
@@ -6953,7 +6953,7 @@
   },
   "wheel": {
     "backtest": {
-      "cash_gbp": 3126,
+      "cash_gbp": 3106,
       "clump_variance": 0.1012,
       "cost_gbp": 14124,
       "draws": 1177,
@@ -6964,7 +6964,7 @@
         "4": 1
       },
       "hits_total": 90,
-      "return_pct": 0.2213
+      "return_pct": 0.2199
     },
     "guarantees": {
       "3": 2,
