@@ -1,0 +1,47 @@
+name: Lotto ticket (email me lines)
+
+# Press "Run workflow" - from the GitHub app on a phone, away from the Mac -
+# and the lines for the next draw arrive by email with the verdict for it.
+# The same lines `./lotto ticket` / `./lotto wheel` shows: same advise(), same
+# wheel, on the data the collector has committed to main.
+#
+# Read-only: it commits nothing and writes no collected file. The ledger lives
+# on the Mac, so the mail ends with the command that records the lines there.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "portfolio = 5 unpopular lines, wheel = 6-ticket wheel"
+        type: choice
+        options: [portfolio, wheel]
+        default: portfolio
+      lines:
+        description: "Lines for a portfolio (1-10; the wheel is always 6)"
+        default: "5"
+      variant:
+        description: "0 = the draw's standard set; 1, 2, ... = other, equally good sets"
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  ticket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements-ci.txt
+      - name: Build the lines and email them
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          TICKET_KIND: ${{ inputs.kind }}
+          TICKET_LINES: ${{ inputs.lines }}
+          TICKET_VARIANT: ${{ inputs.variant }}
+        run: PYTHONPATH=. python scripts/monitoring/ticket_mail.py
