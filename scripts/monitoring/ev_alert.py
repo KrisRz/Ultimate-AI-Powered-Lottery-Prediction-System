@@ -37,7 +37,6 @@ Optional: EV_ALERT_LINES (portfolio size, default 5).
 
 import os
 import sys
-from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -46,23 +45,19 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from lottery.ev import (  # noqa: E402
+    MARGINAL,
+    PLAY,
     DrawConditions,
+    at_measured_uplift,  # noqa: F401 - re-exported; tests read it here
     default_portfolio_seed,
-    exact_sales_baseline,
     kelly_stake,
     mbw_type,
-    mbw_uplift,
-    must_be_won_outlook,
-    should_play,
-    upcoming_draw_date,
+    measured_uplift,  # noqa: F401 - re-exported; tests read it here
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
-from scripts.calibrate_mbw_uplift import exact_era_uplifts  # noqa: E402
 from scripts.ev_play import (  # noqa: E402
-    DRAW_POOLS_FILE,
     PRIZE_TIERS_FILE,
-    next_draw_conditions,
-    uncollected_draw,
+    advise,
 )
 from scripts.monitoring.notify import maybe_send_email  # noqa: E402
 from scripts.monitoring.operator_page import (  # noqa: E402
@@ -191,43 +186,6 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
     return subject, body
 
 
-def measured_uplift(pools) -> tuple | None:
-    """(uplift, n) - the HIGHEST Must-Be-Won sales uplift measured on exact
-    pools in the two-round era, across both weekdays, or None before any.
-
-    The highest, because a higher uplift means more lines sold and a lower
-    EV: of the readings on record this is the one least likely to flatter a
-    draw. Measured by `make uplift`'s own function, so the figure in a
-    MARGINAL mail is the figure that report prints.
-    """
-    if pools is None:
-        return None
-    ratios = [r["uplift"] for r in exact_era_uplifts(pools) if r["uplift"]]
-    return (max(ratios), len(ratios)) if ratios else None
-
-
-def at_measured_uplift(cond: DrawConditions, pools) -> dict | None:
-    """The verdict on a capped Must-Be-Won draw at the measured uplift.
-
-    None when the question does not apply: not a roll-down, a special (its
-    own constants, measured on winner counts), no exact baseline, nothing
-    measured yet, or a measurement that would not lower the sales assumed.
-    """
-    if not cond.roll_down or cond.special_event or pools is None:
-        return None
-    measured = measured_uplift(pools)
-    baseline = exact_sales_baseline(pools, cond.draw_date)
-    if measured is None or baseline is None:
-        return None
-    uplift, n = measured
-    tickets = max(int(baseline * uplift), 1)
-    if tickets >= cond.tickets_sold:
-        return None
-    alt = replace(cond, tickets_sold=tickets)
-    return {"cond": alt, "verdict": should_play(alt), "uplift": uplift, "n": n,
-            "installed": mbw_uplift(cond.draw_date)[0]}
-
-
 def build_marginal_alert(cond: DrawConditions, verdict: dict, alt: dict,
                          draw_date: date, n_lines: int = DEFAULT_LINES,
                          operator: dict | None = None) -> tuple:
@@ -342,11 +300,14 @@ def main() -> None:
         print("[ev-alert] TEST email attempted (sent only if SMTP env is configured)")
         return
 
-    cond = next_draw_conditions()
-    verdict = should_play(cond, threshold=0.0)
+    # One record for the whole decision - the same advise() that `make play`
+    # and the terminal print, so the mail cannot classify the draw its own way.
+    a = advise()
+    cond, verdict, draw_date = a.cond, a.verdict, a.cond.draw_date
     n_lines = int(os.environ.get("EV_ALERT_LINES", DEFAULT_LINES))
-    draw_date = upcoming_draw_date()
-    if verdict["play"]:
+    for note in a.notes:
+        print(f"[ev-alert] {note}")
+    if a.advice == PLAY:
         subject, body = build_alert(cond, verdict, draw_date, n_lines,
                                     operator=fetch_operator_page())
         print(body)
@@ -354,40 +315,24 @@ def main() -> None:
         print(f"[ev-alert] PLAY (EV £{verdict['ev_best_line']:+.2f}) - alert attempted "
               "(sent only if SMTP env is configured)")
         return
-
-    # Everything below is optional to the verdict: a failure in it must not
-    # turn a correct SKIP into a red run, nor keep the heartbeat from going.
-    pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
-    try:
-        alt = at_measured_uplift(cond, pools)
-    except Exception as exc:
-        print(f"[ev-alert] measured-uplift check failed ({type(exc).__name__}): {exc}")
-        alt = None
-    if alt and alt["verdict"]["play"]:
-        subject, body = build_marginal_alert(cond, verdict, alt, draw_date, n_lines,
-                                             operator=fetch_operator_page())
+    if a.advice == MARGINAL:
+        subject, body = build_marginal_alert(cond, verdict, a.measured, draw_date,
+                                             n_lines, operator=fetch_operator_page())
         print(body)
         maybe_send_email(subject, body)
         print(f"[ev-alert] MARGINAL (EV £{verdict['ev_best_line']:+.2f} installed, "
-              f"£{alt['verdict']['ev_best_line']:+.2f} measured) - alert attempted")
+              f"£{a.measured['verdict']['ev_best_line']:+.2f} measured) - alert attempted")
         return
 
     print(f"[ev-alert] SKIP (EV £{verdict['ev_best_line']:+.2f}) - no alert sent")
     if not heartbeat_due(os.environ.get("GITHUB_EVENT_NAME")):
         return
-    try:
-        outlook = must_be_won_outlook(cond, pools)
-        outlook_measured = None
-        if outlook:
-            future = replace(cond, jackpot=outlook["projected_pool"],
-                             tickets_sold=outlook["tickets_sold"], roll_down=True,
-                             special_event=False, draw_date=outlook["expected_date"])
-            outlook_measured = at_measured_uplift(future, pools)
-    except Exception as exc:
-        print(f"[ev-alert] outlook failed ({type(exc).__name__}): {exc}")
-        outlook = outlook_measured = None
+    # A stale counter makes the Must-Be-Won forecast fiction; the subject
+    # already says DATA BEHIND.
+    outlook = None if a.stale else a.outlook
+    outlook_measured = None if a.stale else a.outlook_measured
     subject, body = build_heartbeat(cond, verdict, draw_date, _latest_collected(),
-                                    uncollected_draw(), outlook, outlook_measured)
+                                    a.stale, outlook, outlook_measured)
     print(body)
     maybe_send_email(subject, body)
     print("[ev-alert] weekly heartbeat attempted")

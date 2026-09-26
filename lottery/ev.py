@@ -1452,3 +1452,111 @@ def best_unpopular_reference_line() -> List[int]:
         if len(line) == N_PICK:
             break
     return sorted(line)
+
+
+# ---------------------------------------------------------------------------
+# The advice: PLAY / MARGINAL / SKIP, one definition for every front end.
+#
+# The email, the advisor's printout, the saved verdict and the terminal all
+# classify the same draw, and three private copies of the rule would drift.
+# Numbers only here - no printing, no files.
+# ---------------------------------------------------------------------------
+
+def _as_date(value) -> date:
+    import pandas as pd
+    return pd.Timestamp(value).date()
+
+
+def exact_era_uplifts(pools) -> list:
+    """The two-round era on exact sales, in the estimator's own definition.
+
+    Everything above measures winner-count sales over an archive that is
+    overwhelmingly single-round. That is the right sample for the fallback
+    constants and the wrong one for a decision: the 7 June 2026 licence changed
+    the jackpot's share of sales and the Saturday base, and Combs & Spry (2024)
+    find that every redesign moves the sales response to a jackpot.
+
+    So this section measures only draws since the redesign, and measures them
+    off `data/draw_pools.csv` - `(pool - previous pool) / 8.88%`, an identity -
+    rather than off winner counts, whose +/-15% per-draw noise is exactly what
+    a handful of observations cannot average away.
+
+    The baseline comes from `exact_sales_baseline`, called rather than
+    reimplemented: an uplift is only installable if it was measured against the
+    same baseline the estimator will multiply. Draws it declines to price (too
+    few same-weekday observations before them) are reported as such instead of
+    being quietly measured a different way.
+    """
+    exact = exact_lines_sold(pools)
+    must_be_won = sorted(must_be_won_after_cap(pools))
+    dates = {int(r["draw_number"]): _as_date(r["draw_date"])
+             for _, r in pools.iterrows()}
+
+    rows = []
+    for draw in must_be_won:
+        when, measured = dates.get(draw), exact.get(draw)
+        if when is None or measured is None:
+            # The first draw after a jackpot is won restarts from the minimum,
+            # so the difference between its pool and the previous one measures
+            # the reset, not any sales.
+            rows.append({"draw": draw, "date": when, "lines": None,
+                         "baseline": None, "uplift": None,
+                         "why": "pool reset - not priceable"})
+            continue
+        baseline = exact_sales_baseline(pools[pools["draw_number"] < draw], when)
+        rows.append({
+            "draw": draw, "date": when, "lines": measured, "baseline": baseline,
+            "uplift": measured / baseline if baseline else None,
+            "why": None if baseline else "too few same-weekday priors",
+        })
+    return rows
+
+
+def measured_uplift(pools) -> tuple | None:
+    """(uplift, n) - the HIGHEST Must-Be-Won sales uplift measured on exact
+    pools in the two-round era, across both weekdays, or None before any.
+
+    The highest, because a higher uplift means more lines sold and a lower
+    EV: of the readings on record this is the one least likely to flatter a
+    draw. Measured by `make uplift`'s own function, so the figure in a
+    MARGINAL mail is the figure that report prints.
+    """
+    if pools is None:
+        return None
+    ratios = [r["uplift"] for r in exact_era_uplifts(pools) if r["uplift"]]
+    return (max(ratios), len(ratios)) if ratios else None
+
+
+def at_measured_uplift(cond: DrawConditions, pools) -> dict | None:
+    """The verdict on a capped Must-Be-Won draw at the measured uplift.
+
+    None when the question does not apply: not a roll-down, a special (its
+    own constants, measured on winner counts), no exact baseline, nothing
+    measured yet, or a measurement that would not lower the sales assumed.
+    """
+    if not cond.roll_down or cond.special_event or pools is None:
+        return None
+    measured = measured_uplift(pools)
+    baseline = exact_sales_baseline(pools, cond.draw_date)
+    if measured is None or baseline is None:
+        return None
+    uplift, n = measured
+    tickets = max(int(baseline * uplift), 1)
+    if tickets >= cond.tickets_sold:
+        return None
+    alt = replace(cond, tickets_sold=tickets)
+    return {"cond": alt, "verdict": should_play(alt), "uplift": uplift, "n": n,
+            "installed": mbw_uplift(cond.draw_date)[0]}
+
+
+PLAY, MARGINAL, SKIP = "PLAY", "MARGINAL", "SKIP"
+
+
+def classify(verdict: dict, measured: dict | None = None) -> str:
+    """PLAY if the installed model clears the threshold; MARGINAL if only the
+    measured two-round uplift does (see `at_measured_uplift`); else SKIP."""
+    if verdict["play"]:
+        return PLAY
+    if measured is not None and measured["verdict"]["play"]:
+        return MARGINAL
+    return SKIP

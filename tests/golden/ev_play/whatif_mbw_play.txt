@@ -1,0 +1,32 @@
+================================================================
+EV ADVISOR - next UK Lotto draw
+================================================================
+WARNING: the 2026-10-03 draw has closed but is not collected yet.
+  Every figure below - jackpot, Must-Be-Won flag, rollover count -
+  still describes that draw, not the next one. Re-run after the
+  collector (scripts/monitoring/sync_collector_data.sh).
+----------------------------------------------------------------
+Jackpot (event pool): £8,636,787
+Rounds per ticket:    2
+Must-Be-Won:          YES (cap-driven)
+Assumed lines sold:   6,000,000 (Wednesday cap-driven uplift x1.44)
+Fixed prizes/round:   5+B £1,000,000 · 5 £1,000 · 4 £50 · 3 £10 · 2 £1  [observed (20 draws)]
+Best-line EV:         £+0.184  (threshold £+0.00)
+Break-even jackpot:   £7,546,941 (roll-down)
+Model stability:      ROBUST PLAY - verdict holds from a flat popularity model to a doubled one
+  across specs:       £+0.157 ... £+0.189  (flat -> doubled popularity)
+Across sales range:   £+0.091 at 6,416,666 lines ... £+0.246 at 5,750,000 (quartiles)
+Holds across range:   YES
+Measured uplift:      EV £+0.214 at 5,875,160 lines (x1.152, highest of 3 two-round Must-Be-Wons; installed x1.44)
+Kelly stake:          £0.00 on a £1,000 bankroll (f*=2.07e-07) - the edge is real, but at this bankroll every line is an entertainment stake, not growth
+----------------------------------------------------------------
+VERDICT: conditions clear your threshold - if you play, play these:
+  1. 35 37 39 41 47 57   EV £+0.184   popularity x0.32
+  2. 35 36 40 42 47 58   EV £+0.184   popularity x0.32
+  3. 16 32 43 52 53 57   EV £+0.181   popularity x0.42
+  4. 32 33 36 37 54 59   EV £+0.184   popularity x0.32
+  5. 33 37 40 42 45 51   EV £+0.184   popularity x0.32
+----------------------------------------------------------------
+Portfolio: 5 lines, cost £10.00, total EV £+0.92
+================================================================
+(what-if run - latest.json left untouched)

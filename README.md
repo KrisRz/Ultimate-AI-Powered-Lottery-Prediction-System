@@ -172,6 +172,31 @@ export EMAIL_TO=you@gmail.com
 Test it: `make post-draw` (sends only on PLAY or MARGINAL; the weekly status
 mail is sent by the cloud run alone).
 
+## The terminal
+
+`./lotto` (or `make lotto`) is one front end over everything above - the
+same `advise()`, portfolio, wheel and ledger that `make play`, the email and
+the ledger use, so it cannot price or classify a draw differently from them
+(`tests/test_lotto_cli.py` holds it to `make play`'s golden output).
+
+```bash
+./lotto                      # menu: status, then generate / check / history / analysis / sync
+./lotto status               # next draw, data freshness, gate, PLAY / MARGINAL / SKIP
+./lotto ticket               # 5 unpopular lines; on a SKIP it asks "Generate anyway?"
+./lotto wheel                # the 6-ticket wheel, same question
+./lotto check 3 7 12 19 24 31   # your own numbers: how many people share them
+./lotto whatif --jackpot 9000000 --roll-down   # prices a hypothetical, saves nothing
+./lotto ledger [report|settle|add]
+./lotto analysis [uplift|rolldowns|wheel-backtest|popularity-audit|contract|fairness|ensemble|ensemble-null]
+./lotto sync                 # pull the collector's data - only on a clean main
+```
+
+A SKIP never blocks a ticket, but it is never overridden silently: the menu
+asks, and a script must pass `--yes`. After generating, the terminal offers
+to record the lines in the ledger (`--record` does it without asking), with
+the verdict they were bought against - its advice and the commit that
+priced it.
+
 ## Playing when the model says SKIP
 
 SKIP is the usual verdict, and on most draws it is simply correct. But the

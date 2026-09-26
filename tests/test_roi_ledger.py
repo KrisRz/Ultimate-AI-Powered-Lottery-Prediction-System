@@ -206,3 +206,88 @@ def test_git_sha_is_recorded_or_blank():
     assert isinstance(sha, str)
     if sha:
         assert 6 <= len(sha) <= 12 and all(c in "0123456789abcdef" for c in sha)
+
+
+def _verdict_file(tmp_path, provenance=None):
+    import json
+    latest = tmp_path / "latest.json"
+    meta = {"verdict": {
+        "ev_best_line": -1.03, "break_even_jackpot": 30_819_901.0,
+        "model_stability": {"label": "ROBUST SKIP",
+                            "ev_spec_min": -1.046, "ev_spec_max": -1.027},
+        "conditions": {"jackpot_event_pool": 5_840_169.0,
+                       "tickets_sold": 5_100_807, "roll_down": False, "rounds": 2},
+    }}
+    if provenance is not None:
+        meta["provenance"] = provenance
+    latest.write_text(json.dumps({"metadata": meta}))
+    return latest
+
+
+def test_git_sha_comes_from_the_verdict_not_from_head(tmp_path, monkeypatch):
+    """HEAD at purchase time can be a commit that never priced this draw -
+    open problem B from the 2026-09-19 handoff."""
+    import scripts.roi_ledger as rl
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", _verdict_file(tmp_path, {
+        "advice": "MARGINAL", "draw_date": "2026-10-07",
+        "git_sha": "abc1234", "git_dirty": False}))
+    monkeypatch.setattr(rl, "_git_sha", lambda: "HEADSHA")
+    p = rl._provenance(date(2026, 10, 7))
+    assert p["git_sha"] == "abc1234"
+    assert p["advice"] == "MARGINAL"
+    assert p["provenance_status"] == rl.PROVENANCE_COMPLETE
+
+
+def test_a_dirty_tree_is_recorded_as_such(tmp_path, monkeypatch):
+    import scripts.roi_ledger as rl
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", _verdict_file(tmp_path, {
+        "advice": "SKIP", "draw_date": "2026-09-30",
+        "git_sha": "abc1234", "git_dirty": True}))
+    assert rl._provenance(date(2026, 9, 30))["git_sha"] == "abc1234+dirty"
+
+
+def test_a_verdict_for_another_draw_is_refused(tmp_path, monkeypatch):
+    import scripts.roi_ledger as rl
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", _verdict_file(tmp_path, {
+        "advice": "SKIP", "draw_date": "2026-09-26",
+        "git_sha": "abc1234", "git_dirty": False}))
+    p = rl._provenance(date(2026, 9, 30))
+    assert p["provenance_status"] == rl.PROVENANCE_MISSING
+    assert p["ev_best_line"] is None and p["git_sha"] is None
+    assert p["mismatch"] == "2026-09-26"
+
+
+def test_a_verdict_saved_before_provenance_falls_back_to_head(tmp_path, monkeypatch):
+    import scripts.roi_ledger as rl
+    monkeypatch.setattr(rl, "LATEST_PREDICTIONS", _verdict_file(tmp_path))
+    monkeypatch.setattr(rl, "_git_sha", lambda: "HEADSHA")
+    p = rl._provenance(date(2026, 9, 30))
+    assert p["git_sha"] == "HEADSHA" and p["advice"] is None
+    assert p["provenance_status"] == rl.PROVENANCE_COMPLETE
+
+
+def test_the_real_ledger_still_reads_and_reports(capsys):
+    """Backward compatibility on the file that holds real money: the local
+    ledger (no `advice` column) must load and report the same totals."""
+    import scripts.roi_ledger as rl
+    if not rl.LEDGER_FILE.exists():
+        pytest.skip("no local ledger on this machine (CI)")
+    ledger = rl._load_ledger()
+    assert "advice" in ledger.columns
+    assert list(ledger.columns[:len(rl.LEDGER_COLUMNS)]) == rl.LEDGER_COLUMNS
+
+
+@pytest.mark.parametrize("sha", ["8201337", "1e45678", "0000000"])
+def test_a_numeric_looking_sha_survives_a_round_trip(tmp_path, monkeypatch, sha):
+    """pandas would read these as 8201337, inf and 0, and the next write
+    would record a commit that never existed."""
+    import scripts.roi_ledger as rl
+    ledger = tmp_path / "ledger.csv"
+    monkeypatch.setattr(rl, "LEDGER_FILE", ledger)
+    row = {c: None for c in rl.LEDGER_COLUMNS}
+    row.update({"added_at": "2026-09-26T12:00:00", "draw_date": "2026-09-26",
+                "line": "1 2 3 4 5 6", "cost": 2.0, "settled": False, "git_sha": sha})
+    pd.DataFrame([row]).to_csv(ledger, index=False)
+    once = rl._load_ledger()
+    once.to_csv(ledger, index=False)
+    assert rl._load_ledger().loc[0, "git_sha"] == sha

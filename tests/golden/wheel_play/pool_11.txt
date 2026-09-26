@@ -1,0 +1,28 @@
+================================================================
+WHEEL GENERATOR - abbreviated wheel on the unpopular pool
+================================================================
+Pool (11 least popular): 32 34 37 39 42 44 47 49 52 54 57
+Any line, any round:  1 in 45,057,474 - a wheel changes how wins
+                      clump, never whether they come
+Triple coverage:      144/165 (87%) of pool triples on a ticket
+Measured guarantees (if t winning numbers land in the pool,
+best ticket matches at least g):
+  t=3: g=2
+  t=4: g=3 -> guaranteed Match 3+ prize
+  t=5: g=3 -> guaranteed Match 3+ prize
+  t=6: g=4 -> guaranteed Match 3+ prize
+----------------------------------------------------------------
+  1. 32 34 37 39 42 44   EV £-1.041   popularity x0.32
+  2. 32 47 49 52 54 57   EV £-1.041   popularity x0.32
+  3. 34 37 39 42 47 49   EV £-1.041   popularity x0.32
+  4. 34 37 44 52 54 57   EV £-1.041   popularity x0.32
+  5. 39 42 44 52 54 57   EV £-1.041   popularity x0.32
+  6. 32 34 44 47 49 52   EV £-1.041   popularity x0.32
+  7. 32 37 39 47 52 54   EV £-1.041   popularity x0.32
+  8. 32 34 42 47 54 57   EV £-1.041   popularity x0.32
+  9. 32 37 39 44 49 57   EV £-1.041   popularity x0.32
+  10. 32 37 42 49 52 54   EV £-1.041   popularity x0.32
+----------------------------------------------------------------
+Portfolio: 10 lines, cost £20.00, total EV £-10.41
+================================================================
+Saved to outputs/predictions/wheel_portfolio_20260926_120000.json (latest.json untouched - wheel runs are side bets)
