@@ -191,6 +191,12 @@ the ledger use, so it cannot price or classify a draw differently from them
 ./lotto sync                 # pull the collector's data - only on a clean main
 ```
 
+**From a phone, without the Mac:** GitHub → Actions → *Lotto ticket (email
+me lines)* → Run workflow. Choose `portfolio` (5 lines) or `wheel` (6
+tickets); `variant` 1, 2, ... gives other, equally good sets. The lines -
+the same ones `./lotto ticket` shows - arrive by email with the verdict for
+that draw and the command to record them in the ledger.
+
 A SKIP never blocks a ticket, but it is never overridden silently: the menu
 asks, and a script must pass `--yes`. After generating, the terminal offers
 to record the lines in the ledger (`--record` does it without asking), with
