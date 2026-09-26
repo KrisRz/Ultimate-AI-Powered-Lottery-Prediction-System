@@ -199,6 +199,10 @@ export interface Ledger {
   net_gbp: number;
   roi: number | null;
   match_histogram: Record<string, number>;
+  draws: number;
+  skip_draws: number;
+  unrecorded_draws: number;
+  best_match: number | null;
   source: string;
 }
 

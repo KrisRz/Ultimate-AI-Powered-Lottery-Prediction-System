@@ -204,7 +204,7 @@ export default function Page() {
       <S3Ev ev={ev} asOf={snapshot.as_of_draw_date} ticketPrice={hook.ticket_price_gbp} />
       <SRolldown rolldown={rolldown} />
       <SWheel wheel={wheel} />
-      <SMoney ledger={ledger} lastDraw={lastDraw} verdictWas={ev.live.verdict} />
+      <SMoney ledger={ledger} lastDraw={lastDraw} />
       <S1Hook hook={hook} ev={ev} />
       <S2Predict backtest={backtest} />
       <SBuilt built={built} />
