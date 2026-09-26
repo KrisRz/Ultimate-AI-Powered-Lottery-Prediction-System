@@ -1,0 +1,25 @@
+================================================================
+EV ADVISOR - next UK Lotto draw
+================================================================
+WARNING: the 2026-10-03 draw has closed but is not collected yet.
+  Every figure below - jackpot, Must-Be-Won flag, rollover count -
+  still describes that draw, not the next one. Re-run after the
+  collector (scripts/monitoring/sync_collector_data.sh).
+----------------------------------------------------------------
+Jackpot (event pool): £8,636,787
+Rounds per ticket:    2
+Must-Be-Won:          YES (cap-driven)
+Assumed lines sold:   7,345,162 (Wednesday cap-driven uplift x1.44)
+Fixed prizes/round:   5+B £1,000,000 · 5 £1,000 · 4 £50 · 3 £10 · 2 £1  [observed (20 draws)]
+Best-line EV:         £-0.077  (threshold £+0.00)
+Break-even jackpot:   £9,195,857 (roll-down)
+Model stability:      ROBUST SKIP - verdict holds from a flat popularity model to a doubled one
+  across specs:       £-0.108 ... £-0.071  (flat -> doubled popularity)
+Across sales range:   £-0.153 at 7,855,242 lines ... £-0.027 at 7,039,113 (quartiles)
+Holds across range:   NO - only the central sales estimate clears it
+----------------------------------------------------------------
+VERDICT: SKIP this draw - expected loss per £2 line is above
+your threshold. Playing anyway is entertainment, not investment.
+(Use --force to build a portfolio regardless.)
+================================================================
+(what-if run - latest.json left untouched)

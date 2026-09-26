@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-26",
+  "metadata": {
+    "method": "ev_portfolio",
+    "per_line": [],
+    "verdict": {
+      "break_even_jackpot": 30819900.695591062,
+      "conditions": {
+        "jackpot_event_pool": 5840169.0,
+        "prizes": {
+          "match_2": 1.0,
+          "match_3": 10.0,
+          "match_4": 50.0,
+          "match_5": 1000.0,
+          "match_5_bonus": 1000000.0,
+          "source": "observed (20 draws)"
+        },
+        "roll_down": false,
+        "rounds": 2,
+        "tickets_sold": 5100807
+      },
+      "ev_best_line": -1.0301673029514167,
+      "model_stability": {
+        "by_spread": {
+          "x0": {
+            "ev": -1.0457551127601712,
+            "play": false
+          },
+          "x1": {
+            "ev": -1.0301673029514167,
+            "play": false
+          },
+          "x2": {
+            "ev": -1.0270027046898842,
+            "play": false
+          }
+        },
+        "ev_spec_max": -1.0270027046898842,
+        "ev_spec_min": -1.0457551127601712,
+        "label": "ROBUST SKIP",
+        "stable": true
+      },
+      "play": false,
+      "reference_line": [
+        32,
+        34,
+        37,
+        39,
+        41,
+        43
+      ],
+      "sales_sensitivity": null,
+      "threshold": 0.0
+    }
+  },
+  "predictions": [],
+  "timestamp": "2026-09-26T22:05:00"
+}
