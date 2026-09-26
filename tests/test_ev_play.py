@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -127,3 +128,38 @@ class TestWhichKindOfMustBeWon:
         out = capsys.readouterr().out
         assert "YES (special-event)" in out
         assert "special-event uplift" in out
+
+
+class TestUncollectedDraw:
+    """Between sales close and the collector's run the data describes the
+    draw that just happened. On 2026-09-26 at 22:05 the advisor forecast a
+    Must-Be-Won for a roll that draw 3210 had already ended."""
+
+    def _tiers(self, tmp_path, latest):
+        f = tmp_path / "prize_tiers.csv"
+        f.write_text(f"draw_number,draw_date\n3209,{latest}\n")
+        return f
+
+    def test_flags_a_closed_draw_missing_from_the_data(self, tmp_path):
+        from datetime import datetime
+        from scripts.ev_play import uncollected_draw
+        from lottery.ev import UK_TZ
+        tiers = self._tiers(tmp_path, "2026-09-23")
+        after_close = datetime(2026, 9, 26, 22, 5, tzinfo=UK_TZ)
+        assert uncollected_draw(after_close, tiers) == date(2026, 9, 26)
+
+    def test_quiet_while_sales_are_open_and_once_collected(self, tmp_path):
+        from datetime import datetime
+        from scripts.ev_play import uncollected_draw
+        from lottery.ev import UK_TZ
+        before_close = datetime(2026, 9, 26, 19, 0, tzinfo=UK_TZ)
+        assert uncollected_draw(before_close, self._tiers(tmp_path, "2026-09-23")) is None
+        after_close = datetime(2026, 9, 26, 22, 5, tzinfo=UK_TZ)
+        assert uncollected_draw(after_close, self._tiers(tmp_path, "2026-09-26")) is None
+
+    def test_last_closed_draw_date(self):
+        from datetime import datetime
+        from lottery.ev import UK_TZ, last_closed_draw_date
+        assert last_closed_draw_date(datetime(2026, 9, 26, 19, 29, tzinfo=UK_TZ)) == date(2026, 9, 23)
+        assert last_closed_draw_date(datetime(2026, 9, 26, 19, 30, tzinfo=UK_TZ)) == date(2026, 9, 26)
+        assert last_closed_draw_date(datetime(2026, 9, 28, 9, 0, tzinfo=UK_TZ)) == date(2026, 9, 26)
