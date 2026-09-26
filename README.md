@@ -46,7 +46,7 @@ make fairness                                    # is the machine fair? six test
 make ensemble                                    # score+MonteCarlo vs random
 #   --repeat N (seed distribution), --null-sims N (full-pipeline null),
 #   --nested (train/validation/test), --strategies N (percentile)
-make install-cron                                # auto post-draw routine (Wed/Sat 22:30)
+make install-cron                                # local post-draw routine (Thu/Sun 09:00)
 ```
 
 ## How the EV model works
@@ -132,7 +132,8 @@ scripts/
   validations/fairness.py   is the machine fair? six tests (make fairness)
   validations/ensemble_score.py  the scoring ensemble, walk-forward tested
   monitoring/           nightly backtest, post-draw routine
-data/               draw history, prize tiers, ledger (local, not committed)
+data/               draw history, prize tiers, pools - committed by the cloud
+                    collector; ledger.csv is local only (gitignored, no backup)
 outputs/            predictions, validation runs, dashboard (not committed)
 tests/              pytest suite (fast, no network)
 ops/                launchd template for the post-draw cron
