@@ -6,12 +6,17 @@ to play** (is this draw's expected value above zero?) and **what to play**
 answer is SKIP. Anything that makes the model look more promising than the data
 supports is a bug, including in prose.
 
+**Start with `ARCHITECTURE.md`** — the map of what exists, where, and how it
+runs (cloud schedule, data ownership, the decision layer, the terminal,
+infra). This file is the rules; that one is the layout.
+
 ## Running things
 
 ```bash
 PY=./conda-py311/bin/python        # what the Makefile uses; no conda activate needed
 PYTHONPATH=. $PY scripts/ev_play.py
-make test                          # pytest, the whole suite, ~5 s
+make test                          # pytest, the whole suite, ~30 s
+./lotto status                     # the terminal: status | play | ticket | wheel | check | ledger | analysis
 cd site && npm run lint && npm run typecheck && npm test && npm run build && npm run size
 ```
 
@@ -101,7 +106,7 @@ called it SKIP at −£0.21.
 
 ## Where the reasoning lives
 
-`audit-2026-09-05.md` is the current state of the analysis and the ranked
-backlog; `plan.md` and `plan-ulepszen-2026-08.md` are its predecessors. Comments
+`ARCHITECTURE.md` is what exists and where. `audit-2026-09-05.md` is the
+current state of the analysis and the ranked backlog; `plan.md` and `plan-ulepszen-2026-08.md` are its predecessors. Comments
 in `lottery/ev.py` carry the provenance of every constant — read the comment
 before changing a number, and update it when you do.
