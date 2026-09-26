@@ -15,6 +15,7 @@ Usage:
 import argparse
 import json
 import sys
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
@@ -130,6 +131,221 @@ def next_draw_conditions(force_roll_down: bool = False,
     return cond
 
 
+@dataclass(frozen=True)
+class Advice:
+    """Everything the advisor decided about one draw, computed once.
+
+    `render` turns it into the printout, `save` into latest.json, and any
+    other front end (the email, the terminal) reads the same record - so none
+    of them can price or classify the draw a second, slightly different way.
+    """
+    cond: DrawConditions
+    verdict: dict
+    threshold: float
+    bankroll: float
+    what_if: bool
+    force: bool
+    stale: date | None
+    rollover: dict
+    outlook: dict | None
+    abrams_garibaldi: dict | None
+    kelly: dict | None
+    portfolio: list = field(default_factory=list)
+
+
+def advise(*, lines: int = 5, jackpot: float | None = None,
+           roll_down: bool = False, ordinary: bool = False,
+           tickets: int | None = None, threshold: float = 0.0,
+           bankroll: float = 1000.0, seed: int | None = None,
+           force: bool = False, now: datetime | date | None = None) -> Advice:
+    """Price the next draw and, when it clears the threshold or `force` is
+    set, build its portfolio. Reads collected data; writes nothing."""
+    cond = next_draw_conditions(force_roll_down=roll_down,
+                                force_ordinary=ordinary, now=now)
+    what_if = (jackpot is not None or roll_down or ordinary
+               or tickets is not None)
+    if jackpot is not None:
+        cond.jackpot = jackpot
+    if tickets is not None:
+        cond.tickets_sold = tickets
+
+    verdict = should_play(cond, threshold=threshold)
+    rollover = forecast_must_be_won(cond.rollover_count, now)
+    outlook = None
+    if not cond.roll_down:
+        pools = (pd.read_csv(DRAW_POOLS_FILE)
+                 if DRAW_POOLS_FILE.exists() else None)
+        outlook = must_be_won_outlook(cond, pools, now)
+
+    portfolio = []
+    if verdict["play"] or force:
+        # Same default seed as the alert email: latest.json (what the ledger
+        # records via --from-latest) and the mail must propose the SAME lines.
+        chosen = seed if seed is not None else default_portfolio_seed(cond.draw_date)
+        portfolio = build_portfolio(lines, cond, seed=chosen)
+
+    return Advice(
+        cond=cond, verdict=verdict, threshold=threshold, bankroll=bankroll,
+        what_if=what_if, force=force, stale=uncollected_draw(now),
+        rollover=rollover, outlook=outlook,
+        abrams_garibaldi=abrams_garibaldi_screen(cond),
+        kelly=kelly_stake(cond, bankroll) if verdict["play"] else None,
+        portfolio=portfolio,
+    )
+
+
+def render(a: Advice) -> str:
+    """The advisor's printout for `a`, exactly as `make play` shows it."""
+    cond, verdict = a.cond, a.verdict
+    out: list[str] = []
+    say = out.append
+
+    say("=" * 64)
+    say("EV ADVISOR - next UK Lotto draw")
+    say("=" * 64)
+    if a.stale:
+        say(f"WARNING: the {a.stale} draw has closed but is not collected yet.")
+        say("  Every figure below - jackpot, Must-Be-Won flag, rollover count -")
+        say("  still describes that draw, not the next one. Re-run after the")
+        say("  collector (scripts/monitoring/sync_collector_data.sh).")
+        say("-" * 64)
+    say(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
+    say(f"Rounds per ticket:    {cond.rounds}")
+    # From the conditions, not the count: a forced what-if has no count and
+    # is priced as a capped roll, so it must not be labelled a special.
+    kind = (None if not cond.roll_down
+            else "special-event" if cond.special_event else "cap-driven")
+    say(f"Must-Be-Won:          {f'YES ({kind})' if kind else 'no'}")
+    mbw = a.rollover
+    if not cond.roll_down:
+        say(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
+            f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
+            f"if nobody wins before")
+        # What that draw would be worth. Without it the verdict on the one
+        # draw worth planning for only existed the morning after the draw
+        # before it - a day's notice on a fortnight's wait.
+        outlook = a.outlook
+        if outlook and not outlook["is_next_draw"]:
+            say(f"  that draw:          projected pool ~£{outlook['projected_pool']:,.0f} "
+                f"vs break-even £{outlook['break_even_jackpot']:,.0f} - "
+                f"{'PLAY' if outlook['play'] else 'likely SKIP'} "
+                f"(EV £{outlook['ev_best_line']:+.2f}, forecast)")
+    day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
+    uplift_label = (f" ({day} {kind} uplift "
+                    f"x{mbw_uplift(cond.draw_date, cond.special_event)[0]})"
+                    if cond.roll_down else "")
+    say(f"Assumed lines sold:   {cond.tickets_sold:,}{uplift_label}")
+    p = cond.prizes
+    say(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
+        f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")
+    say(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{a.threshold:+.2f})")
+    say(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
+        f"{' (roll-down)' if cond.roll_down else ''}")
+    # Whether the verdict rests on the popularity model being the right
+    # SHAPE, not just well fitted. The weights are pinned to 0.2% on the
+    # threshold, but a flat model and a doubled one disagree on ordinary
+    # draws near break-even - see scripts/validations/popularity_audit.py.
+    stab = verdict.get("model_stability")
+    if stab:
+        note = ("verdict holds from a flat popularity model to a doubled one"
+                if stab["stable"] else
+                "VERDICT DEPENDS ON THE POPULARITY MODEL'S SHAPE - "
+                "flat and doubled disagree")
+        say(f"Model stability:      {stab['label']} - {note}")
+        say(f"  across specs:       £{stab['ev_spec_min']:+.3f} ... "
+            f"£{stab['ev_spec_max']:+.3f}  (flat -> doubled popularity)")
+    ag = a.abrams_garibaldi
+    if ag:
+        # Second opinion for ordinary draws (Abrams & Garibaldi 2010). Their
+        # cutoffs are sufficient conditions robust to ANY sales level, so
+        # passing is much rarer than our exact break-even.
+        status = ("robust +EV even if sales surge" if ag["robust_good_bet"]
+                  else "any edge would rest on the sales estimate")
+        say(f"A&G second opinion:   entries/jackpot {ag['n_over_j']:.2f} "
+            f"(<0.2 wanted), robust cutoff £{ag['jackpot_cutoff'] / 1e6:,.0f}M "
+            f"- {status}")
+    # On a roll-down the verdict lives or dies on the sales estimate, so show
+    # what it does across the plausible range instead of one tidy number.
+    sens = verdict.get("sales_sensitivity")
+    if sens:
+        say(f"Across sales range:   £{sens['ev_low']:+.3f} at {sens['tickets_high']:,} lines "
+            f"... £{sens['ev_high']:+.3f} at {sens['tickets_low']:,} (quartiles)")
+        holds = ("YES" if sens["robust"]
+                 else "NO - only the central sales estimate clears it")
+        say(f"Holds across range:   {holds}")
+    k = a.kelly
+    if k:
+        if k["lines_full"] >= 1:
+            say(f"Kelly stake:          {k['lines_full']} lines full / "
+                f"{k['lines_half']} half-Kelly on a £{a.bankroll:,.0f} bankroll")
+        else:
+            # The honest MacLean-Ziemba answer: a real edge that is 81% to
+            # lose a given line justifies almost nothing growth-theoretically.
+            say(f"Kelly stake:          £{k['stake_full']:.2f} on a "
+                f"£{a.bankroll:,.0f} bankroll (f*={k['kelly_fraction']:.2e}) - "
+                f"the edge is real, but at this bankroll every line is an "
+                f"entertainment stake, not growth")
+    say("-" * 64)
+
+    if not verdict["play"] and not a.force:
+        say("VERDICT: SKIP this draw - expected loss per £2 line is above")
+        say("your threshold. Playing anyway is entertainment, not investment.")
+        say("(Use --force to build a portfolio regardless.)")
+        say("=" * 64)
+    else:
+        if verdict["play"]:
+            say("VERDICT: conditions clear your threshold - if you play, play these:")
+        else:
+            say("VERDICT: below threshold (forced portfolio):")
+        total_ev = sum(p["ev"] for p in a.portfolio)
+        for i, p in enumerate(a.portfolio, 1):
+            nums = " ".join(f"{n:2d}" for n in p["line"])
+            say(f"  {i}. {nums}   EV £{p['ev']:+.3f}   popularity x{p['popularity_ratio']:.2f}")
+        say("-" * 64)
+        say(f"Portfolio: {len(a.portfolio)} lines, cost £{len(a.portfolio) * cond.ticket_price:.2f}, "
+            f"total EV £{total_ev:+.2f}")
+        say("=" * 64)
+    return "\n".join(out)
+
+
+def save(a: Advice, out_dir: Path = OUT_DIR) -> str:
+    """Persist the real verdict to latest.json (and the portfolio, if any).
+
+    A what-if run (--jackpot / --roll-down / --tickets) must NOT touch
+    latest.json: that file is what `roi_ledger.py add --from-latest` records
+    as really played and what the dashboard shows as the live verdict.
+    Exploring "what if the jackpot were £12M" once left a PLAY portfolio
+    sitting there for a draw that is actually a SKIP.
+
+    Returns the line to print.
+    """
+    if a.what_if:
+        return "(what-if run - latest.json left untouched)"
+
+    # Always persist the real verdict - the dashboard reads latest.json, and a
+    # SKIP with no file would tell the user to re-run make play forever.
+    out_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "timestamp": datetime.now().isoformat(),
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "predictions": [p["line"] for p in a.portfolio],
+        "metadata": {
+            "method": "ev_portfolio",
+            "verdict": a.verdict,
+            "per_line": [{"line": p["line"], "ev": p["ev"],
+                          "popularity_ratio": p["popularity_ratio"]} for p in a.portfolio],
+        },
+    }
+    with open(out_dir / "latest.json", "w") as f:
+        json.dump(payload, f, indent=2)
+    if a.portfolio:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        with open(out_dir / f"ev_portfolio_{ts}.json", "w") as f:
+            json.dump(payload, f, indent=2)
+        return f"Saved to {out_dir}/ev_portfolio_{ts}.json (+ latest.json for roi_ledger)"
+    return f"Verdict saved to {out_dir}/latest.json"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lines", type=int, default=5, help="Portfolio size")
@@ -150,165 +366,12 @@ def main() -> None:
                         help="Build a portfolio even when the draw is below threshold")
     args = parser.parse_args()
 
-    cond = next_draw_conditions(force_roll_down=args.roll_down,
-                                force_ordinary=args.ordinary)
-    what_if = (args.jackpot is not None or args.roll_down or args.ordinary
-               or args.tickets is not None)
-    if args.jackpot is not None:
-        cond.jackpot = args.jackpot
-    if args.tickets is not None:
-        cond.tickets_sold = args.tickets
-
-    verdict = should_play(cond, threshold=args.threshold)
-
-    print("=" * 64)
-    print("EV ADVISOR - next UK Lotto draw")
-    print("=" * 64)
-    missing = uncollected_draw()
-    if missing:
-        print(f"WARNING: the {missing} draw has closed but is not collected yet.")
-        print("  Every figure below - jackpot, Must-Be-Won flag, rollover count -")
-        print("  still describes that draw, not the next one. Re-run after the")
-        print("  collector (scripts/monitoring/sync_collector_data.sh).")
-        print("-" * 64)
-    print(f"Jackpot (event pool): £{cond.jackpot:,.0f}")
-    print(f"Rounds per ticket:    {cond.rounds}")
-    # From the conditions, not the count: a forced what-if has no count and
-    # is priced as a capped roll, so it must not be labelled a special.
-    kind = (None if not cond.roll_down
-            else "special-event" if cond.special_event else "cap-driven")
-    print(f"Must-Be-Won:          {f'YES ({kind})' if kind else 'no'}")
-    mbw = forecast_must_be_won(cond.rollover_count)
-    if not cond.roll_down:
-        print(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
-              f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
-              f"if nobody wins before")
-        # What that draw would be worth. Without it the verdict on the one
-        # draw worth planning for only existed the morning after the draw
-        # before it - a day's notice on a fortnight's wait.
-        pools = (pd.read_csv(DRAW_POOLS_FILE)
-                 if DRAW_POOLS_FILE.exists() else None)
-        outlook = must_be_won_outlook(cond, pools)
-        if outlook and not outlook["is_next_draw"]:
-            print(f"  that draw:          projected pool ~£{outlook['projected_pool']:,.0f} "
-                  f"vs break-even £{outlook['break_even_jackpot']:,.0f} - "
-                  f"{'PLAY' if outlook['play'] else 'likely SKIP'} "
-                  f"(EV £{outlook['ev_best_line']:+.2f}, forecast)")
-    day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
-    uplift_label = (f" ({day} {kind} uplift "
-                    f"x{mbw_uplift(cond.draw_date, cond.special_event)[0]})"
-                    if cond.roll_down else "")
-    print(f"Assumed lines sold:   {cond.tickets_sold:,}{uplift_label}")
-    p = cond.prizes
-    print(f"Fixed prizes/round:   5+B £{p.match_5_bonus:,.0f} · 5 £{p.match_5:,.0f} · "
-          f"4 £{p.match_4:,.0f} · 3 £{p.match_3:,.0f} · 2 £{p.match_2:,.0f}  [{p.source}]")
-    print(f"Best-line EV:         £{verdict['ev_best_line']:+.3f}  (threshold £{args.threshold:+.2f})")
-    print(f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}"
-          f"{' (roll-down)' if cond.roll_down else ''}")
-    # Whether the verdict rests on the popularity model being the right
-    # SHAPE, not just well fitted. The weights are pinned to 0.2% on the
-    # threshold, but a flat model and a doubled one disagree on ordinary
-    # draws near break-even - see scripts/validations/popularity_audit.py.
-    stab = verdict.get("model_stability")
-    if stab:
-        note = ("verdict holds from a flat popularity model to a doubled one"
-                if stab["stable"] else
-                "VERDICT DEPENDS ON THE POPULARITY MODEL'S SHAPE - "
-                "flat and doubled disagree")
-        print(f"Model stability:      {stab['label']} - {note}")
-        print(f"  across specs:       £{stab['ev_spec_min']:+.3f} ... "
-              f"£{stab['ev_spec_max']:+.3f}  (flat -> doubled popularity)")
-    ag = abrams_garibaldi_screen(cond)
-    if ag:
-        # Second opinion for ordinary draws (Abrams & Garibaldi 2010). Their
-        # cutoffs are sufficient conditions robust to ANY sales level, so
-        # passing is much rarer than our exact break-even.
-        status = ("robust +EV even if sales surge" if ag["robust_good_bet"]
-                  else "any edge would rest on the sales estimate")
-        print(f"A&G second opinion:   entries/jackpot {ag['n_over_j']:.2f} "
-              f"(<0.2 wanted), robust cutoff £{ag['jackpot_cutoff'] / 1e6:,.0f}M "
-              f"- {status}")
-    # On a roll-down the verdict lives or dies on the sales estimate, so show
-    # what it does across the plausible range instead of one tidy number.
-    sens = verdict.get("sales_sensitivity")
-    if sens:
-        print(f"Across sales range:   £{sens['ev_low']:+.3f} at {sens['tickets_high']:,} lines "
-              f"... £{sens['ev_high']:+.3f} at {sens['tickets_low']:,} (quartiles)")
-        holds = ("YES" if sens["robust"]
-                 else "NO - only the central sales estimate clears it")
-        print(f"Holds across range:   {holds}")
-    if verdict["play"]:
-        k = kelly_stake(cond, args.bankroll)
-        if k["lines_full"] >= 1:
-            print(f"Kelly stake:          {k['lines_full']} lines full / "
-                  f"{k['lines_half']} half-Kelly on a £{args.bankroll:,.0f} bankroll")
-        else:
-            # The honest MacLean-Ziemba answer: a real edge that is 81% to
-            # lose a given line justifies almost nothing growth-theoretically.
-            print(f"Kelly stake:          £{k['stake_full']:.2f} on a "
-                  f"£{args.bankroll:,.0f} bankroll (f*={k['kelly_fraction']:.2e}) - "
-                  f"the edge is real, but at this bankroll every line is an "
-                  f"entertainment stake, not growth")
-    print("-" * 64)
-
-    portfolio = []
-    if not verdict["play"] and not args.force:
-        print("VERDICT: SKIP this draw - expected loss per £2 line is above")
-        print("your threshold. Playing anyway is entertainment, not investment.")
-        print("(Use --force to build a portfolio regardless.)")
-        print("=" * 64)
-    else:
-        if verdict["play"]:
-            print("VERDICT: conditions clear your threshold - if you play, play these:")
-        else:
-            print("VERDICT: below threshold (forced portfolio):")
-
-        # Same default seed as the alert email: latest.json (what the ledger
-        # records via --from-latest) and the mail must propose the SAME lines.
-        seed = (args.seed if args.seed is not None
-                else default_portfolio_seed(cond.draw_date))
-        portfolio = build_portfolio(args.lines, cond, seed=seed)
-        total_ev = sum(p["ev"] for p in portfolio)
-        for i, p in enumerate(portfolio, 1):
-            nums = " ".join(f"{n:2d}" for n in p["line"])
-            print(f"  {i}. {nums}   EV £{p['ev']:+.3f}   popularity x{p['popularity_ratio']:.2f}")
-        print("-" * 64)
-        print(f"Portfolio: {len(portfolio)} lines, cost £{len(portfolio) * cond.ticket_price:.2f}, "
-              f"total EV £{total_ev:+.2f}")
-        print("=" * 64)
-
-    # A what-if run (--jackpot / --roll-down / --tickets) must NOT touch
-    # latest.json: that file is what `roi_ledger.py add --from-latest` records
-    # as really played and what the dashboard shows as the live verdict.
-    # Exploring "what if the jackpot were £12M" once left a PLAY portfolio
-    # sitting there for a draw that is actually a SKIP.
-    if what_if:
-        print("(what-if run - latest.json left untouched)")
-        return
-
-    # Always persist the real verdict - the dashboard reads latest.json, and a
-    # SKIP with no file would tell the user to re-run make play forever.
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "timestamp": datetime.now().isoformat(),
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "predictions": [p["line"] for p in portfolio],
-        "metadata": {
-            "method": "ev_portfolio",
-            "verdict": verdict,
-            "per_line": [{"line": p["line"], "ev": p["ev"],
-                          "popularity_ratio": p["popularity_ratio"]} for p in portfolio],
-        },
-    }
-    with open(OUT_DIR / "latest.json", "w") as f:
-        json.dump(payload, f, indent=2)
-    if portfolio:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        with open(OUT_DIR / f"ev_portfolio_{ts}.json", "w") as f:
-            json.dump(payload, f, indent=2)
-        print(f"Saved to {OUT_DIR}/ev_portfolio_{ts}.json (+ latest.json for roi_ledger)")
-    else:
-        print(f"Verdict saved to {OUT_DIR}/latest.json")
+    advice = advise(lines=args.lines, jackpot=args.jackpot, roll_down=args.roll_down,
+                    ordinary=args.ordinary, tickets=args.tickets,
+                    threshold=args.threshold, bankroll=args.bankroll,
+                    seed=args.seed, force=args.force)
+    print(render(advice))
+    print(save(advice))
 
 
 if __name__ == "__main__":
