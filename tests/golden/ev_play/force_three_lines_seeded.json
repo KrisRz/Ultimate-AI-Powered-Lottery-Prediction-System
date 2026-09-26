@@ -40,6 +40,12 @@
         "popularity_ratio": 0.3157550274189353
       }
     ],
+    "provenance": {
+      "advice": "SKIP",
+      "draw_date": "2026-09-26",
+      "git_dirty": false,
+      "git_sha": "0000000"
+    },
     "verdict": {
       "break_even_jackpot": 32290464.74703337,
       "conditions": {

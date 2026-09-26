@@ -17,6 +17,7 @@ Model stability:      ROBUST PLAY - verdict holds from a flat popularity model t
   across specs:       £+0.157 ... £+0.189  (flat -> doubled popularity)
 Across sales range:   £+0.091 at 6,416,666 lines ... £+0.246 at 5,750,000 (quartiles)
 Holds across range:   YES
+Measured uplift:      EV £+0.214 at 5,875,160 lines (x1.152, highest of 3 two-round Must-Be-Wons; installed x1.44)
 Kelly stake:          £0.00 on a £1,000 bankroll (f*=2.07e-07) - the edge is real, but at this bankroll every line is an entertainment stake, not growth
 ----------------------------------------------------------------
 VERDICT: conditions clear your threshold - if you play, play these:

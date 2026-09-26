@@ -16,10 +16,17 @@ Break-even jackpot:   £9,195,857 (roll-down)
 Model stability:      ROBUST SKIP - verdict holds from a flat popularity model to a doubled one
   across specs:       £-0.108 ... £-0.071  (flat -> doubled popularity)
 Across sales range:   £-0.153 at 7,855,242 lines ... £-0.027 at 7,039,113 (quartiles)
-Holds across range:   NO - only the central sales estimate clears it
+Holds across range:   SKIP at every plausible sales level
+Measured uplift:      EV £+0.214 at 5,875,160 lines (x1.152, highest of 3 two-round Must-Be-Wons; installed x1.44)
 ----------------------------------------------------------------
-VERDICT: SKIP this draw - expected loss per £2 line is above
-your threshold. Playing anyway is entertainment, not investment.
-(Use --force to build a portfolio regardless.)
+VERDICT: MARGINAL - the installed model says SKIP, the sales measured
+since June say PLAY. A thin edge you may take, not a verdict:
+  1. 35 37 39 41 47 57   EV £+0.214   popularity x0.32
+  2. 35 36 40 42 47 58   EV £+0.214   popularity x0.32
+  3. 16 32 43 52 53 57   EV £+0.212   popularity x0.42
+  4. 32 33 36 37 54 59   EV £+0.214   popularity x0.32
+  5. 33 37 40 42 45 51   EV £+0.214   popularity x0.32
+----------------------------------------------------------------
+Portfolio: 5 lines, cost £10.00, total EV £+1.07
 ================================================================
 (what-if run - latest.json left untouched)

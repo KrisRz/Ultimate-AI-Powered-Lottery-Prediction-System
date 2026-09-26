@@ -9,8 +9,7 @@ WARNING: the 2026-09-26 draw has closed but is not collected yet.
 Jackpot (event pool): £5,840,169
 Rounds per ticket:    2
 Must-Be-Won:          no
-Rollover:             3 of 5 - Must-Be-Won in 3 draw(s), ~2026-10-07, if nobody wins before
-  that draw:          projected pool ~£8,636,787 vs break-even £9,195,857 - likely SKIP (EV £-0.08, forecast)
+Rollover:             unknown until the 2026-09-26 draw is collected
 Assumed lines sold:   5,100,807
 Fixed prizes/round:   5+B £1,000,000 · 5 £1,000 · 4 £50 · 3 £10 · 2 £1  [observed (20 draws)]
 Best-line EV:         £-1.030  (threshold £+0.00)

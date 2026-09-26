@@ -80,6 +80,9 @@ def run_ev_play(tmp_path, monkeypatch, argv, when) -> tuple[str, dict | None]:
     monkeypatch.setattr(ev, "date", _frozen_date(moment.date()))
     monkeypatch.setattr(ev_play, "datetime", _frozen_datetime(moment))
     monkeypatch.setattr(sys, "argv", ["ev_play.py", *argv])
+    # The commit changes with every commit; what is pinned is that it is saved.
+    monkeypatch.setattr(ev_play, "code_version",
+                        lambda: {"git_sha": "0000000", "git_dirty": False})
 
     out = io.StringIO()
     with contextlib.redirect_stdout(out):

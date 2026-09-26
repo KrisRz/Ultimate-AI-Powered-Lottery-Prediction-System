@@ -6,6 +6,7 @@ Rounds per ticket:    2
 Must-Be-Won:          no
 Rollover:             3 of 5 - Must-Be-Won in 3 draw(s), ~2026-10-03, if nobody wins before
   that draw:          projected pool ~£22,800,892 vs break-even £13,170,825 - PLAY (EV £+0.93, forecast)
+  at measured uplift: EV £+1.14 (x1.152, highest of 3 two-round Must-Be-Wons) - PLAY
 Assumed lines sold:   8,401,561
 Fixed prizes/round:   5+B £1,000,000 · 5 £1,000 · 4 £50 · 3 £10 · 2 £1  [observed (20 draws)]
 Best-line EV:         £-0.484  (threshold £+0.00)

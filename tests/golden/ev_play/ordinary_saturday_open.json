@@ -3,6 +3,12 @@
   "metadata": {
     "method": "ev_portfolio",
     "per_line": [],
+    "provenance": {
+      "advice": "SKIP",
+      "draw_date": "2026-09-26",
+      "git_dirty": false,
+      "git_sha": "0000000"
+    },
     "verdict": {
       "break_even_jackpot": 32290464.74703337,
       "conditions": {

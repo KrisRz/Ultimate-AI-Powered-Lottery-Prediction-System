@@ -15,7 +15,7 @@ Usage:
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from pathlib import Path
 
@@ -26,8 +26,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from lottery.ev import (  # noqa: E402
     DrawConditions,
     DEFAULT_TICKETS_SOLD,
+    MARGINAL,
+    PLAY,
     abrams_garibaldi_screen,
+    at_measured_uplift,
     calibrate_fixed_prizes,
+    classify,
     default_portfolio_seed,
     estimate_tickets_sold,
     forecast_must_be_won,
@@ -150,7 +154,11 @@ class Advice:
     outlook: dict | None
     abrams_garibaldi: dict | None
     kelly: dict | None
+    advice: str = "SKIP"
+    measured: dict | None = None
+    outlook_measured: dict | None = None
     portfolio: list = field(default_factory=list)
+    notes: tuple = ()
 
 
 def advise(*, lines: int = 5, jackpot: float | None = None,
@@ -170,19 +178,44 @@ def advise(*, lines: int = 5, jackpot: float | None = None,
         cond.tickets_sold = tickets
 
     verdict = should_play(cond, threshold=threshold)
+    notes: list[str] = []
+    # Everything from here to the portfolio is a second opinion. The email
+    # runs this function, and a PLAY email has to survive a failure in any of
+    # it - so each part degrades to None with a note, never to an exception.
+    pools = measured = outlook = outlook_measured = None
+    try:
+        pools = pd.read_csv(DRAW_POOLS_FILE) if DRAW_POOLS_FILE.exists() else None
+        # The same draw at the uplift measured since the June redesign.
+        measured = at_measured_uplift(cond, pools)
+        if measured is not None and threshold:
+            measured = {**measured, "verdict": should_play(measured["cond"], threshold)}
+    except Exception as exc:
+        notes.append(f"measured-uplift check failed ({type(exc).__name__}: {exc})")
+        measured = None
+    advice = classify(verdict, measured)
+
     rollover = forecast_must_be_won(cond.rollover_count, now)
-    outlook = None
     if not cond.roll_down:
-        pools = (pd.read_csv(DRAW_POOLS_FILE)
-                 if DRAW_POOLS_FILE.exists() else None)
-        outlook = must_be_won_outlook(cond, pools, now)
+        try:
+            outlook = must_be_won_outlook(cond, pools, now)
+            if outlook:
+                future = replace(cond, jackpot=outlook["projected_pool"],
+                                 tickets_sold=outlook["tickets_sold"], roll_down=True,
+                                 special_event=False, draw_date=outlook["expected_date"])
+                outlook_measured = at_measured_uplift(future, pools)
+        except Exception as exc:
+            notes.append(f"Must-Be-Won outlook failed ({type(exc).__name__}: {exc})")
+            outlook = outlook_measured = None
 
     portfolio = []
-    if verdict["play"] or force:
+    if advice in (PLAY, MARGINAL) or force:
         # Same default seed as the alert email: latest.json (what the ledger
         # records via --from-latest) and the mail must propose the SAME lines.
         chosen = seed if seed is not None else default_portfolio_seed(cond.draw_date)
-        portfolio = build_portfolio(lines, cond, seed=chosen)
+        # A MARGINAL draw is only worth playing at the measured sales, so its
+        # lines are priced there - as the MARGINAL email prices them.
+        priced = measured["cond"] if advice == MARGINAL else cond
+        portfolio = build_portfolio(lines, priced, seed=chosen)
 
     return Advice(
         cond=cond, verdict=verdict, threshold=threshold, bankroll=bankroll,
@@ -190,7 +223,8 @@ def advise(*, lines: int = 5, jackpot: float | None = None,
         rollover=rollover, outlook=outlook,
         abrams_garibaldi=abrams_garibaldi_screen(cond),
         kelly=kelly_stake(cond, bankroll) if verdict["play"] else None,
-        portfolio=portfolio,
+        advice=advice, measured=measured, outlook_measured=outlook_measured,
+        portfolio=portfolio, notes=tuple(notes),
     )
 
 
@@ -203,6 +237,8 @@ def render(a: Advice) -> str:
     say("=" * 64)
     say("EV ADVISOR - next UK Lotto draw")
     say("=" * 64)
+    for note in a.notes:
+        say(f"NOTE: {note}")
     if a.stale:
         say(f"WARNING: the {a.stale} draw has closed but is not collected yet.")
         say("  Every figure below - jackpot, Must-Be-Won flag, rollover count -")
@@ -217,7 +253,11 @@ def render(a: Advice) -> str:
             else "special-event" if cond.special_event else "cap-driven")
     say(f"Must-Be-Won:          {f'YES ({kind})' if kind else 'no'}")
     mbw = a.rollover
-    if not cond.roll_down:
+    if not cond.roll_down and a.stale:
+        # The counter is the uncollected draw's: whether it rolled or was won
+        # decides the whole forecast, so there is nothing honest to print.
+        say(f"Rollover:             unknown until the {a.stale} draw is collected")
+    elif not cond.roll_down:
         say(f"Rollover:             {mbw['rollover_count']} of {mbw['cap']} - "
             f"Must-Be-Won in {mbw['draws_away']} draw(s), ~{mbw['expected_date']}, "
             f"if nobody wins before")
@@ -230,6 +270,11 @@ def render(a: Advice) -> str:
                 f"vs break-even £{outlook['break_even_jackpot']:,.0f} - "
                 f"{'PLAY' if outlook['play'] else 'likely SKIP'} "
                 f"(EV £{outlook['ev_best_line']:+.2f}, forecast)")
+            om = a.outlook_measured
+            if om:
+                say(f"  at measured uplift: EV £{om['verdict']['ev_best_line']:+.2f} "
+                    f"(x{om['uplift']:.3f}, highest of {om['n']} two-round "
+                    f"Must-Be-Wons) - {'PLAY' if om['verdict']['play'] else 'SKIP'}")
     day = cond.draw_date.strftime("%A") if cond.draw_date else "unknown day"
     uplift_label = (f" ({day} {kind} uplift "
                     f"x{mbw_uplift(cond.draw_date, cond.special_event)[0]})"
@@ -270,9 +315,23 @@ def render(a: Advice) -> str:
     if sens:
         say(f"Across sales range:   £{sens['ev_low']:+.3f} at {sens['tickets_high']:,} lines "
             f"... £{sens['ev_high']:+.3f} at {sens['tickets_low']:,} (quartiles)")
-        holds = ("YES" if sens["robust"]
-                 else "NO - only the central sales estimate clears it")
+        # `robust` asks whether a PLAY survives the worst quartile; on a SKIP
+        # the question is the mirror one, and "only the central estimate
+        # clears it" was printed on draws the central estimate did not clear.
+        if sens["robust"]:
+            holds = "YES"
+        elif verdict["play"]:
+            holds = "NO - only the central sales estimate clears it"
+        elif sens["ev_high"] >= a.threshold:
+            holds = "NO - SKIP centrally, clears only at the low sales quartile"
+        else:
+            holds = "SKIP at every plausible sales level"
         say(f"Holds across range:   {holds}")
+    m = a.measured
+    if m:
+        say(f"Measured uplift:      EV £{m['verdict']['ev_best_line']:+.3f} at "
+            f"{m['cond'].tickets_sold:,} lines (x{m['uplift']:.3f}, highest of "
+            f"{m['n']} two-round Must-Be-Wons; installed x{m['installed']:.2f})")
     k = a.kelly
     if k:
         if k["lines_full"] >= 1:
@@ -287,15 +346,18 @@ def render(a: Advice) -> str:
                 f"entertainment stake, not growth")
     say("-" * 64)
 
-    if not verdict["play"] and not a.force:
+    if a.advice == MARGINAL:
+        say("VERDICT: MARGINAL - the installed model says SKIP, the sales measured")
+        say("since June say PLAY. A thin edge you may take, not a verdict:")
+    elif not verdict["play"] and not a.force:
         say("VERDICT: SKIP this draw - expected loss per £2 line is above")
         say("your threshold. Playing anyway is entertainment, not investment.")
         say("(Use --force to build a portfolio regardless.)")
         say("=" * 64)
-    else:
+    if a.advice == MARGINAL or verdict["play"] or a.force:
         if verdict["play"]:
             say("VERDICT: conditions clear your threshold - if you play, play these:")
-        else:
+        elif a.advice != MARGINAL:
             say("VERDICT: below threshold (forced portfolio):")
         total_ev = sum(p["ev"] for p in a.portfolio)
         for i, p in enumerate(a.portfolio, 1):
@@ -332,6 +394,14 @@ def save(a: Advice, out_dir: Path = OUT_DIR) -> str:
         "metadata": {
             "method": "ev_portfolio",
             "verdict": a.verdict,
+            # Who decided, on what, for which draw. The ledger copies these
+            # rather than reading the environment at purchase time, when HEAD
+            # may be a different commit from the one that priced the draw.
+            "provenance": {
+                "advice": a.advice,
+                "draw_date": a.cond.draw_date.isoformat() if a.cond.draw_date else None,
+                **code_version(),
+            },
             "per_line": [{"line": p["line"], "ev": p["ev"],
                           "popularity_ratio": p["popularity_ratio"]} for p in a.portfolio],
         },
@@ -344,6 +414,26 @@ def save(a: Advice, out_dir: Path = OUT_DIR) -> str:
             json.dump(payload, f, indent=2)
         return f"Saved to {out_dir}/ev_portfolio_{ts}.json (+ latest.json for roi_ledger)"
     return f"Verdict saved to {out_dir}/latest.json"
+
+
+def code_version() -> dict:
+    """{git_sha, git_dirty} of the code running now; blanks outside a checkout.
+
+    `git_dirty` because a SHA with uncommitted edits on top names code that
+    never existed as that commit.
+    """
+    import subprocess
+    root = Path(__file__).resolve().parent.parent
+    try:
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root,
+                             capture_output=True, text=True, timeout=5)
+        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                               cwd=root, capture_output=True, text=True, timeout=5)
+        if sha.returncode != 0:
+            return {"git_sha": None, "git_dirty": None}
+        return {"git_sha": sha.stdout.strip(), "git_dirty": bool(dirty.stdout.strip())}
+    except Exception:
+        return {"git_sha": None, "git_dirty": None}
 
 
 def main() -> None:
