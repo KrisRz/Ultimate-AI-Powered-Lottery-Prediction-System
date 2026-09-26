@@ -275,3 +275,19 @@ def test_the_real_ledger_still_reads_and_reports(capsys):
     ledger = rl._load_ledger()
     assert "advice" in ledger.columns
     assert list(ledger.columns[:len(rl.LEDGER_COLUMNS)]) == rl.LEDGER_COLUMNS
+
+
+@pytest.mark.parametrize("sha", ["8201337", "1e45678", "0000000"])
+def test_a_numeric_looking_sha_survives_a_round_trip(tmp_path, monkeypatch, sha):
+    """pandas would read these as 8201337, inf and 0, and the next write
+    would record a commit that never existed."""
+    import scripts.roi_ledger as rl
+    ledger = tmp_path / "ledger.csv"
+    monkeypatch.setattr(rl, "LEDGER_FILE", ledger)
+    row = {c: None for c in rl.LEDGER_COLUMNS}
+    row.update({"added_at": "2026-09-26T12:00:00", "draw_date": "2026-09-26",
+                "line": "1 2 3 4 5 6", "cost": 2.0, "settled": False, "git_sha": sha})
+    pd.DataFrame([row]).to_csv(ledger, index=False)
+    once = rl._load_ledger()
+    once.to_csv(ledger, index=False)
+    assert rl._load_ledger().loc[0, "git_sha"] == sha

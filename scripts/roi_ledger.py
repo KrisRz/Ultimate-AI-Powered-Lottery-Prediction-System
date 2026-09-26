@@ -138,7 +138,11 @@ def _provenance(draw_date: date | None = None) -> dict:
 
 def _load_ledger() -> pd.DataFrame:
     if LEDGER_FILE.exists():
-        ledger = pd.read_csv(LEDGER_FILE)
+        # Text, not numbers: a short SHA can be all digits ("8201337") or
+        # read as a float ("1e45678"), and the next write would store 8201337
+        # or inf - a commit that never existed.
+        ledger = pd.read_csv(LEDGER_FILE, dtype={"git_sha": str, "line": str,
+                                                 "advice": str})
         # Unsettled rows round-trip these columns as all-NaN float64; pandas >= 2.2
         # raises on assigning bool/str into a float column during settle.
         for col in ("matches_r1", "bonus_r1", "matches_r2", "bonus_r2", "prize_source"):
