@@ -1,4 +1,4 @@
-.PHONY: setup setup-update predict play ticket wheel dashboard backtest fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales nightly test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update play ticket wheel dashboard fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -48,8 +48,6 @@ setup:
 setup-update:
 	conda env update -f environment.yml
 
-predict:
-	./predict_tonight.sh
 
 backfill:
 	PYTHONPATH=. $(PY) scripts/backfill_history.py
@@ -65,8 +63,6 @@ sales:
 uplift:
 	PYTHONPATH=. $(PY) scripts/calibrate_mbw_uplift.py
 
-backtest:
-	PYTHONPATH=. $(PY) scripts/validations/backtest.py --lookback 200 --step 5 --method frequency --compare random,probmap --seed 42 --offline
 
 fairness:
 	PYTHONPATH=. $(PY) scripts/validations/fairness.py --sims 2000
@@ -106,8 +102,6 @@ popularity-v2-power:
 popularity-v2-selftest:
 	PYTHONPATH=. $(PY) scripts/validations/popularity_v2_final_test.py --self-test --power
 
-nightly:
-	PYTHONPATH=. $(PY) scripts/monitoring/nightly_backtest.py
 
 test:
 	PYTHONPATH=. $(PY) -m pytest -q

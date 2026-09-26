@@ -39,7 +39,6 @@ Daily use:
 make play                                        # should I play? with what?
 python scripts/roi_ledger.py add --from-latest   # record lines you actually bought
 make roi                                         # settle & report after the draw
-make backtest                                    # method-vs-random, p-values
 make contract                                    # data contract: KNOWN/UNKNOWN/INVALID
 make pre-ev                                      # inputs tonight's verdict needs
 make fairness                                    # is the machine fair? six tests
@@ -127,11 +126,10 @@ scripts/
   ev_play.py            EV advisor CLI (make play)
   roi_ledger.py         real-money ledger (add / settle / report)
   dashboard.py          static dashboard generator (make dashboard)
-  new_predict.py        legacy frequency/LSTM path (kept as a sanity-check)
-  validations/backtest.py   walk-forward backtest + significance tests
+  validations/backtest.py   significance of a match series vs the random null
   validations/fairness.py   is the machine fair? six tests (make fairness)
   validations/ensemble_score.py  the scoring ensemble, walk-forward tested
-  monitoring/           nightly backtest, post-draw routine
+  monitoring/           the alert, gates, post-draw routine
 data/               draw history, prize tiers, pools - committed by the cloud
                     collector; ledger.csv is local only (gitignored, no backup)
 outputs/            predictions, validation runs, dashboard (not committed)

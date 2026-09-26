@@ -265,7 +265,7 @@ def render(d: dict) -> str:
   <tbody>{portfolio_rows or '<tr><td colspan=4>no portfolio - SKIP verdict builds none (python scripts/ev_play.py --force to preview lines)</td></tr>'}</tbody>
 </table>"""
 
-    backtest_html = "<h2>Backtest vs random</h2><p class='muted'>no backtest yet - run: make backtest</p>"
+    backtest_html = "<h2>Backtest vs random</h2><p class='muted'>no backtest on file - the rolling backtest was removed with the LSTM path; `make ensemble` asks whether any method beats random</p>"
     if "backtest" in d:
         bt = d["backtest"]
         rows = ""

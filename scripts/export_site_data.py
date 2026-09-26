@@ -110,8 +110,10 @@ OUT_FILE = Path("site/public/data/site.json")
 # not regenerate this file's backtest section from a fresh clone. Rather than
 # make the whole export unreproducible for one block, the validation runs are
 # pruned to the fields the page actually uses (2.1 MB of four runs becomes
-# ~20 KB) and that extract is committed. Refresh it with --refresh-backtest
-# after `make backtest`.
+# ~20 KB) and that extract is committed. The rolling backtest that produced
+# those runs went with the LSTM predictor it drove (audit C1, 2026-09-26), so
+# the extract is now a frozen record of the 2026-08-07 runs; `make ensemble`
+# answers the same question - does any method beat random? - today.
 BACKTEST_SRC = Path("site/data-src/backtest.json")
 
 # The ledger is real money and .gitignore keeps it local-only, deliberately.
@@ -229,7 +231,7 @@ def refresh_backtest() -> dict:
         newest.setdefault(run["method"], run)
 
     if not newest:
-        raise SystemExit(f"No usable validation runs in {VALIDATION_DIR} - run `make backtest`")
+        raise SystemExit(f"No usable validation runs in {VALIDATION_DIR} - the backtest that wrote them was removed (audit C1); site/data-src/backtest.json is the frozen record")
 
     canonical = newest[sorted(newest)[0]]
     dates = [point["date"] for point in canonical["series"]["random"]]
@@ -989,7 +991,7 @@ def main() -> int:
                         help="Exit 1 if the snapshot on disk is out of date")
     parser.add_argument("--refresh-backtest", action="store_true",
                         help=f"Rebuild {BACKTEST_SRC} from outputs/validation "
-                             "(needs a local `make backtest`), then export")
+                             "(needs the 2026-08 runs; the backtest was removed in C1), then export")
     parser.add_argument("--refresh-ledger", action="store_true",
                         help=f"Rebuild {LEDGER_SRC} from the local {LEDGER_FILE}, "
                              "then export")
