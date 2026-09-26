@@ -47,17 +47,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from lottery.ev import (  # noqa: E402
     DrawConditions,
+    at_measured_uplift,
+    classify,
     default_portfolio_seed,
     exact_sales_baseline,
     kelly_stake,
     mbw_type,
+    measured_uplift,  # noqa: F401 - re-exported; tests read it here
     mbw_uplift,
     must_be_won_outlook,
     should_play,
     upcoming_draw_date,
 )
 from lottery.portfolio import build_portfolio  # noqa: E402
-from scripts.calibrate_mbw_uplift import exact_era_uplifts  # noqa: E402
 from scripts.ev_play import (  # noqa: E402
     DRAW_POOLS_FILE,
     PRIZE_TIERS_FILE,
@@ -189,43 +191,6 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         f"bet, not a likely win.\n"
     )
     return subject, body
-
-
-def measured_uplift(pools) -> tuple | None:
-    """(uplift, n) - the HIGHEST Must-Be-Won sales uplift measured on exact
-    pools in the two-round era, across both weekdays, or None before any.
-
-    The highest, because a higher uplift means more lines sold and a lower
-    EV: of the readings on record this is the one least likely to flatter a
-    draw. Measured by `make uplift`'s own function, so the figure in a
-    MARGINAL mail is the figure that report prints.
-    """
-    if pools is None:
-        return None
-    ratios = [r["uplift"] for r in exact_era_uplifts(pools) if r["uplift"]]
-    return (max(ratios), len(ratios)) if ratios else None
-
-
-def at_measured_uplift(cond: DrawConditions, pools) -> dict | None:
-    """The verdict on a capped Must-Be-Won draw at the measured uplift.
-
-    None when the question does not apply: not a roll-down, a special (its
-    own constants, measured on winner counts), no exact baseline, nothing
-    measured yet, or a measurement that would not lower the sales assumed.
-    """
-    if not cond.roll_down or cond.special_event or pools is None:
-        return None
-    measured = measured_uplift(pools)
-    baseline = exact_sales_baseline(pools, cond.draw_date)
-    if measured is None or baseline is None:
-        return None
-    uplift, n = measured
-    tickets = max(int(baseline * uplift), 1)
-    if tickets >= cond.tickets_sold:
-        return None
-    alt = replace(cond, tickets_sold=tickets)
-    return {"cond": alt, "verdict": should_play(alt), "uplift": uplift, "n": n,
-            "installed": mbw_uplift(cond.draw_date)[0]}
 
 
 def build_marginal_alert(cond: DrawConditions, verdict: dict, alt: dict,
@@ -363,7 +328,8 @@ def main() -> None:
     except Exception as exc:
         print(f"[ev-alert] measured-uplift check failed ({type(exc).__name__}): {exc}")
         alt = None
-    if alt and alt["verdict"]["play"]:
+    # The same rule the advisor prints and the terminal shows (lottery.ev).
+    if classify(verdict, alt) == "MARGINAL":
         subject, body = build_marginal_alert(cond, verdict, alt, draw_date, n_lines,
                                              operator=fetch_operator_page())
         print(body)
