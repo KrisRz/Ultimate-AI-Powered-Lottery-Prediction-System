@@ -62,3 +62,8 @@ output "set_token_command" {
 output "test_dispatch_command" {
   value = module.draw_trigger.test_dispatch_command
 }
+
+# For scripts/monitoring/backup_ledger.sh: export LEDGER_BACKUP_BUCKET=...
+output "ledger_backup_bucket" {
+  value = aws_s3_bucket.ledger_backup.bucket
+}
