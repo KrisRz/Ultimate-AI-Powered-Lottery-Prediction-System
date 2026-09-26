@@ -1,0 +1,25 @@
+================================================================
+EV ADVISOR - next UK Lotto draw
+================================================================
+Jackpot (event pool): £5,840,169
+Rounds per ticket:    2
+Must-Be-Won:          no
+Rollover:             3 of 5 - Must-Be-Won in 3 draw(s), ~2026-10-03, if nobody wins before
+  that draw:          projected pool ~£8,641,061 vs break-even £13,170,825 - likely SKIP (EV £-0.44, forecast)
+  at measured uplift: EV £-0.36 (x1.152, highest of 3 two-round Must-Be-Wons) - SKIP
+Assumed lines sold:   8,401,561
+Fixed prizes/round:   5+B £1,000,000 · 5 £1,000 · 4 £50 · 3 £10 · 2 £1  [observed (20 draws)]
+Best-line EV:         £-1.041  (threshold £+0.00)
+Break-even jackpot:   £32,290,465
+Model stability:      ROBUST SKIP - verdict holds from a flat popularity model to a doubled one
+  across specs:       £-1.065 ... £-1.036  (flat -> doubled popularity)
+A&G second opinion:   entries/jackpot 5.75 (<0.2 wanted), robust cutoff £80M - any edge would rest on the sales estimate
+----------------------------------------------------------------
+VERDICT: below threshold (forced portfolio):
+  1. 17 34 37 44 49 54   EV £-1.043   popularity x0.42
+  2. 33 37 39 40 49 51   EV £-1.041   popularity x0.32
+  3. 32 34 39 41 46 58   EV £-1.041   popularity x0.32
+----------------------------------------------------------------
+Portfolio: 3 lines, cost £6.00, total EV £-3.13
+================================================================
+Saved to outputs/predictions/ev_portfolio_20260926_120000.json (+ latest.json for roi_ledger)

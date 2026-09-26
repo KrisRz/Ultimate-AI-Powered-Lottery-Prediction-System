@@ -20,6 +20,7 @@ Usage:
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
@@ -28,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lottery.ev import (  # noqa: E402
     N_BALLS,
+    DrawConditions,
     N_PICK,
     _has_consecutive_run,
     line_ev,
@@ -164,6 +166,118 @@ def measure_guarantees(pool: list[int], tickets: list[list[int]]) -> dict:
     return out
 
 
+MAX_POOL = 16   # the greedy step scores every C(pool, 6) candidate per line
+
+
+@dataclass(frozen=True)
+class Wheel:
+    """A built wheel and everything measured about it; see `wheel_portfolio`."""
+    pool: list
+    pool_size: int
+    tickets: list
+    guarantees: dict
+    optimal: int | None
+    hit3: int
+    n_triples: int
+    cond: DrawConditions
+
+
+def wheel_portfolio(pool_size: int = 12, lines: int | None = None,
+                    cond: DrawConditions | None = None) -> Wheel:
+    """Wheel the `pool_size` least-played numbers. Writes nothing.
+
+    `lines` defaults to the published minimum for the pool's guarantee (6 on
+    a pool of 12). Raises ValueError on a pool too small or too slow to wheel.
+    """
+    if pool_size < N_PICK:
+        raise ValueError(f"--pool-size must be at least {N_PICK}")
+    # The greedy step scores every remaining C(pool, 6) candidate each
+    # iteration; past 16 the candidate set explodes and the run crawls.
+    if pool_size > MAX_POOL:
+        raise ValueError("--pool-size above 16 makes the greedy search "
+                         "impractically slow (and dilutes the unpopular-pool edge)")
+    pool = unpopular_pool(pool_size)
+    optimal = covering_lines(pool)
+    n_lines = lines if lines is not None else (optimal or 10)
+    tickets = build_wheel(pool, n_lines)
+    return Wheel(
+        pool=pool, pool_size=pool_size, tickets=tickets,
+        guarantees=measure_guarantees(pool, tickets), optimal=optimal,
+        hit3=len({tr for t in tickets for tr in combinations(sorted(t), 3)}),
+        n_triples=len(list(combinations(pool, 3))),
+        cond=cond if cond is not None else next_draw_conditions(),
+    )
+
+
+def render_wheel(w: Wheel) -> str:
+    """The wheel printout, exactly as `make wheel` shows it."""
+    out: list[str] = []
+    say = out.append
+    cond, tickets, n_lines = w.cond, w.tickets, len(w.tickets)
+    say("=" * 64)
+    say("WHEEL GENERATOR - abbreviated wheel on the unpopular pool")
+    say("=" * 64)
+    say(f"Pool ({w.pool_size} least popular): " + " ".join(f"{n}" for n in w.pool))
+    say("Any line, any round:  1 in 45,057,474 - a wheel changes how wins")
+    say("                      clump, never whether they come")
+    say(f"Triple coverage:      {w.hit3}/{w.n_triples} "
+        f"({100 * w.hit3 / w.n_triples:.0f}%) of pool triples on a ticket")
+    say("Measured guarantees (if t winning numbers land in the pool,")
+    say("best ticket matches at least g):")
+    for t, g in w.guarantees.items():
+        note = " -> guaranteed Match 3+ prize" if g >= 3 else ""
+        say(f"  t={t}: g={g}{note}")
+    if w.optimal:
+        if n_lines == w.optimal:
+            say(f"Optimal design:       {w.optimal} lines is the published minimum for "
+                f"this pool")
+        elif n_lines > w.optimal:
+            say(f"NOTE: the guarantee is complete at {w.optimal} lines "
+                f"(£{(n_lines - w.optimal) * 2:.0f} of these {n_lines} buy nothing "
+                f"the first {w.optimal} do not already guarantee)")
+    say("-" * 64)
+    total_ev = 0.0
+    for i, line in enumerate(tickets, 1):
+        ev = line_ev(line, cond)
+        total_ev += ev
+        nums = " ".join(f"{n:2d}" for n in line)
+        say(f"  {i}. {nums}   EV £{ev:+.3f}   popularity x{popularity_ratio(line):.2f}")
+    say("-" * 64)
+    say(f"Portfolio: {len(tickets)} lines, cost £{len(tickets) * cond.ticket_price:.2f}, "
+        f"total EV £{total_ev:+.2f}")
+    say("=" * 64)
+    return "\n".join(out)
+
+
+def save_wheel(w: Wheel, out_dir: Path = OUT_DIR) -> Path:
+    """Write the wheel to its own timestamped file and return its path.
+
+    Deliberately NOT latest.json: that file is the ledger's record of the
+    EV advisor's real verdict; a wheel run is a one-off side portfolio.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_file = out_dir / f"wheel_portfolio_{ts}.json"
+    payload = {
+        "timestamp": datetime.now().isoformat(),
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "predictions": w.tickets,
+        "metadata": {
+            "method": "wheel_portfolio",
+            "pool": w.pool,
+            "pool_size": w.pool_size,
+            "triple_coverage": f"{w.hit3}/{w.n_triples}",
+            "guarantees": {str(t): g for t, g in w.guarantees.items()},
+            "per_line": [{"line": line, "ev": line_ev(line, w.cond),
+                          "popularity_ratio": popularity_ratio(line)}
+                         for line in w.tickets],
+        },
+    }
+    with open(out_file, "w") as f:
+        json.dump(payload, f, indent=2)
+    return out_file
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lines", type=int, default=None,
@@ -172,81 +286,12 @@ def main() -> None:
     parser.add_argument("--pool-size", type=int, default=12,
                         help="Unpopular numbers to wheel (11-14 is sensible)")
     args = parser.parse_args()
-
-    if args.pool_size < N_PICK:
-        parser.error(f"--pool-size must be at least {N_PICK}")
-    # The greedy step scores every remaining C(pool, 6) candidate each
-    # iteration; past 16 the candidate set explodes and the run crawls.
-    if args.pool_size > 16:
-        parser.error("--pool-size above 16 makes the greedy search "
-                     "impractically slow (and dilutes the unpopular-pool edge)")
-
-    pool = unpopular_pool(args.pool_size)
-    optimal = covering_lines(pool)
-    n_lines = args.lines if args.lines is not None else (optimal or 10)
-    tickets = build_wheel(pool, n_lines)
-    guar = measure_guarantees(pool, tickets)
-    cond = next_draw_conditions()
-
-    n_triples = len(list(combinations(pool, 3)))
-    hit3 = len({tr for t in tickets for tr in combinations(sorted(t), 3)})
-
-    print("=" * 64)
-    print("WHEEL GENERATOR - abbreviated wheel on the unpopular pool")
-    print("=" * 64)
-    print(f"Pool ({args.pool_size} least popular): "
-          + " ".join(f"{n}" for n in pool))
-    print("Any line, any round:  1 in 45,057,474 - a wheel changes how wins")
-    print("                      clump, never whether they come")
-    print(f"Triple coverage:      {hit3}/{n_triples} "
-          f"({100 * hit3 / n_triples:.0f}%) of pool triples on a ticket")
-    print("Measured guarantees (if t winning numbers land in the pool,")
-    print("best ticket matches at least g):")
-    for t, g in guar.items():
-        note = " -> guaranteed Match 3+ prize" if g >= 3 else ""
-        print(f"  t={t}: g={g}{note}")
-    if optimal:
-        if n_lines == optimal:
-            print(f"Optimal design:       {optimal} lines is the published minimum for "
-                  f"this pool")
-        elif n_lines > optimal:
-            print(f"NOTE: the guarantee is complete at {optimal} lines "
-                  f"(£{(n_lines - optimal) * 2:.0f} of these {n_lines} buy nothing "
-                  f"the first {optimal} do not already guarantee)")
-    print("-" * 64)
-    total_ev = 0.0
-    for i, line in enumerate(tickets, 1):
-        ev = line_ev(line, cond)
-        total_ev += ev
-        nums = " ".join(f"{n:2d}" for n in line)
-        print(f"  {i}. {nums}   EV £{ev:+.3f}   popularity x{popularity_ratio(line):.2f}")
-    print("-" * 64)
-    print(f"Portfolio: {len(tickets)} lines, cost £{len(tickets) * cond.ticket_price:.2f}, "
-          f"total EV £{total_ev:+.2f}")
-    print("=" * 64)
-
-    # Deliberately NOT latest.json: that file is the ledger's record of the
-    # EV advisor's real verdict; a wheel run is a one-off side portfolio.
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_file = OUT_DIR / f"wheel_portfolio_{ts}.json"
-    payload = {
-        "timestamp": datetime.now().isoformat(),
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "predictions": tickets,
-        "metadata": {
-            "method": "wheel_portfolio",
-            "pool": pool,
-            "pool_size": args.pool_size,
-            "triple_coverage": f"{hit3}/{n_triples}",
-            "guarantees": {str(t): g for t, g in guar.items()},
-            "per_line": [{"line": line, "ev": line_ev(line, cond),
-                          "popularity_ratio": popularity_ratio(line)}
-                         for line in tickets],
-        },
-    }
-    with open(out_file, "w") as f:
-        json.dump(payload, f, indent=2)
+    try:
+        wheel = wheel_portfolio(args.pool_size, args.lines)
+    except ValueError as exc:
+        parser.error(str(exc))
+    print(render_wheel(wheel))
+    out_file = save_wheel(wheel)
     print(f"Saved to {out_file} (latest.json untouched - wheel runs are side bets)")
 
 

@@ -49,6 +49,7 @@ from scripts.archive import load_tier_archive  # noqa: E402
 from lottery.ev import (  # noqa: E402
     MBW_SALES_UPLIFT,
     TWO_ROUND_FIRST_DRAW,
+    exact_era_uplifts,
     exact_lines_sold,
     exact_sales_baseline,
     must_be_won_after_cap,
@@ -335,51 +336,6 @@ def special_event_report(df: pd.DataFrame) -> None:
     print("  A special sells on the operator's marketing, not on the pool it"
           " carries -\n  every Wednesday one on file is a Christmas draw, which"
           " is why that row is wide.")
-
-
-def exact_era_uplifts(pools) -> list:
-    """The two-round era on exact sales, in the estimator's own definition.
-
-    Everything above measures winner-count sales over an archive that is
-    overwhelmingly single-round. That is the right sample for the fallback
-    constants and the wrong one for a decision: the 7 June 2026 licence changed
-    the jackpot's share of sales and the Saturday base, and Combs & Spry (2024)
-    find that every redesign moves the sales response to a jackpot.
-
-    So this section measures only draws since the redesign, and measures them
-    off `data/draw_pools.csv` - `(pool - previous pool) / 8.88%`, an identity -
-    rather than off winner counts, whose +/-15% per-draw noise is exactly what
-    a handful of observations cannot average away.
-
-    The baseline comes from `exact_sales_baseline`, called rather than
-    reimplemented: an uplift is only installable if it was measured against the
-    same baseline the estimator will multiply. Draws it declines to price (too
-    few same-weekday observations before them) are reported as such instead of
-    being quietly measured a different way.
-    """
-    exact = exact_lines_sold(pools)
-    must_be_won = sorted(must_be_won_after_cap(pools))
-    dates = {int(r["draw_number"]): pd.Timestamp(r["draw_date"]).date()
-             for _, r in pools.iterrows()}
-
-    rows = []
-    for draw in must_be_won:
-        when, measured = dates.get(draw), exact.get(draw)
-        if when is None or measured is None:
-            # The first draw after a jackpot is won restarts from the minimum,
-            # so the difference between its pool and the previous one measures
-            # the reset, not any sales.
-            rows.append({"draw": draw, "date": when, "lines": None,
-                         "baseline": None, "uplift": None,
-                         "why": "pool reset - not priceable"})
-            continue
-        baseline = exact_sales_baseline(pools[pools["draw_number"] < draw], when)
-        rows.append({
-            "draw": draw, "date": when, "lines": measured, "baseline": baseline,
-            "uplift": measured / baseline if baseline else None,
-            "why": None if baseline else "too few same-weekday priors",
-        })
-    return rows
 
 
 def exact_era_report() -> None:

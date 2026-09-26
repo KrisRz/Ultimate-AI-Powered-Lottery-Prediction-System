@@ -1,4 +1,4 @@
-.PHONY: setup setup-update play ticket wheel dashboard fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales test roi roi-settle post-draw install-cron site-data site-data-check uplift
+.PHONY: setup setup-update play ticket wheel lotto dashboard fairness ensemble ensemble-null popularity-audit popularity-v2-verify popularity-v2-power popularity-v2-selftest contract pre-ev backfill sales test roi roi-settle post-draw install-cron site-data site-data-check uplift
 
 # All python targets run inside the project runtime, so make works without an
 # activated conda shell (launchd, cron, bare terminals). Override with e.g.
@@ -7,6 +7,10 @@ PY ?= ./conda-py311/bin/python
 
 play:
 	PYTHONPATH=. $(PY) scripts/ev_play.py
+
+# The terminal: menu, or `./lotto status|play|ticket|wheel|check|whatif|ledger|analysis|sync`.
+lotto:
+	PY=$(PY) ./lotto
 
 # Playing for fun, whatever the verdict: the same advisor, then the lines that
 # share a jackpot least. latest.json still records the real verdict, so the

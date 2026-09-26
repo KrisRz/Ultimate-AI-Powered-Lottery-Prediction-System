@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from lottery.ev import DrawConditions, exact_sales_baseline, mbw_uplift, should_play
+from scripts import ev_play
 from scripts.monitoring import ev_alert
 
 @pytest.fixture(autouse=True)
@@ -97,7 +98,7 @@ class TestAlertSurvivesAPortfolioFailure:
 class TestSkipStaysSilent:
     def test_ordinary_draw_sends_nothing(self, monkeypatch, capsys):
         ordinary = DrawConditions(jackpot=4_442_277, tickets_sold=7_457_262)
-        monkeypatch.setattr(ev_alert, "next_draw_conditions", lambda: ordinary)
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: ordinary)
         sent = []
         monkeypatch.setattr(ev_alert, "maybe_send_email",
                             lambda *a: sent.append(a))
@@ -133,7 +134,7 @@ class TestOperatorSecondOpinion:
         assert "unreachable" in body
 
     def test_main_consults_the_page_on_a_play(self, monkeypatch):
-        monkeypatch.setattr(ev_alert, "next_draw_conditions", lambda: MBW)
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: MBW)
         monkeypatch.setattr(ev_alert, "fetch_operator_page", lambda: self.AGREES)
         sent = []
         monkeypatch.setattr(ev_alert, "maybe_send_email", lambda *a: sent.append(a))
@@ -212,7 +213,7 @@ class TestMarginalTier:
 
     def test_main_sends_marginal_instead_of_staying_silent(self, monkeypatch, capsys):
         cond = _mbw_3205()
-        monkeypatch.setattr(ev_alert, "next_draw_conditions", lambda: cond)
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: cond)
         monkeypatch.setattr(ev_alert.pd, "read_csv", lambda *a, **k: BEFORE_3205)
         monkeypatch.setattr(ev_alert, "fetch_operator_page", lambda: {})
         sent = []
@@ -240,7 +241,7 @@ class TestWeeklyHeartbeat:
     def _main(self, monkeypatch, event, now):
         ordinary = DrawConditions(jackpot=2_000_000, tickets_sold=5_100_000,
                                   draw_date=date(2026, 9, 30))
-        monkeypatch.setattr(ev_alert, "next_draw_conditions", lambda: ordinary)
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: ordinary)
         monkeypatch.setattr(ev_alert, "heartbeat_due",
                             lambda e: e == "workflow_dispatch" and now.weekday() == 6)
         monkeypatch.setenv("GITHUB_EVENT_NAME", event)
@@ -267,3 +268,27 @@ class TestWeeklyHeartbeat:
             date(2026, 9, 26), None, None)
         assert "DATA BEHIND" in subject
         assert "NOT COLLECTED:        the 2026-09-26 draw" in body
+
+
+class TestOneRecordForEveryFrontEnd:
+    def test_a_broken_second_opinion_cannot_stop_a_play_email(self, monkeypatch):
+        """The PLAY mail has to survive everything; the measured-uplift check
+        is optional to it."""
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: MBW)
+        def boom(*a, **k):
+            raise RuntimeError("pools unreadable")
+        monkeypatch.setattr(ev_play, "at_measured_uplift", boom)
+        monkeypatch.setattr(ev_alert, "fetch_operator_page", lambda: {})
+        sent = []
+        monkeypatch.setattr(ev_alert, "maybe_send_email", lambda *a: sent.append(a))
+        monkeypatch.delenv("EV_ALERT_TEST", raising=False)
+        ev_alert.main()
+        assert len(sent) == 1 and "+EV ALERT" in sent[0][0]
+
+    def test_the_advisor_and_the_email_give_the_same_advice(self, monkeypatch):
+        cond = _mbw_3205()
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: cond)
+        monkeypatch.setattr(ev_play.pd, "read_csv", lambda *a, **k: BEFORE_3205)
+        advice = ev_play.advise()
+        assert advice.advice == "MARGINAL"
+        assert "VERDICT: MARGINAL" in ev_play.render(advice)

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The UK Lotto terminal: ./lotto for the menu, ./lotto --help for commands.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHONPATH="$ROOT" exec "${PY:-$ROOT/conda-py311/bin/python}" "$ROOT/scripts/lotto.py" "$@"
