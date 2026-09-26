@@ -52,6 +52,7 @@ from lottery.ev import (  # noqa: E402
     best_unpopular_reference_line,
     line_ev,
 )
+from scripts.archive import load_sales_archive, load_tier_archive  # noqa: E402
 from scripts.calibrate_mbw_uplift import (  # noqa: E402
     draw_pools_from_tiers,
     implied_sales,
@@ -104,9 +105,12 @@ def rollover_streaks(full: pd.DataFrame, boosted: set) -> dict:
 
 def replay_rolldowns() -> list[dict]:
     """One row per detected roll-down, priced at its own conditions."""
-    tiers = pd.read_csv(TIERS_HISTORY, parse_dates=["draw_date"])
+    # The archive, not the backfill alone: every draw the collector has
+    # added since 3195 is in scope, so a new roll-down joins the replay.
+    tiers = load_tier_archive()
+    tiers["draw_date"] = pd.to_datetime(tiers["draw_date"])
     full = pd.read_csv(FULL_HISTORY)
-    sales = pd.read_csv(SALES_HISTORY)
+    sales = load_sales_archive()
 
     boosted = rolldown_draws(tiers)
     streaks = rollover_streaks(full, boosted)

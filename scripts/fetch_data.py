@@ -14,17 +14,11 @@ from collections import Counter
 from lottery.ev import DRAW_WEEKDAYS, MINIMUM_JACKPOT, upcoming_draw_date
 from scripts.utils import LOG_DIR
 
-# Try to import from utils and validation
-try:
-    from scripts.utils import setup_logging
-    from models.training_config import TRAINING_CONFIG
-    LOOK_BACK = TRAINING_CONFIG['look_back']
-except ImportError:
-    # Default values if imports fail
-    LOOK_BACK = 200
-    def setup_logging():
-        logging.basicConfig(filename=LOG_DIR / 'lottery.log', level=logging.INFO,
-                           format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+from scripts.utils import setup_logging
+
+# Window for the feature helpers below; it came from models/training_config.py,
+# removed with the LSTM predictor (audit C1).
+LOOK_BACK = 200
 
 # Configure logging
 setup_logging()

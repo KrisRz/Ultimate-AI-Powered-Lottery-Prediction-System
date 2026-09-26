@@ -133,3 +133,48 @@ resource "aws_budgets_budget" "site" {
     subscriber_email_addresses = [var.budget_alert_email]
   }
 }
+
+# --- ledger backup -----------------------------------------------------------
+# data/ledger.csv is the only record of real money spent, and it cannot live in
+# Git: the repository is public. It lived on one laptop with no copy at all.
+# A private, versioned bucket keeps every state it was ever uploaded in, so an
+# overwrite or a bad settle is recoverable too, not just a lost disk.
+# Written by the laptop (scripts/monitoring/backup_ledger.sh) with the
+# operator's own credentials; nothing in CI touches it.
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket" "ledger_backup" {
+  bucket = "lotto-ledger-backup-${data.aws_caller_identity.current.account_id}"
+}
+
+resource "aws_s3_bucket_public_access_block" "ledger_backup" {
+  bucket                  = aws_s3_bucket.ledger_backup.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "ledger_backup" {
+  bucket = aws_s3_bucket.ledger_backup.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "ledger_backup" {
+  bucket = aws_s3_bucket.ledger_backup.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "ledger_backup" {
+  bucket = aws_s3_bucket.ledger_backup.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}

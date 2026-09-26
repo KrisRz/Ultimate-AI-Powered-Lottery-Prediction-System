@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 # Defined BEFORE any intra-package imports: modules imported from this __init__
-# (e.g. validations.data_validator) import setup_logging back from this package
+# (once validations.data_validator, now removed) import setup_logging back from this package
 # mid-initialization, and it must already exist by then - otherwise Python
 # silently resolves the name to the setup_logging SUBMODULE.
 def setup_logging(log_level=logging.INFO):

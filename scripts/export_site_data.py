@@ -110,8 +110,10 @@ OUT_FILE = Path("site/public/data/site.json")
 # not regenerate this file's backtest section from a fresh clone. Rather than
 # make the whole export unreproducible for one block, the validation runs are
 # pruned to the fields the page actually uses (2.1 MB of four runs becomes
-# ~20 KB) and that extract is committed. Refresh it with --refresh-backtest
-# after `make backtest`.
+# ~20 KB) and that extract is committed. The rolling backtest that produced
+# those runs went with the LSTM predictor it drove (audit C1, 2026-09-26), so
+# the extract is now a frozen record of the 2026-08-07 runs; `make ensemble`
+# answers the same question - does any method beat random? - today.
 BACKTEST_SRC = Path("site/data-src/backtest.json")
 
 # The ledger is real money and .gitignore keeps it local-only, deliberately.
@@ -229,7 +231,7 @@ def refresh_backtest() -> dict:
         newest.setdefault(run["method"], run)
 
     if not newest:
-        raise SystemExit(f"No usable validation runs in {VALIDATION_DIR} - run `make backtest`")
+        raise SystemExit(f"No usable validation runs in {VALIDATION_DIR} - the backtest that wrote them was removed (audit C1); site/data-src/backtest.json is the frozen record")
 
     canonical = newest[sorted(newest)[0]]
     dates = [point["date"] for point in canonical["series"]["random"]]
@@ -789,10 +791,13 @@ def build_built() -> dict:
 def refresh_ledger() -> dict:
     """Totals from the local ledger, and nothing else.
 
-    No per-line detail: which lines were played is already on the page in the
-    wheel section, and the interesting part is the money. What survives is what
-    a reader needs to check the claim - how much went in, how much came back,
-    and whether the model had said to play at all.
+    No per-line detail - the interesting part is the money. What survives is
+    what a reader needs to check the claim: how much went in, how much came
+    back, and what the model had said for each draw a ticket went into.
+
+    That last part is the verdict RECORDED with the ticket, not today's: the
+    panel used to quote the live verdict about a past draw. A ticket bought
+    before verdicts were recorded counts as unrecorded, never as a guess.
     """
     if not LEDGER_FILE.exists():
         raise SystemExit(f"{LEDGER_FILE} is missing - nothing to publish")
@@ -807,6 +812,17 @@ def refresh_ledger() -> dict:
         if "matches_r1" in settled and len(settled) else pd.Series(dtype=int)
     )
 
+    def said_skip(draw_rows) -> bool | None:
+        if "advice" in draw_rows and draw_rows["advice"].notna().any():
+            return bool((draw_rows["advice"].dropna() == "SKIP").all())
+        if "ev_best_line" in draw_rows and draw_rows["ev_best_line"].notna().any():
+            return bool((draw_rows["ev_best_line"].dropna() < 0).all())
+        return None
+
+    verdicts = [said_skip(g) for _, g in rows.groupby("draw_date")]
+    best = [settled[c].dropna().astype(int).max() for c in ("matches_r1", "matches_r2")
+            if c in settled and settled[c].notna().any()]
+
     extract = {
         "first_ticket_date": str(rows["draw_date"].min()),
         "last_draw_date": str(rows["draw_date"].max()),
@@ -817,7 +833,11 @@ def refresh_ledger() -> dict:
         "net_gbp": won - spent,
         "roi": (won - spent) / spent if spent else None,
         "match_histogram": {str(k): int(v) for k, v in matches.items()},
-        "source": "wheel_portfolio",
+        "draws": len(verdicts),
+        "skip_draws": sum(v is True for v in verdicts),
+        "unrecorded_draws": sum(v is None for v in verdicts),
+        "best_match": int(max(best)) if best else None,
+        "source": "ledger",
     }
     LEDGER_SRC.parent.mkdir(parents=True, exist_ok=True)
     LEDGER_SRC.write_text(serialize(extract))
@@ -989,7 +1009,7 @@ def main() -> int:
                         help="Exit 1 if the snapshot on disk is out of date")
     parser.add_argument("--refresh-backtest", action="store_true",
                         help=f"Rebuild {BACKTEST_SRC} from outputs/validation "
-                             "(needs a local `make backtest`), then export")
+                             "(needs the 2026-08 runs; the backtest was removed in C1), then export")
     parser.add_argument("--refresh-ledger", action="store_true",
                         help=f"Rebuild {LEDGER_SRC} from the local {LEDGER_FILE}, "
                              "then export")

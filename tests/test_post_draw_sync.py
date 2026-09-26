@@ -127,3 +127,20 @@ def test_diverged_branch_keeps_intact_data_and_says_so(repos):
     assert result.returncode == 0
     assert "cannot fast-forward" in result.stdout
     assert "<<<<<<<" not in (local / TIERS).read_text()
+
+
+def test_sync_discards_every_file_the_collector_commits():
+    """The list drifted once: collect.yml committed data/draw_pools.csv while
+    this script did not discard it, so a locally re-fetched pools file could
+    block the fast-forward - and the script then exits 0 on stale data. The
+    pools are the sales identity every Must-Be-Won verdict rests on."""
+    import re
+    workflow = Path(".github/workflows/collect.yml").read_text()
+    committed = set()
+    for line in workflow.splitlines():
+        if "git add" in line:
+            committed |= set(re.findall(r"(?:data|site)/[\w./-]+", line))
+    script = SYNC_SCRIPT.read_text()
+    block = script.split("COLLECTOR_FILES=(", 1)[1].split(")", 1)[0]
+    discarded = set(block.split())
+    assert committed and committed <= discarded, committed - discarded

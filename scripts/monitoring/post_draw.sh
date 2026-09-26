@@ -16,14 +16,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ -d "$ROOT_DIR/miniconda" ]]; then
-  # shellcheck source=/dev/null
-  source "$ROOT_DIR/miniconda/bin/activate"
-fi
-if [[ -d "$ROOT_DIR/conda-py311" ]] && command -v conda >/dev/null; then
-  conda activate "$ROOT_DIR/conda-py311"
-elif command -v conda >/dev/null && conda env list | grep -q "lotto-predict"; then
-  conda activate lotto-predict
+# The project interpreter directly, as the Makefile does. Activating it used
+# to need a second conda install (miniconda/, 673 MB) for nothing but the
+# `conda` command; the environment's own python needs no activation.
+PY="${PY:-$ROOT_DIR/conda-py311/bin/python}"
+if [[ ! -x "$PY" ]]; then
+  echo "[post-draw] no interpreter at $PY - set PY or run make setup" >&2
+  exit 1
 fi
 
 # Sync data committed by the cloud collector (GitHub Actions) first. The
@@ -49,20 +48,20 @@ if command -v gh >/dev/null; then
 fi
 
 echo "[post-draw] $(date '+%Y-%m-%d %H:%M') fetching latest result..."
-PYTHONPATH=. python -c "from scripts.fetch_data import download_fresh_data; download_fresh_data()"
+PYTHONPATH=. "$PY" -c "from scripts.fetch_data import download_fresh_data; download_fresh_data()"
 
 echo "[post-draw] scoring the model if that was a Must-Be-Won draw..."
-PYTHONPATH=. python scripts/monitoring/post_mbw_validation.py || true
+PYTHONPATH=. "$PY" scripts/monitoring/post_mbw_validation.py || true
 
 echo "[post-draw] settling ledger..."
-PYTHONPATH=. python scripts/roi_ledger.py settle
-PYTHONPATH=. python scripts/roi_ledger.py report
+PYTHONPATH=. "$PY" scripts/roi_ledger.py settle
+PYTHONPATH=. "$PY" scripts/roi_ledger.py report
 
 echo "[post-draw] refreshing dashboard..."
-PYTHONPATH=. python scripts/dashboard.py
+PYTHONPATH=. "$PY" scripts/dashboard.py
 
 echo "[post-draw] EV verdict for the next draw:"
-PYTHONPATH=. python scripts/ev_play.py --lines 5 || true
+PYTHONPATH=. "$PY" scripts/ev_play.py --lines 5 || true
 
 # Optional email alert on +EV draws; SMTP credentials live in ~/.lotto_env
 # (never in the repo)
@@ -70,6 +69,6 @@ if [[ -f "$HOME/.lotto_env" ]]; then
   # shellcheck source=/dev/null
   source "$HOME/.lotto_env"
 fi
-PYTHONPATH=. python scripts/monitoring/ev_alert.py || true
+PYTHONPATH=. "$PY" scripts/monitoring/ev_alert.py || true
 
 echo "[post-draw] done."

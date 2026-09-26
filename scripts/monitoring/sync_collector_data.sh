@@ -30,6 +30,7 @@ COLLECTOR_FILES=(
   data/merged_lottery_data.csv
   data/lotto_full_history.csv
   data/mbw_validation.csv
+  data/draw_pools.csv
   site/public/data/site.json
   site/src/__fixtures__/popularity-golden.json
 )
