@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Email alert when the next draw clears the EV threshold (PLAY verdict).
 
-Runs at the end of the post-draw routine. Three kinds of mail, and nothing
+Runs at the end of the post-draw routine. Four kinds of mail, and nothing
 else:
 
 - PLAY: the draw clears the threshold on the installed model.
@@ -14,6 +14,12 @@ else:
   EventBridge-dispatched run only. Months of correct silence were
   indistinguishable from a broken pipeline; a missing Sunday mail now means
   something upstream of this step failed.
+- BUDGET: a Must-Be-Won draw the model calls SKIP, on the morning
+  EventBridge run only. A standing playing rule, not a verdict - these draws
+  return about 80% of the stake against under half for an ordinary one, so
+  a fixed stake on each keeps a ticket in play every few weeks at the least
+  expected cost. The subject says it is -EV. On a Sunday it stands in for
+  the status mail.
 
 The email carries the lines themselves. This path fires on the ~9 draws a
 year that are actually worth playing, and the cloud collector runs only this
@@ -68,6 +74,36 @@ from scripts.monitoring.operator_page import (  # noqa: E402
 DEFAULT_LINES = 5
 
 
+def _portfolio_block(cond: DrawConditions, draw_date: date, n_lines: int) -> str:
+    """The lines to buy and the command that records them, or a note saying
+    why there are none - a portfolio problem must never swallow the mail."""
+    try:
+        # Same draw -> same lines: the retry run cannot contradict the first
+        # email, and (same seed in ev_play) latest.json proposes the SAME
+        # portfolio this email carries.
+        portfolio = build_portfolio(n_lines, cond,
+                                    seed=default_portfolio_seed(draw_date))
+        lines = [p["line"] for p in portfolio]
+        picks = "\n".join(
+            f"  {' '.join(f'{n:2d}' for n in p['line'])}    EV £{p['ev']:+.3f}"
+            for p in portfolio
+        )
+        cost = len(portfolio) * cond.ticket_price
+        record = "; ".join(" ".join(str(n) for n in line) for line in lines)
+        return (
+            f"\nLines to play ({len(portfolio)} x £{cond.ticket_price:.0f} = "
+            f"£{cost:.2f}):\n{picks}\n\n"
+            f"After buying, record them:\n"
+            f'  python scripts/roi_ledger.py add --draw-date {draw_date} '
+            f'--lines "{record}"\n'
+        )
+    except Exception as exc:
+        return (
+            f"\n(Could not build a portfolio here: {exc}. Run `make play` "
+            f"for the lines.)\n"
+        )
+
+
 def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
                 n_lines: int = DEFAULT_LINES, operator: dict | None = None) -> tuple:
     """(subject, body) for a PLAY verdict, portfolio included.
@@ -109,32 +145,7 @@ def build_alert(cond: DrawConditions, verdict: dict, draw_date: date,
         if agrees is False:
             subject = "CHECK FEEDS - " + subject
 
-    lines = []
-    try:
-        # Same draw -> same lines: the retry run cannot contradict the first
-        # email, and (same seed in ev_play) latest.json proposes the SAME
-        # portfolio this email carries.
-        portfolio = build_portfolio(n_lines, cond,
-                                    seed=default_portfolio_seed(draw_date))
-        lines = [p["line"] for p in portfolio]
-        picks = "\n".join(
-            f"  {' '.join(f'{n:2d}' for n in p['line'])}    EV £{p['ev']:+.3f}"
-            for p in portfolio
-        )
-        cost = len(portfolio) * cond.ticket_price
-        record = "; ".join(" ".join(str(n) for n in line) for line in lines)
-        portfolio_block = (
-            f"\nLines to play ({len(portfolio)} x £{cond.ticket_price:.0f} = "
-            f"£{cost:.2f}):\n{picks}\n\n"
-            f"After buying, record them:\n"
-            f'  python scripts/roi_ledger.py add --draw-date {draw_date} '
-            f'--lines "{record}"\n'
-        )
-    except Exception as exc:  # never let a portfolio problem swallow the alert
-        portfolio_block = (
-            f"\n(Could not build a portfolio here: {exc}. Run `make play` "
-            f"for the lines.)\n"
-        )
+    portfolio_block = _portfolio_block(cond, draw_date, n_lines)
 
     # The sales estimate is the one number that decides a roll-down verdict, and
     # it is estimated, not observed. The email is read away from the Mac with
@@ -221,6 +232,64 @@ def build_marginal_alert(cond: DrawConditions, verdict: dict, alt: dict,
     return subject, preface + body
 
 
+def budget_due(event_name: str | None, now: datetime | None = None) -> bool:
+    """Whether this run sends the Must-Be-Won budget mail.
+
+    Only the morning retry dispatched by EventBridge (Thu/Sun 06:05 UTC). It
+    prices the next draw three to four days ahead, and it is the one run of the
+    four per draw that both has the last draw collected and fires on time -
+    every run sending would mean four copies of the same lines.
+    """
+    now = now or datetime.now(timezone.utc)
+    return event_name == "workflow_dispatch" and now.hour < HEARTBEAT_BEFORE_HOUR
+
+
+def build_budget_mail(cond: DrawConditions, verdict: dict, draw_date: date,
+                      n_lines: int = DEFAULT_LINES,
+                      measured: dict | None = None) -> tuple:
+    """(subject, body) for a Must-Be-Won draw the model calls SKIP.
+
+    A playing policy, not a verdict: Must-Be-Won draws are the cheapest way to
+    buy a lottery ticket. In the two-round era, at realised sales, they
+    returned -£0.38, -£0.35, -£0.35 and +£0.06 a £2 line (3184, 3190, 3196,
+    3205) against -£0.96 to -£1.15 for every ordinary draw - so a fixed stake
+    on every one of them keeps a ticket in play every three to four weeks at
+    well under half the expected loss of an ordinary draw. The subject
+    says it is still -EV, because it is.
+    """
+    ev = verdict["ev_best_line"]
+    price = cond.ticket_price
+    back = (price + ev) / price
+    cost = n_lines * price
+    subject = (f"LOTTO budget: {draw_date} Must-Be-Won, {n_lines} lines £{cost:.0f} "
+               f"- still -EV (£{ev:+.2f} a line)")
+    measured_line = ""
+    if measured is not None:
+        measured_line = (f"At measured sales:    £{measured['verdict']['ev_best_line']:+.2f} "
+                         f"a line (x{measured['uplift']:.3f} uplift, "
+                         f"n={measured['n']})\n")
+    body = (
+        f"BUDGET PLAY - your standing rule: a fixed £{cost:.0f} on every "
+        f"Must-Be-Won draw.\n"
+        f"The model says SKIP: this draw is still slightly -EV. It is the "
+        f"cheapest ticket\nof the cycle, not a good bet.\n\n"
+        f"Draw:                 {draw_date}\n"
+        f"Jackpot (event pool): £{cond.jackpot:,.0f}\n"
+        f"Must-Be-Won:          YES ({mbw_type(cond.roll_down, cond.rollover_count)})\n"
+        f"Estimated lines sold: {cond.tickets_sold:,}\n"
+        f"Best-line EV:         £{ev:+.2f} a £{price:.0f} line - about "
+        f"{back:.0%} of the stake comes back on average\n"
+        + measured_line +
+        f"Ordinary draw:        about -£1.00 to -£1.15 a line, under half back\n"
+        f"Break-even jackpot:   £{verdict['break_even_jackpot']:,.0f}\n"
+        + _portfolio_block(cond, draw_date, n_lines) +
+        f"\nIf nobody matches six, the jackpot rolls down into the lower tiers, "
+        f"which is\nwhy this draw pays Match 3-5 far better than an ordinary "
+        f"one. The jackpot\nitself is still 1 in 22.5 million a line.\n"
+    )
+    return subject, body
+
+
 HEARTBEAT_WEEKDAY = 6        # Sunday (Mon=0)
 HEARTBEAT_BEFORE_HOUR = 10   # UTC; EventBridge dispatches the retry at 06:05
 
@@ -278,7 +347,8 @@ def build_heartbeat(cond: DrawConditions, verdict: dict, draw_date: date,
             lines.append(
                 f"  EV (measured x{outlook_measured['uplift']:.3f}): "
                 f"£{outlook_measured['verdict']['ev_best_line']:+.2f} a line")
-    lines += ["", "Expect a PLAY or MARGINAL mail one to two draws a year."]
+    lines += ["", "Expect a PLAY or MARGINAL mail one to two draws a year, and a",
+              "budget mail with lines before every Must-Be-Won draw."]
     return subject, "\n".join(lines) + "\n"
 
 
@@ -324,8 +394,20 @@ def main() -> None:
               f"£{a.measured['verdict']['ev_best_line']:+.2f} measured) - alert attempted")
         return
 
+    event = os.environ.get("GITHUB_EVENT_NAME")
+    # A stale counter cannot say whether the next draw is Must-Be-Won.
+    if cond.roll_down and not a.stale and budget_due(event):
+        subject, body = build_budget_mail(cond, verdict, draw_date, n_lines,
+                                          measured=a.measured)
+        print(body)
+        maybe_send_email(subject, body)
+        # Stands in for the Sunday status mail: it proves the run as well.
+        print(f"[ev-alert] BUDGET (EV £{verdict['ev_best_line']:+.2f}, "
+              f"Must-Be-Won) - mail attempted")
+        return
+
     print(f"[ev-alert] SKIP (EV £{verdict['ev_best_line']:+.2f}) - no alert sent")
-    if not heartbeat_due(os.environ.get("GITHUB_EVENT_NAME")):
+    if not heartbeat_due(event):
         return
     # A stale counter makes the Must-Be-Won forecast fiction; the subject
     # already says DATA BEHIND.

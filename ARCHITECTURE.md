@@ -158,7 +158,7 @@ advise()  → Advice (frozen): cond, verdict, advice=PLAY|MARGINAL|SKIP,
         ├── render()  → wydruk `make play` / `./lotto play`
         ├── save()    → outputs/predictions/latest.json  (+ metadata.provenance:
         │               advice, draw_date, git_sha, git_dirty); what-if nie zapisuje
-        ├── ev_alert.main()   → mail PLAY / MARGINAL / niedzielny status
+        ├── ev_alert.main()   → mail PLAY / MARGINAL / budget MBW / niedzielny status
         ├── ticket_mail.py    → mail z liniami na żądanie
         └── scripts/lotto.py  → terminal
 ```
@@ -172,11 +172,12 @@ nigdy wyjątek — mail PLAY musi przejść przez wszystko.
 |---|---|---|
 | `LOTTO +EV ALERT: PLAY …` | werdykt PLAY | `ev_alert.build_alert` |
 | `LOTTO MARGINAL: …` | SKIP w modelu, PLAY przy zmierzonym upliftcie (tylko cap-MBW) | `ev_alert.build_marginal_alert` |
+| `LOTTO budget: … Must-Be-Won, 5 lines £10 - still -EV …` | SKIP na Must-Be-Won, tylko poranny run z EventBridge (`workflow_dispatch`, <10:00 UTC, czw./niedz.); stała reguła gry, nie werdykt — w niedzielę zastępuje status | `ev_alert.build_budget_mail` |
 | `LOTTO weekly: OK/DATA BEHIND …` | niedziela, tylko run z EventBridge (`workflow_dispatch`, <10:00 UTC) | `ev_alert.build_heartbeat` |
 | `LOTTO ticket: 5 lines …` | przycisk w `ticket.yml` | `ticket_mail.build_ticket_mail` |
 | awaria kolekcji | `watchdog.yml` | `collection_watchdog.py` |
 
-**Brak niedzielnego maila = kolektor nie doszedł do kroku alertu.**
+**Brak niedzielnego maila (status albo budget) = kolektor nie doszedł do kroku alertu.**
 
 ---
 
