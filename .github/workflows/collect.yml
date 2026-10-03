@@ -143,9 +143,10 @@ jobs:
       - name: Pre-EV gate (inputs tonight's verdict depends on)
         run: PYTHONPATH=. python scripts/monitoring/pre_ev_gate.py
 
-      # PLAY or MARGINAL mail, else - on the Sunday EventBridge run only - the
-      # weekly status mail, which reads GITHUB_EVENT_NAME (set by Actions).
-      - name: EV verdict + email alert (PLAY, MARGINAL, weekly status)
+      # PLAY or MARGINAL mail; else, on the morning EventBridge run only, the
+      # Must-Be-Won budget mail or (Sunday) the weekly status mail. Both read
+      # GITHUB_EVENT_NAME (set by Actions).
+      - name: EV verdict + email alert (PLAY, MARGINAL, MBW budget, weekly status)
         env:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_USER: ${{ secrets.SMTP_USER }}

@@ -292,3 +292,72 @@ class TestOneRecordForEveryFrontEnd:
         advice = ev_play.advise()
         assert advice.advice == "MARGINAL"
         assert "VERDICT: MARGINAL" in ev_play.render(advice)
+
+
+class TestBudgetMail:
+    """A fixed stake on every Must-Be-Won draw - one mail, honest subject."""
+    THU_0605 = datetime(2026, 10, 15, 6, 5, tzinfo=timezone.utc)
+    # The capped roll the 2026-09-26 outlook projects: SKIP at the installed uplift.
+    CAPPED = DrawConditions(jackpot=9_300_000, roll_down=True, rollover_count=5,
+                            tickets_sold=11_500_000, draw_date=date(2026, 10, 17))
+
+    def test_due_only_on_the_eventbridge_morning_run(self):
+        assert ev_alert.budget_due("workflow_dispatch", self.THU_0605)
+        assert ev_alert.budget_due("workflow_dispatch",
+                                   datetime(2026, 9, 27, 6, 5, tzinfo=timezone.utc))
+        # the draw-night dispatch and GitHub's own crons stay silent
+        assert not ev_alert.budget_due("workflow_dispatch",
+                                       self.THU_0605.replace(hour=21, minute=50))
+        assert not ev_alert.budget_due("schedule", self.THU_0605)
+        assert not ev_alert.budget_due(None, self.THU_0605)
+
+    def test_subject_says_it_is_still_negative(self):
+        verdict = should_play(self.CAPPED)
+        assert not verdict["play"]
+        subject, body = ev_alert.build_budget_mail(self.CAPPED, verdict,
+                                                   date(2026, 10, 17))
+        assert subject.startswith("LOTTO budget: 2026-10-17 Must-Be-Won, 5 lines £10")
+        assert "still -EV" in subject and f"£{verdict['ev_best_line']:+.2f}" in subject
+        assert "The model says SKIP" in body
+
+    def test_body_carries_the_lines_and_the_record_command(self):
+        _, body = ev_alert.build_budget_mail(self.CAPPED, should_play(self.CAPPED),
+                                             date(2026, 10, 17))
+        assert "Lines to play (5 x £2 = £10.00)" in body
+        assert "roi_ledger.py add --draw-date 2026-10-17" in body
+
+    def _main(self, monkeypatch, cond, event="workflow_dispatch"):
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: cond)
+        monkeypatch.setattr(ev_play, "uncollected_draw", lambda *_: None)
+        monkeypatch.setattr(ev_alert, "budget_due", lambda e: e == "workflow_dispatch")
+        monkeypatch.setattr(ev_alert, "heartbeat_due", lambda e: False)
+        monkeypatch.setenv("GITHUB_EVENT_NAME", event)
+        monkeypatch.delenv("EV_ALERT_TEST", raising=False)
+        sent = []
+        monkeypatch.setattr(ev_alert, "maybe_send_email", lambda *a: sent.append(a))
+        ev_alert.main()
+        return sent
+
+    def test_main_sends_one_budget_mail_before_a_skipped_mbw(self, monkeypatch, capsys):
+        sent = self._main(monkeypatch, self.CAPPED)
+        assert len(sent) == 1 and sent[0][0].startswith("LOTTO budget:")
+        assert "[ev-alert] BUDGET" in capsys.readouterr().out
+
+    def test_other_runs_send_nothing(self, monkeypatch):
+        assert self._main(monkeypatch, self.CAPPED, event="schedule") == []
+
+    def test_ordinary_draw_gets_no_budget_mail(self, monkeypatch):
+        ordinary = DrawConditions(jackpot=2_000_000, tickets_sold=5_100_000,
+                                  draw_date=date(2026, 10, 7))
+        assert self._main(monkeypatch, ordinary) == []
+
+    def test_stale_data_sends_no_budget_mail(self, monkeypatch):
+        monkeypatch.setattr(ev_play, "next_draw_conditions", lambda **_: self.CAPPED)
+        monkeypatch.setattr(ev_play, "uncollected_draw", lambda *_: date(2026, 10, 14))
+        monkeypatch.setattr(ev_alert, "budget_due", lambda e: True)
+        monkeypatch.setattr(ev_alert, "heartbeat_due", lambda e: False)
+        monkeypatch.delenv("EV_ALERT_TEST", raising=False)
+        sent = []
+        monkeypatch.setattr(ev_alert, "maybe_send_email", lambda *a: sent.append(a))
+        ev_alert.main()
+        assert sent == []
