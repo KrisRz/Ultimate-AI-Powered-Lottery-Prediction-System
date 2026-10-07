@@ -32,19 +32,36 @@ from scripts.validations.popularity_audit import (
 # collector's 21:45 run executes this suite, so the failure would have
 # landed on a night with a real draw in it.
 #
+# Pinning the moment was not enough. `next_draw_conditions(now=...)` still
+# took the jackpot, the Must-Be-Won flag and the rollover count from the LAST
+# row of the collected prize_tiers.csv, so "today" meant whatever the
+# collector had just fetched. Draw 3213 (2026-10-07) announced a guaranteed
+# GBP 12m Must-Be-Won for 3214, the pinned Saturday became a GBP 12m special
+# at the old sales figure, and "ROBUST SKIP" read "ROBUST PLAY" - the
+# collector went red with no change to the model.
+#
 # What these tests assert is how the POPULARITY MODEL moves a verdict, not
-# which draw happens to be next, so both the moment and the sales figure are
-# pinned. `next_draw_conditions` already takes `now` for exactly this reason
-# (the site exporter pins it so CI diffs stay stable).
+# which draw happens to be next, so the whole draw is a literal: what
+# `next_draw_conditions(now=PINNED_NOW)` returned on data through draw 3207
+# (tickets_sold there was exactly 8,451,176 - the check that this is the
+# right snapshot).
 PINNED_NOW = datetime(2026, 9, 19, 12, 0, tzinfo=timezone.utc)
 PINNED_TICKETS = 8_451_176      # the Saturday estimate at that moment
 
 
 def pinned_conditions():
     """The draw these tests were written against, and always will be."""
-    from scripts.ev_play import next_draw_conditions
-    return replace(next_draw_conditions(now=PINNED_NOW),
-                   tickets_sold=PINNED_TICKETS)
+    return ev.DrawConditions(
+        jackpot=3_447_440.0,
+        tickets_sold=PINNED_TICKETS,
+        roll_down=False,
+        prizes=ev.FixedPrizes(match_5_bonus=1_000_000.0, match_5=1_000.0,
+                              match_4=50.0, match_3=10.0, match_2=1.0,
+                              source="observed (18 draws)"),
+        rollover_count=1,
+        draw_date=PINNED_NOW.date(),
+        special_event=False,
+    )
 
 
 @pytest.fixture(autouse=True)
