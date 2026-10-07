@@ -78,18 +78,23 @@ i nic nie commituje (ingest jest idempotentny).
    → `data/mbw_validation.csv` (prognoza sprzedaży vs zmierzona).
 4. **Snapshot strony** — `scripts/export_site_data.py` → `site/public/data/site.json`
    + `site/src/__fixtures__/popularity-golden.json` (deterministyczny).
-5. **Commit + push** danych i snapshotu; jeśli strona się zmieniła →
-   `gh workflow run site-deploy.yml` (push z GITHUB_TOKEN nie wyzwala eventów).
+5. **Commit + push** danych i snapshotu.
 6. **Dead-man ping** — no-op, dopóki nie ma sekretu `HEALTHCHECK_URL`.
 7. **Pre-EV gate** — `scripts/monitoring/pre_ev_gate.py`: blokuje tylko to, co
    psuje DZISIEJSZY werdykt (brak puli, NaN jackpot, sprzeczna tożsamość
    losowania, braki w tierach, stałe modelu).
 8. **EV + mail** — `scripts/monitoring/ev_alert.py` (patrz §6).
-9. Po mailu, nigdy przed nim: **data contract** (`scripts/data_contract.py`:
+9. **Publikacja strony** — jeśli snapshot się zmienił,
+   `gh workflow run site-deploy.yml` (push z GITHUB_TOKEN nie wyzwala eventów),
+   3 próby co 30 s.
+10. Po mailu, nigdy przed nim: **data contract** (`scripts/data_contract.py`:
    KNOWN / UNKNOWN_BUT_VALID / INVALID), **świeżość**, **pule nadążają**,
    **cały pytest** na nowych danych.
 
-Zasada kolejności: nic, co dotyczy tylko archiwum, nie może zablokować maila.
+Zasada kolejności: nic, co dotyczy tylko archiwum albo strony, nie może
+zablokować maila. Bramka i mail mają jawne `if:` na wynik kroków 1–2 (fetch,
+pule), a nie dziedziczone `success()` — 2026-10-03 HTTP 503 przy dispatchu
+deployu strony pominął bramkę, mail i dead-man ping.
 
 ---
 

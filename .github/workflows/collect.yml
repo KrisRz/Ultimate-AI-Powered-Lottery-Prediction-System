@@ -39,6 +39,7 @@ jobs:
         run: pip install -r requirements-ci.txt
 
       - name: Fetch latest draw (official XML, idempotent ingest)
+        id: fetch
         run: |
           PYTHONPATH=. python -c "
           from scripts.fetch_data import download_fresh_data
@@ -53,6 +54,7 @@ jobs:
       # draw data - and the verification below then has something to check.
       # Idempotent: it fetches only draws the file does not already hold.
       - name: Backfill any missing draw pools
+        id: pools
         run: PYTHONPATH=. python scripts/backfill_draw_pools.py
 
       # Scores the model against the draw when it was a Must-Be-Won, capped
@@ -100,17 +102,6 @@ jobs:
             git push
           fi
 
-      # A push made with GITHUB_TOKEN does not raise `push` events, which is why
-      # site-deploy.yml has never once seen the collector's commit even though it
-      # watches `site/**`. workflow_dispatch is one of the two events GitHub does
-      # deliver from that token, so ask for the deploy by name instead of hoping
-      # the push trigger fires.
-      - name: Publish the refreshed site
-        if: steps.commit.outputs.site_changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run site-deploy.yml --ref main
-
       # The one failure this repo could not see: a run that never happened.
       # GitHub notifies on a FAILED run and says nothing about a skipped one,
       # and its cron has been dropping and delaying runs platform-wide since
@@ -140,13 +131,24 @@ jobs:
       # for freshness - stale history does not make tonight's number wrong.
       # It is not right for a missing pool or a NaN jackpot, which do. A
       # confidently wrong PLAY costs more than a missed one.
+      #
+      # The gate and the alert name what they depend on - the fetch and the
+      # pools - instead of inheriting `success()` from every step above. On
+      # 2026-10-03 the site-deploy dispatch got an HTTP 503 from the GitHub API
+      # after six minutes, and the gate, the alert and the dead-man ping were
+      # all skipped: a broken publish silenced the night's verdict. Scoring the
+      # last Must-Be-Won, the site export and the commit are just as unrelated
+      # to tonight's number, so none of them may take the email with it.
       - name: Pre-EV gate (inputs tonight's verdict depends on)
+        id: gate
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.pools.outcome == 'success' }}
         run: PYTHONPATH=. python scripts/monitoring/pre_ev_gate.py
 
       # PLAY or MARGINAL mail; else, on the morning EventBridge run only, the
       # Must-Be-Won budget mail or (Sunday) the weekly status mail. Both read
       # GITHUB_EVENT_NAME (set by Actions).
       - name: EV verdict + email alert (PLAY, MARGINAL, MBW budget, weekly status)
+        if: ${{ !cancelled() && steps.gate.outcome == 'success' }}
         env:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -155,9 +157,31 @@ jobs:
           EV_ALERT_TEST: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
         run: PYTHONPATH=. python scripts/monitoring/ev_alert.py
 
+      # A push made with GITHUB_TOKEN does not raise `push` events, which is why
+      # site-deploy.yml has never once seen the collector's commit even though it
+      # watches `site/**`. workflow_dispatch is one of the two events GitHub does
+      # deliver from that token, so ask for the deploy by name instead of hoping
+      # the push trigger fires.
+      #
+      # After the alert, not before it (see the gate above), and retried: the
+      # 2026-10-03 failure was a transient 503, and the next collector run had
+      # no new snapshot to publish, so the page stayed a draw behind until the
+      # one after.
+      - name: Publish the refreshed site
+        if: ${{ !cancelled() && steps.commit.outputs.site_changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3; do
+            gh workflow run site-deploy.yml --ref main && exit 0
+            echo "dispatch attempt $attempt failed"
+            sleep 30
+          done
+          exit 1
+
       # Same placement argument as the pools check below: AFTER the alert. This
       # check used to sit before it, where a failure skipped the email step
-      # entirely - `EV verdict` has no `if:`, so it inherits `success()`.
+      # entirely - the alert inherited `success()` from everything above it.
       #
       # It also used to expect the day's draw from midnight, while the balls
       # fall at ~19:00 UTC. The crons run at 21:45/21:50 so they never saw it,
